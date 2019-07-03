@@ -3,7 +3,7 @@ from flask_cors import CORS
 
 app = connexion.App(__name__, specification_dir='./openapi_server/openapi/')
 app.add_api('openapi.yaml',
-            arguments={'title': 'nssurveyapi'},
+            arguments={'title': 'expensesapi'},
             pythonic_params=True)
 CORS(app.app)
 
