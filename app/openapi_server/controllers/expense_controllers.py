@@ -7,7 +7,7 @@ from google.cloud import datastore
 def getExpenses(expense_id):
     print('WorkingID: ',  expense_id)
     isUser = expense_id > 0
-    return expense_id, (200 if isUser else 404)
+    return (expense_id, 200) if isUser else 404
 
 def addExpenses(expenses_id):
     expenses_id = str(expenses_id)

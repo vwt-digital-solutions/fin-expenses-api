@@ -4,19 +4,19 @@ info:
   description: An API for the expenses app
   version: "0.1"
 servers:
-- url: /
+  - url: /
 paths:
-  /expenses/{expense_id}:
+  /expenses/{expenses_id}:
     get:
-      operationId: openapi_server.controllers.expense_controllers.getExpenses
+      operationId: controller.controllers.getExpenses
       summary: Get information from expenses by id
       parameters:
-      - name: expense_id
-        in: path
-        description: The id of the expense
-        required: true
-        schema:
-          type: integer
+        - name: expenses_id
+          in: path
+          description: The id of the expense
+          required: true
+          schema:
+            type: integer
       responses:
         200:
           content:
@@ -28,7 +28,7 @@ paths:
 
   /expenses/:
     post:
-      operationId: openapi_server.controllers.expense_controllers.addExpenses
+      operationId: controller.controllers.addExpenses
       summary: Make expense
       requestBody:
         required: true
@@ -55,41 +55,41 @@ paths:
 
   /expenses/attachments/{attachment_id}:
     get:
-      operationId: openapi_server.controllers.expense_controllers.getAttachmentsById
+      operationId: controller.controllers.getAttachmentsById
       summary: Get attachment by attachment id
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
 
       responses:
         200:
           description: Succesfull response - returns attachment
 
     put:
-      operationId: openapi_server.controllers.expense_controllers.updateAttachmentsById
+      operationId: controller.controllers.updateAttachmentsById
       summary: Update attachment by attachment id
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
       responses:
         200:
           description: Succesfully updated an attachment
 
     delete:
-      operationId: openapi_server.controllers.expense_controllers.deleteAttachmentsById
+      operationId: controller.controllers.deleteAttachmentsById
       summary: Delete an attachment by attachment id
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
 
       responses:
         200:
@@ -97,7 +97,7 @@ paths:
 
   /expenses/attachments/:
     post:
-      operationId: openapi_server.controllers.expense_controllers.addAttachments
+      operationId: controller.controllers.addAttachments
       summary: Upload an attachment for your expenses
       requestBody:
         required: true
@@ -118,25 +118,25 @@ paths:
 
   /expenses/documents/{document_id}:
     get:
-      operationId: openapi_server.controllers.expense_controllers.getDocumentById
+      operationId: controller.controllers.getDocumentById
       summary: Get document by document id
       parameters:
-      - name: document_id
-        in: path
-        required: true
-        schema:
-          type: integer
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
       responses:
         200:
           content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Documents'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Documents'
           description: Succesfull response - returns document
 
   /expenses/documents/:
     post:
-      operationId: openapi_server.controllers.expense_controllers.addDocument
+      operationId: controller.controllers.addDocument
       summary: Make new document
       requestBody:
         required: true
@@ -169,3 +169,13 @@ components:
         document:
           type: string
           format: binary
+  securitySchemes:
+    oAuthSample:    # <---- arbitrary name
+      type: oauth2
+      description: This API uses OAuth 2 with the implicit grant flow.
+      flows:
+        implicit:   # <---- OAuth flow(authorizationCode, implicit, password or clientCredentials)
+          authorizationUrl: https://api.example.com/oauth2/authorize
+          scopes:
+            read_pets: Edit Scope here
+            write_pets: Edit Scope here
