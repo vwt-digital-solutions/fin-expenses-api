@@ -1,0 +1,171 @@
+openapi: 3.0.2
+info:
+  title: Expenses API
+  description: An API for the expenses app
+  version: "0.1"
+servers:
+- url: /
+paths:
+  /expenses/{expense_id}:
+    get:
+      operationId: openapi_server.controllers.expense_controllers.getExpenses
+      summary: Get information from expenses by id
+      parameters:
+      - name: expense_id
+        in: path
+        description: The id of the expense
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expenses'
+          description: Successful response - returns information of expense
+
+
+  /expenses/:
+    post:
+      operationId: openapi_server.controllers.expense_controllers.addExpenses
+      summary: Make expense
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                ammount:
+                  type: number
+                cost_type:
+                  type: string
+                note:
+                  type: string
+              required:
+                - ammount
+                - cost_type
+                - note
+
+      responses:
+        200:
+          description: Succesfully made or updated an expense
+
+
+  /expenses/attachments/{attachment_id}:
+    get:
+      operationId: openapi_server.controllers.expense_controllers.getAttachmentsById
+      summary: Get attachment by attachment id
+      parameters:
+      - name: attachment_id
+        required: true
+        in: path
+        schema:
+          type: integer
+
+      responses:
+        200:
+          description: Succesfull response - returns attachment
+
+    put:
+      operationId: openapi_server.controllers.expense_controllers.updateAttachmentsById
+      summary: Update attachment by attachment id
+      parameters:
+      - name: attachment_id
+        required: true
+        in: path
+        schema:
+          type: integer
+      responses:
+        200:
+          description: Succesfully updated an attachment
+
+    delete:
+      operationId: openapi_server.controllers.expense_controllers.deleteAttachmentsById
+      summary: Delete an attachment by attachment id
+      parameters:
+      - name: attachment_id
+        required: true
+        in: path
+        schema:
+          type: integer
+
+      responses:
+        200:
+          description: Succesfully deleted an attachment
+
+  /expenses/attachments/:
+    post:
+      operationId: openapi_server.controllers.expense_controllers.addAttachments
+      summary: Upload an attachment for your expenses
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+              required:
+                - image
+      responses:
+        200:
+          description: Succesfully uploaded attachment
+
+
+  /expenses/documents/{document_id}:
+    get:
+      operationId: openapi_server.controllers.expense_controllers.getDocumentById
+      summary: Get document by document id
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        200:
+          content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Documents'
+          description: Succesfull response - returns document
+
+  /expenses/documents/:
+    post:
+      operationId: openapi_server.controllers.expense_controllers.addDocument
+      summary: Make new document
+      requestBody:
+        required: true
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/Documents'
+
+      responses:
+        200:
+          description: Make new document
+
+components:
+  schemas:
+    Expenses:
+      description: Information for expenses
+      properties:
+        id:
+          type: integer
+        ammount:
+          type: number
+        note:
+          type: string
+        picture:
+          type: string
+          format: binary
+    Documents:
+      description: Information for documents
+      properties:
+        document:
+          type: string
+          format: binary
