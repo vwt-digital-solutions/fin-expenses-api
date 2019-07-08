@@ -12,21 +12,21 @@ info:
     url: 'https://www.gnu.org/licenses/gpl.txt'
   x-audience: company-internal
 servers:
-- url: /
+  - url: /
 paths:
   /expenses/{expense_id}:
     get:
-      operationId: getexpenses
+      operationId: get_expenses
       summary: Get information from expenses by id
       security:
         - oAuth2: [finance.read,employee.read]
       parameters:
-      - name: expense_id
-        in: path
-        description: The id of the expense
-        required: true
-        schema:
-          type: integer
+        - name: expense_id
+          in: path
+          description: The id of the expense
+          required: true
+          schema:
+            type: integer
 
       responses:
         200:
@@ -39,7 +39,7 @@ paths:
 
   /expenses:
     post:
-      operationId: addexpenses
+      operationId: add_expenses
       summary: Make expense
       security:
         - oAuth2: [employee.write]
@@ -68,7 +68,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
     get:
-      operationId: getallexpenses
+      operationId: get_all_expenses
       summary: Get all expenses
       security:
         - oAuth2: [finance.read]
@@ -86,11 +86,11 @@ paths:
       security:
         - oAuth2: [finance.read,employee.read]
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
 
       responses:
         200:
@@ -103,11 +103,11 @@ paths:
       security:
         - oAuth2: [finance.write,employee.write]
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
 
       responses:
         200:
@@ -120,11 +120,11 @@ paths:
       security:
         - oAuth2: [finance.write,employee.write]
       parameters:
-      - name: attachment_id
-        required: true
-        in: path
-        schema:
-          type: integer
+        - name: attachment_id
+          required: true
+          in: path
+          schema:
+            type: integer
 
       responses:
         200:
@@ -163,18 +163,18 @@ paths:
       security:
         - oAuth2: [finance.read,employee.read]
       parameters:
-      - name: document_id
-        in: path
-        required: true
-        schema:
-          type: integer
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
 
       responses:
         200:
           content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Documents'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Documents'
           description: Succesfull response - returns document
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 

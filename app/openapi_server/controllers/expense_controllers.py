@@ -1,85 +1,51 @@
-from flask import request, jsonify, make_response
+from flask import jsonify, make_response
 from google.cloud import datastore
 
-def dscclient():
-    return datastore.Client()
 
-def getexpenses(expense_id):
-    dsc = dscclient()
-    expenses_info = dsc.query(kind='Expense').add_filter('id', '=', expense_id)
-    expenses_data = expenses_info.fetch()
-    if expenses_data:
-        return jsonify(expenses_data)
-    else:
-        return make_response(jsonify(None), 204)
+class Expenses:
+    """
+    Expenses class that provides functions
+    and queries to the tool using google datastore
+    """
+    def __init__(self):
+        self.client = datastore.Client()
 
-def getallexpenses():
-    dsc = dscclient()
-    expenses_info = dsc.query(kind='Expense')
-    expenses_data = expenses_info.fetch()
-    if expenses_data:
-        results = [{
-            'Title': ed.Title,
-            'Amount': ed.Amount
-        } for ed in expenses_data]
-        return jsonify(results)
-    else:
-        return make_response(jsonify(None), 204)
+    def get_expenses(self, expense_id):
+        """Get expenses with expense_id"""
+        expenses_info = self.client.query(kind='Expense')\
+            .add_filter('id', '=', expense_id)
+        expenses_data = expenses_info.fetch()
 
-def addexpenses(data):
-    dsc = dscclient()
-    key = dsc.key('Expense')
-    entity = datastore.Entity(key=key)
-    entity.update(data)
-    dsc.put(entity)
-    return entity, 201
+        if expenses_data:
+            return jsonify(expenses_data)
+        else:
+            return make_response(jsonify(None), 204)
 
-def getattachmentsbyid(attachment_id):
-    dsc = dscclient()
-    attachment_info = dsc.query(kind='Attachment').add_filter('id', '=', attachment_id)
-    attachment_data = attachment_info.fetch()
-    if attachment_data:
-        return jsonify(attachment_data)
-    else:
-        return make_response(jsonify(None), 204)
+    def get_all_expenses(self):
+        """Get JSON of all the expenses"""
+        expenses_info = self.client.query(kind='Expense')
+        expenses_data = expenses_info.fetch()
 
-def updateattachmentsbyid(data, attachment_id):
-    dsc = dscclient()
-    key = dsc.key('Attachment', int(attachment_id))
-    entity = datastore.Entity(key=key)
-    entity.update(data)
-    dsc.put(entity)
-    return entity, 201
+        if expenses_data:
+            results = [{
+                'Title': ed.Title,
+                'Amount': ed.Amount
+            } for ed in expenses_data]
+            return jsonify(results)
+        else:
+            return make_response(jsonify(None), 204)
+
+    def add_expenses(self, data):
+        """Add expense with given data amount and given data note"""
+        key = self.client.key('Expense')
+        entity = datastore.Entity(key=key)
+        entity.update({
+                    'ID': entity.key.id_or_name,
+                    'Amount': data['amount'],
+                    'Note': data['note']
+                    })
+        self.client.put(entity)
+        return make_response(jsonify(entity.key.id_or_name), 201)
 
 
-def deleteattachmentsbyid(attachment_id):
-    dsc = dscclient()
-    key = dsc.key('Attachment', int(attachment_id))
-    dsc.delete(key)
-    return 200
-
-def addattachments(data):
-    dsc = dscclient()
-    key = dsc.key('Attachment')
-    entity = datastore.Entity(key=key)
-    entity.update(data)
-    dsc.put(entity)
-    return entity, 201
-
-def getdocumentbyid(document_id):
-    dsc = dscclient()
-    document_info = dsc.query(kind='Document').add_filter('id', '=', document_id)
-    document_data = document_info.fetch()
-    if document_data:
-        return jsonify(document_data)
-    else:
-        return make_response(jsonify(None), 204)
-
-def adddocument(data):
-    dsc = dscclient()
-    key = dsc.key('Document')
-    entity = datastore.Entity(key=key)
-    entity.update(data)
-    dsc.put(entity)
-    return entity, 201
-
+expenses_instance = Expenses()
