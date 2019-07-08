@@ -16,7 +16,7 @@ servers:
 paths:
   /expenses/{expense_id}:
     get:
-      operationId: getExpenses
+      operationId: getexpenses
       summary: Get information from expenses by id
       security:
         - oAuth2: [finance.read,employee.read]
@@ -39,7 +39,7 @@ paths:
 
   /expenses:
     post:
-      operationId: addExpenses
+      operationId: addexpenses
       summary: Make expense
       security:
         - oAuth2: [employee.write]
@@ -68,7 +68,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
     get:
-      operationId: getAllExpenses
+      operationId: getallexpenses
       summary: Get all expenses
       security:
         - oAuth2: [finance.read]
@@ -81,7 +81,7 @@ paths:
 
   /expenses/attachments/{attachment_id}:
     get:
-      operationId: getAttachmentsById
+      operationId: getattachmentsbyid
       summary: Get attachment by attachment id
       security:
         - oAuth2: [finance.read,employee.read]
@@ -98,7 +98,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
     put:
-      operationId: updateAttachmentsById
+      operationId: updateattachmentsbyid
       summary: Update attachment by attachment id
       security:
         - oAuth2: [finance.write,employee.write]
@@ -115,7 +115,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
     delete:
-      operationId: deleteAttachmentsById
+      operationId: deleteattachmentsbyid
       summary: Delete an attachment by attachment id
       security:
         - oAuth2: [finance.write,employee.write]
@@ -133,7 +133,7 @@ paths:
 
   /expenses/attachments:
     post:
-      operationId: addAttachments
+      operationId: addattachments
       summary: Upload an attachment for your expenses
       security:
         - oAuth2: [finance.write,employee.write]
@@ -158,7 +158,7 @@ paths:
 
   /expenses/documents/{document_id}:
     get:
-      operationId: getDocumentById
+      operationId: getdocumentbyid
       summary: Get document by document id
       security:
         - oAuth2: [finance.read,employee.read]
@@ -180,7 +180,7 @@ paths:
 
   /expenses/documents:
     post:
-      operationId: addDocument
+      operationId: adddocument
       summary: Make new document
       security:
         - oAuth2: [finance.write,employee.write]
