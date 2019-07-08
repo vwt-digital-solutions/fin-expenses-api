@@ -1,0 +1,244 @@
+openapi: 3.0.2
+info:
+  contact:
+    email: info@vwt.digital
+    name: VolkerWessels Telecom
+    url: http://www.volkerwesselstelecom.com
+  description: An API for the expenses app
+  license:
+    name: GNU GPLv3
+    url: https://www.gnu.org/licenses/gpl.txt
+  title: Expenses API
+  version: "0.1"
+  x-audience: company-internal
+servers:
+- url: /
+paths:
+  /expenses:
+    get:
+      operationId: get_all_expenses
+      responses:
+        200:
+          description: Succesfull response - returns all expenses
+      security:
+      - oAuth2:
+        - finance.read
+      summary: Get all expenses
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    post:
+      operationId: add_expense
+      requestBody:
+        $ref: '#/components/requestBodies/formData'
+      responses:
+        200:
+          description: Succesfully made or updated an expense
+      security:
+      - oAuth2:
+        - employee.write
+      summary: Make expense
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /expenses/attachments:
+    post:
+      operationId: add_attachment
+      requestBody:
+        $ref: '#/components/requestBodies/image'
+      responses:
+        200:
+          description: Succesfully uploaded attachment
+      security:
+      - oAuth2:
+        - finance.write
+        - employee.write
+      summary: Upload an attachment for your expenses
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /expenses/documents:
+    post:
+      operationId: add_document
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/Documents'
+        required: true
+      responses:
+        200:
+          description: Make new document
+      security:
+      - oAuth2:
+        - finance.write
+        - employee.write
+      summary: Make new document
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /expenses/{expenses_id}:
+    get:
+      operationId: get_expenses
+      parameters: []
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expenses'
+          description: Successful response - returns information of expense
+      security:
+      - oAuth2:
+        - finance.read
+        - employee.read
+      summary: Get information from expenses by id
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /expenses/{expenses_id}/attachments/{attachments_id}:
+    delete:
+      operationId: delete_attachments_by_id
+      parameters: []
+      responses:
+        200:
+          description: Succesfully deleted an attachment
+      security:
+      - oAuth2:
+        - finance.write
+        - employee.write
+      summary: Delete an attachment by attachment id
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    get:
+      operationId: get_attachments_by_id
+      parameters: []
+      responses:
+        200:
+          description: Succesfull response - returns attachment
+      security:
+      - oAuth2:
+        - finance.read
+        - employee.read
+      summary: Get attachment by attachment id
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    put:
+      operationId: update_attachments_by_id
+      parameters: []
+      responses:
+        200:
+          description: Succesfully updated an attachment
+      security:
+      - oAuth2:
+        - finance.write
+        - employee.write
+      summary: Update attachment by attachment id
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /expenses/{expenses_id}/documents/{documents_id}:
+    get:
+      operationId: get_document_by_id
+      parameters: []
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Documents'
+          description: Succesfull response - returns document
+      security:
+      - oAuth2:
+        - finance.read
+        - employee.read
+      summary: Get document by document id
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+components:
+  parameters:
+    expensesId:
+      explode: false
+      in: path
+      name: expenses_id
+      required: true
+      schema:
+        type: integer
+      style: simple
+    attachmentId:
+      explode: false
+      in: path
+      name: attachments_id
+      required: true
+      schema:
+        type: integer
+      style: simple
+    documentId:
+      explode: false
+      in: path
+      name: documents_id
+      required: true
+      schema:
+        type: integer
+      style: simple
+  requestBodies:
+    image:
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '#/components/schemas/image'
+      required: true
+    formData:
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: '#/components/schemas/formData'
+      required: true
+  schemas:
+    Expenses:
+      description: Information for expenses
+      example:
+        note: note
+        id: id
+        amount: 0.8008281904610115
+        picture: ""
+      properties:
+        id:
+          type: string
+        amount:
+          format: decimal
+          type: number
+        note:
+          type: string
+        picture:
+          format: binary
+          type: string
+    Documents:
+      description: Information for documents
+      example:
+        document: ""
+      properties:
+        document:
+          format: binary
+          type: string
+    formData:
+      properties:
+        amount:
+          format: decimal
+          type: number
+        cost_type:
+          type: string
+        note:
+          type: string
+      required:
+      - amount
+      - cost_type
+      - note
+      type: object
+    image:
+      properties:
+        image:
+          format: binary
+          type: string
+      required:
+      - image
+      type: object
+  securitySchemes:
+    oAuth2:
+      description: This API uses OAuth 2 with the implicit grant flow.
+      flows:
+        clientCredentials:
+          scopes:
+            finance.read: Read all expenses and documents
+            finance.write: Write all expenses and documents
+            employee.read: Read expense and document information
+            employee.write: Write expenses and documents
+          tokenUrl: https://api.example.com/oauth2/authorize
+      type: oauth2
+      x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
+      x-scopeValidateFunc: openapi_server.controllers.security_controller_.validate_scope_oAuth2
