@@ -223,7 +223,7 @@ components:
       description: This API uses OAuth 2 with the implicit grant flow.
       flows:
         clientCredentials:
-          authorizationUrl: https://api.example.com/oauth2/authorize
+          tokenUrl: https://api.example.com/oauth2/authorize
           scopes:
             finance.read: Read all expenses and documents
             finance.write: Write all expenses and documents
