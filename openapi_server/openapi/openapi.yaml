@@ -11,11 +11,12 @@ info:
         name: GNU GPLv3
         url: 'https://www.gnu.org/licenses/gpl.txt'
     x-audience: company-internal
+    x-api-id: 1b66bb9e-5b02-49f1-8cf9-bc3f649d70a6
 servers:
     -
         url: /
 paths:
-    /employee/expenses:
+    /employees/expenses:
         get:
             responses:
                 '200':
@@ -38,6 +39,7 @@ paths:
                 -
                     oAuth2:
                         - finance.read
+                        - employee.read
             operationId: get_all_expenses
             summary: Get all expenses
             description: Retrieve all expenses
@@ -51,12 +53,13 @@ paths:
             security:
                 -
                     oAuth2:
+                        - finance.write
                         - employee.write
             operationId: add_expense
             summary: Make expense
             description: Create an expense
             x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    '/employee/expenses/{expenses_id}/documents':
+    '/employees/expenses/{expenses_id}/documents':
         post:
             requestBody:
                 content:
@@ -79,7 +82,7 @@ paths:
             summary: Make new document
             description: Add a document to an expense
             x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    '/employee/expenses/{expenses_id}':
+    '/employees/expenses/{expenses_id}':
         get:
             parameters:
                 -
@@ -100,7 +103,7 @@ paths:
             summary: Get information from expenses by id
             description: Retrieve an expense
             x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    '/employee/expenses/{expenses_id}/documents/{documents_id}':
+    '/employees/expenses/{expenses_id}/documents/{documents_id}':
         get:
             parameters:
                 -
@@ -191,7 +194,7 @@ components:
             description: Array of expense data
             type: object
             properties:
-                Expenses:
+                expenses:
                     type: array
                     items:
                         $ref: '#/components/schemas/ExpenseData'
