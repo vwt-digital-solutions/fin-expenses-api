@@ -16,6 +16,7 @@ servers:
 paths:
   /expenses:
     get:
+      description: Retrieve all expenses
       operationId: get_all_expenses
       responses:
         200:
@@ -26,20 +27,24 @@ paths:
       summary: Get all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
+      description: Create an expense
       operationId: add_expense
       requestBody:
         $ref: '#/components/requestBodies/formData'
       responses:
         200:
           description: Succesfully made or updated an expense
-      security:
-      - oAuth2:
-        - employee.write
+#      security:
+#      - oAuth2:
+#        - employee.write
       summary: Make expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /expenses/attachments:
+  /expenses/{expenses_id}/attachments:
     post:
+      description: Create a new document
       operationId: add_attachment
+      parameters:
+        - $ref: '#/components/parameters/expensesId'
       requestBody:
         $ref: '#/components/requestBodies/image'
       responses:
@@ -51,9 +56,12 @@ paths:
         - employee.write
       summary: Upload an attachment for your expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /expenses/documents:
+  /expenses/{expenses_id}/documents:
     post:
+      description: Add a document to an expense
       operationId: add_document
+      parameters:
+        - $ref: '#components/parameters/expensesId'
       requestBody:
         content:
           '*/*':
@@ -71,14 +79,16 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /expenses/{expenses_id}:
     get:
+      description: Retrieve an expense
       operationId: get_expenses
-      parameters: []
+      parameters:
+        - $ref: '#components/parameters/expensesId'
       responses:
         200:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Expenses'
+                $ref: '#/components/schemas/formData'
           description: Successful response - returns information of expense
       security:
       - oAuth2:
@@ -89,7 +99,9 @@ paths:
   /expenses/{expenses_id}/attachments/{attachments_id}:
     delete:
       operationId: delete_attachments_by_id
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/attachmentId'
       responses:
         200:
           description: Succesfully deleted an attachment
@@ -101,7 +113,9 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     get:
       operationId: get_attachments_by_id
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/attachmentId'
       responses:
         200:
           description: Succesfull response - returns attachment
@@ -113,7 +127,9 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     put:
       operationId: update_attachments_by_id
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/attachmentId'
       responses:
         200:
           description: Succesfully updated an attachment
@@ -126,7 +142,9 @@ paths:
   /expenses/{expenses_id}/documents/{documents_id}:
     get:
       operationId: get_document_by_id
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/documentId'
       responses:
         200:
           content:
@@ -175,29 +193,11 @@ components:
       required: true
     formData:
       content:
-        application/x-www-form-urlencoded:
+        multipart/form-data:
           schema:
             $ref: '#/components/schemas/formData'
       required: true
   schemas:
-    Expenses:
-      description: Information for expenses
-      example:
-        note: note
-        id: id
-        amount: 0.8008281904610115
-        picture: ""
-      properties:
-        id:
-          type: string
-        amount:
-          format: decimal
-          type: number
-        note:
-          type: string
-        picture:
-          format: binary
-          type: string
     Documents:
       description: Information for documents
       example:
@@ -207,17 +207,23 @@ components:
           format: binary
           type: string
     formData:
+      title: formData
+      description: Form data to an expense
+      example:
+        note: |
+          This is a note
+        id: |
+          R1rt2345
+        amount: 45.56
+        status: 'new'
       properties:
         amount:
           format: decimal
           type: number
-        cost_type:
-          type: string
         note:
           type: string
       required:
       - amount
-      - cost_type
       - note
       type: object
     image:

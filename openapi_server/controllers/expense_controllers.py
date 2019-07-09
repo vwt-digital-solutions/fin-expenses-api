@@ -1,29 +1,32 @@
 import connexion
+from google.cloud import datastore
 
-from openapi_server.models.documents import Documents  # noqa: E501
-from openapi_server.models.expenses import Expenses  # noqa: E501
-from openapi_server.models.form_data import FormData  # noqa: E501
-from openapi_server.models.image import Image  # noqa: E501
+from openapi_server.models.documents import Documents
+from openapi_server.models.expenses import Expenses
+from openapi_server.models.form_data import FormData
+from openapi_server.models.image import Image
 
 
 class ClaimExpenses:
     """
     Class based function to house all Expenses functionality
+
     """
-    
-    def __init__(self, something):
-        self.something = something
-    
 
-expense_instance = ClaimExpenses(something='Something')
+    def __init__(self):
+        self.db_client = datastore.Client()
+        self.request = connexion.request
 
 
-def add_attachment(image):  # noqa: E501
+expense_instance = ClaimExpenses()
+
+
+def add_attachment():  # noqa: E501
     """Upload an attachment for your expenses
 
      # noqa: E501
 
-    :param image: 
+    :param image:
     :type image: dict | bytes
 
     :rtype: None
@@ -33,12 +36,12 @@ def add_attachment(image):  # noqa: E501
     return 'do some magic!'
 
 
-def add_document(documents):  # noqa: E501
+def add_document():  # noqa: E501
     """Make new document
 
      # noqa: E501
 
-    :param documents: 
+    :param documents:
     :type documents: dict | bytes
 
     :rtype: None
@@ -48,12 +51,12 @@ def add_document(documents):  # noqa: E501
     return 'do some magic!'
 
 
-def add_expense(form_data):  # noqa: E501
+def add_expense():  # noqa: E501
     """Make expense
 
      # noqa: E501
 
-    :param form_data: 
+    :param form_data:
     :type form_data: dict | bytes
 
     :rtype: None
