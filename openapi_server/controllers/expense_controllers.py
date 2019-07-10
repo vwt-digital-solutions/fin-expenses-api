@@ -178,3 +178,13 @@ def update_attachments_by_id():  # noqa: E501
     :rtype: None
     """
     return 'do some magic!'
+
+def make_bookingfile(expenses_id):  # noqa: E501
+    """Make a booking file based of expenses id
+
+     # noqa: E501
+
+
+    :rtype: None
+    """
+    return 'do some magic!'
