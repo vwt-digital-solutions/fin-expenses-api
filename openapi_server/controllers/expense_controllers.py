@@ -1,3 +1,5 @@
+import datetime
+
 import connexion
 from flask import make_response, jsonify
 from google.cloud import datastore
@@ -57,7 +59,8 @@ class ClaimExpenses:
         entity = datastore.Entity(key=key)
         entity.update({
             'amount': data.amount,
-            'note': data.note
+            'note': data.note,
+            'date': datetime.datetime.now().strftime("%d%m%Y")
         })
         self.db_client.put(entity)
         return make_response(jsonify(entity.key.id_or_name), 201)
