@@ -257,15 +257,18 @@ components:
             required: true
     securitySchemes:
         oAuth2:
+            description: This API uses OAuth 2 with the implicit grant flow.
             flows:
-                clientCredentials:
-                    tokenUrl: 'https://api.example.com/oauth2/authorize'
+                authorizationCode:
+                    authorizationUrl: >-
+                        https://login.microsoftonline.com/be36ab0a-ee39-47de-9356-a8a501a9c832/oauth2/v2.0/authorize
+                    tokenUrl: >-
+                        https://login.microsoftonline.com/be36ab0a-ee39-47de-9356-a8a501a9c832/oauth2/v2.0/token
                     scopes:
                         finance.read: Read all expenses and documents
                         finance.write: Write all expenses and documents
                         employee.read: Read expense and document information
                         employee.write: Write expenses and documents
             type: oauth2
-            description: This API uses OAuth 2 with the implicit grant flow.
             x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
             x-scopeValidateFunc: openapi_server.controllers.security_controller_.validate_scope_oAuth2
