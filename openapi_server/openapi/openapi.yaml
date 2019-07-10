@@ -48,7 +48,7 @@ paths:
             requestBody:
                 $ref: '#/components/requestBodies/formData'
             responses:
-                '200':
+                '201':
                     description: Succesfully made or updated an expense
             security:
                 -
@@ -159,6 +159,23 @@ paths:
             operationId: delete_attachments_by_id
             summary: Delete an document by document id
             x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
+    '/finance/expenses/{expenses_id}/documents':
+        post:
+            parameters:
+                -
+                    $ref: '#/components/parameters/expensesId'
+            responses:
+                  '200':
+                    description: Succesfully made a booking file
+            security:
+                -
+                    oAuth2:
+                        - finance.write
+            operationId: make_bookingfile
+            summary: Make a booking file based of expenses id
+            x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
 components:
     schemas:
         Documents:
