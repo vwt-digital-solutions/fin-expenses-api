@@ -40,4 +40,4 @@ def validate_scope_oAuth2(required_scopes, token_scopes):
     :return: True if access to called API is allowed
     :rtype: bool
     """
-    return set(required_scopes).issubset(set(token_scopes))
+    return len(set(token_scopes).intersection(set(required_scopes))) > 0
