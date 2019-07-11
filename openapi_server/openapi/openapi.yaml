@@ -260,10 +260,8 @@ components:
             description: This API uses OAuth 2 with the implicit grant flow.
             flows:
                 authorizationCode:
-                    authorizationUrl: >-
-                        https://azuread.url/2.0/authorize
-                    tokenUrl: >-
-                        https://azuread.url/v2.0/token
+                    authorizationUrl: https://azuread.url
+                    tokenUrl: https://azuread.url
                     scopes:
                         finance.read: Read all expenses and documents
                         finance.write: Write all expenses and documents
