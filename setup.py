@@ -36,4 +36,3 @@ setup(
     An API for the expenses app
     """
 )
-

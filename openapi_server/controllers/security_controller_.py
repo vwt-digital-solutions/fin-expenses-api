@@ -27,5 +27,3 @@ def info_from_oAuth2(token):
     result = my_jwkaas.get_connexion_token_info(token)
 
     return result
-
-
