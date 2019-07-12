@@ -29,15 +29,3 @@ def info_from_oAuth2(token):
     return result
 
 
-def validate_scope_oAuth2(required_scopes, token_scopes):
-    """
-    Validate required scopes are included in token scope
-
-    :param required_scopes Required scope to access called API
-    :type required_scopes: List[str]
-    :param token_scopes Scope present in token
-    :type token_scopes: List[str]
-    :return: True if access to called API is allowed
-    :rtype: bool
-    """
-    return len(set(token_scopes).intersection(set(required_scopes))) > 0

@@ -38,8 +38,7 @@ paths:
       security:
         -
           oAuth2:
-            - manager
-            - creditor
+            - employee
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
@@ -53,9 +52,7 @@ paths:
       security:
         -
           oAuth2:
-            - creditor
             - employee
-            - manager
       operationId: add_expense
       summary: Make expense
       description: Create an expense
@@ -77,9 +74,7 @@ paths:
       security:
         -
           oAuth2:
-            - creditor
             - employee
-            - -manager
       operationId: add_document
       summary: Make new document
       description: Add a document to an expense
@@ -99,8 +94,7 @@ paths:
       security:
         -
           oAuth2:
-            - manager
-            - creditor
+            - employee
       operationId: get_expenses
       summary: Get information from expenses by id
       description: Retrieve an expense
@@ -108,10 +102,8 @@ paths:
   '/employees/expenses/{expenses_id}/documents/{documents_id}':
     get:
       parameters:
-        -
-          $ref: '#/components/parameters/expensesId'
-        -
-          $ref: '#/components/parameters/documentId'
+        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/documentId'
       responses:
         '200':
           content:
@@ -122,8 +114,7 @@ paths:
       security:
         -
           oAuth2:
-            - manager
-            - creditor
+            - employee
       operationId: get_document_by_id
       summary: Get document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -139,9 +130,7 @@ paths:
       security:
         -
           oAuth2:
-            - creditor
             - employee
-            - manager
       operationId: update_attachments_by_id
       summary: Update document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -157,8 +146,7 @@ paths:
       security:
         -
           oAuth2:
-            - creditor
-            - manager
+            - employee
       operationId: delete_attachments_by_id
       summary: Delete an document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -174,8 +162,7 @@ paths:
       security:
         -
           oAuth2:
-            - creditor
-            - manager
+            - employee
       operationId: make_bookingfile
       summary: Make a booking file based of expenses id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -274,4 +261,4 @@ components:
             employee: Read expense and document information
       type: oauth2
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
-      x-scopeValidateFunc: openapi_server.controllers.security_controller_.validate_scope_oAuth2
+      x-scopeValidateFunc: connexion.decorators.security.validate_scope
