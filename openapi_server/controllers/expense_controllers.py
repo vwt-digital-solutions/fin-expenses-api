@@ -1,8 +1,11 @@
 import datetime
+import config
 
 import connexion
 from flask import make_response, jsonify
 from google.cloud import datastore
+
+from jwkaas import JWKaas
 
 from openapi_server.models.documents import Documents
 from openapi_server.models.expenses import Expenses
@@ -16,23 +19,39 @@ class ClaimExpenses:
 
     """
 
-    def __init__(self):
+    def __init__(self, expected_audience, expected_issuer, jwks_url):
         self.db_client = datastore.Client()
         self.request = connexion.request
+        self.employee_info = dict()
+        self.expected_audience = expected_audience
+        self.expected_issuer = expected_issuer
+        self.jwks_url = jwks_url
+
+    def get_employee_info(self):
+        """
+        Get all available information about the employee
+        :return:
+        """
+        my_jwkaas = None
+        if hasattr(config, "OAUTH_JWKS_URL"):
+            my_jwkaas = JWKaas(
+                self.expected_audience, self.expected_issuer, jwks_url=self.jwks_url
+            )
+        token = self.request.environ["HTTP_AUTHORIZATION"]
+        self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
     def get_expenses(self, expenses_id):
         """Get expenses with expense_id"""
 
-        expenses_info = self.db_client.query(kind='Expenses')
-        expenses_key = self.db_client.key('Expenses', expenses_id)
-        expenses_info.key_filter(expenses_key, '=')
+        expenses_info = self.db_client.query(kind="Expenses")
+        expenses_key = self.db_client.key("Expenses", expenses_id)
+        expenses_info.key_filter(expenses_key, "=")
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
-            results = [{
-                'amount': ed['amount'],
-                'note': ed['note']
-            } for ed in expenses_data]
+            results = [
+                {"amount": ed["amount"], "note": ed["note"]} for ed in expenses_data
+            ]
             return jsonify(results)
         else:
             return make_response(jsonify(None), 204)
@@ -40,33 +59,49 @@ class ClaimExpenses:
     def get_all_expenses(self):
         """Get JSON of all the expenses"""
 
-        expenses_info = self.db_client.query(kind='Expenses')
+        expenses_info = self.db_client.query(kind="Expenses")
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
-            results = [{
-                'amount': ed['amount'],
-                'note': ed['note']
-            } for ed in expenses_data]
+            results = [
+                {
+                    "amount": ed["amount"],
+                    "note": ed["note"],
+                    "date": ed["date"],
+                    "employee": ed["employee"],
+                }
+                for ed in expenses_data
+            ]
             return jsonify(results)
         else:
             return make_response(jsonify(None), 204)
 
     def add_expenses(self, data):
         """Add expense with given data amount and given data note"""
-
-        key = self.db_client.key('Expenses')
+        self.get_employee_info()
+        key = self.db_client.key("Expenses")
         entity = datastore.Entity(key=key)
-        entity.update({
-            'amount': data.amount,
-            'note': data.note,
-            'date': datetime.datetime.now().strftime("%d%m%Y")
-        })
+        entity.update(
+            {
+                "employee": dict(
+                    email=self.employee_info["unique_name"],
+                    family_name=self.employee_info["family_name"],
+                    given_name=self.employee_info["given_name"],
+                ),
+                "amount": data.amount,
+                "note": data.note,
+                "date": datetime.datetime.now().strftime("%d%m%Y"),
+            }
+        )
         self.db_client.put(entity)
         return make_response(jsonify(entity.key.id_or_name), 201)
 
 
-expense_instance = ClaimExpenses()
+expense_instance = ClaimExpenses(
+    expected_audience=config.OAUTH_EXPECTED_AUDIENCE,
+    expected_issuer=config.OAUTH_EXPECTED_ISSUER,
+    jwks_url=config.OAUTH_JWKS_URL,
+)
 
 
 def add_attachment():  # noqa: E501
@@ -81,7 +116,7 @@ def add_attachment():  # noqa: E501
     """
     if connexion.request.is_json:
         image = Image.from_dict(connexion.request.get_json())  # noqa: E501
-    return 'do some magic!'
+    return "do some magic!"
 
 
 def add_document():  # noqa: E501
@@ -96,7 +131,7 @@ def add_document():  # noqa: E501
     """
     if connexion.request.is_json:
         documents = Documents.from_dict(connexion.request.get_json())  # noqa: E501
-    return 'do some magic!'
+    return "do some magic!"
 
 
 def add_expense():  # noqa: E501
@@ -122,7 +157,7 @@ def delete_attachments_by_id():  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return "do some magic!"
 
 
 def get_all_expenses():  # noqa: E501
@@ -144,7 +179,7 @@ def get_attachments_by_id():  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return "do some magic!"
 
 
 def get_document_by_id():  # noqa: E501
@@ -155,7 +190,7 @@ def get_document_by_id():  # noqa: E501
 
     :rtype: Documents
     """
-    return 'do some magic!'
+    return "do some magic!"
 
 
 def get_expenses(expenses_id):  # noqa: E501
@@ -177,7 +212,8 @@ def update_attachments_by_id():  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return "do some magic!"
+
 
 def make_bookingfile(expenses_id):  # noqa: E501
     """Make a booking file based of expenses id
@@ -187,4 +223,4 @@ def make_bookingfile(expenses_id):  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return "do some magic!"
