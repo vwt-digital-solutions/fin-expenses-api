@@ -50,7 +50,7 @@ class ClaimExpenses:
 
         if expenses_data:
             results = [
-                {"amount": ed["amount"], "note": ed["note"]} for ed in expenses_data
+                {"amount": ed["amount"], "note": ed["note"], "type": ed["type"]} for ed in expenses_data
             ]
             return jsonify(results)
         else:
@@ -67,6 +67,7 @@ class ClaimExpenses:
                 {
                     "amount": ed["amount"],
                     "note": ed["note"],
+                    "type": ed["type"],
                     "date": ed["date"],
                     "employee": ed["employee"],
                 }
@@ -90,6 +91,7 @@ class ClaimExpenses:
                 ),
                 "amount": data.amount,
                 "note": data.note,
+                "type": data.type,
                 "date": datetime.datetime.now().strftime("%d%m%Y"),
             }
         )

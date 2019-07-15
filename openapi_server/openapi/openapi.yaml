@@ -35,10 +35,10 @@ paths:
                         amount: ''
                         note: some text
           description: Succesfull response - returns all expenses
-      security:
-        -
-          oAuth2:
-            - employee
+#      security:
+#        -
+#          oAuth2:
+#            - employee
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
@@ -49,10 +49,10 @@ paths:
       responses:
         '201':
           description: Succesfully made or updated an expense
-      security:
-        -
-          oAuth2:
-            - employee
+#      security:
+#        -
+#          oAuth2:
+#            - employee
       operationId: add_expense
       summary: Make expense
       description: Create an expense
