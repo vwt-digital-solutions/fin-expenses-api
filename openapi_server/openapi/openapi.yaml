@@ -31,14 +31,16 @@ paths:
                       -
                         amount: ''
                         note: some text
+                        type: some type
                       -
                         amount: ''
                         note: some text
+                        type: some type
           description: Succesfull response - returns all expenses
-#      security:
-#        -
-#          oAuth2:
-#            - employee
+      security:
+        -
+          oAuth2:
+            - employee
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
@@ -49,10 +51,10 @@ paths:
       responses:
         '201':
           description: Succesfully made or updated an expense
-#      security:
-#        -
-#          oAuth2:
-#            - employee
+      security:
+        -
+          oAuth2:
+            - employee
       operationId: add_expense
       summary: Make expense
       description: Create an expense
@@ -183,6 +185,7 @@ components:
       required:
         - amount
         - note
+        - type
       type: object
       properties:
         amount:
@@ -190,12 +193,15 @@ components:
           type: number
         note:
           type: string
+        type:
+          type: string
       example: |-
         {
             "note": "This is a note\n",
             "id": "R1rt2345\n",
             "amount": 45.56,
-            "status": "new",
+            "type": "Office Utilities",
+            "status": "new"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
@@ -214,6 +220,8 @@ components:
             id: |
               R1rt2345
             amount: 45.56
+            type: |
+              This is a type
             status: new
           -
             note: |
@@ -221,6 +229,8 @@ components:
             id: |
               R1rt23f45
             amount: 45.16
+            type: |
+              This is a type
             status: opened
   parameters:
     expensesId:
