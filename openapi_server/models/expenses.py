@@ -15,7 +15,7 @@ class Expenses(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, id=None, amount=None, note=None, picture=None):  # noqa: E501
+    def __init__(self, id=None, amount=None, note=None, type=None, picture=None):  # noqa: E501
         """Expenses - a model defined in OpenAPI
 
         :param id: The id of this Expenses.  # noqa: E501
@@ -24,6 +24,8 @@ class Expenses(Model):
         :type amount: float
         :param note: The note of this Expenses.  # noqa: E501
         :type note: str
+        :param type: The type of this Expenses.  # noqa: E501
+        :type type: str
         :param picture: The picture of this Expenses.  # noqa: E501
         :type picture: file
         """
@@ -31,6 +33,7 @@ class Expenses(Model):
             'id': str,
             'amount': float,
             'note': str,
+            'type': str,
             'picture': file
         }
 
@@ -38,12 +41,14 @@ class Expenses(Model):
             'id': 'id',
             'amount': 'amount',
             'note': 'note',
+            'type': 'type',
             'picture': 'picture'
         }
 
         self._id = id
         self._amount = amount
         self._note = note
+        self._type = type
         self._picture = picture
 
     @classmethod
@@ -119,6 +124,28 @@ class Expenses(Model):
         """
 
         self._note = note
+
+    @property
+    def type(self):
+        """Gets the type of this Expenses.
+
+
+        :return: The type of this Expenses.
+        :rtype: str
+        """
+        return self._type
+
+    @type.setter
+    def type(self, type):
+        """Sets the type of this Expenses.
+
+
+        :param type: The note of this Expenses.
+        :type type: str
+        """
+
+        self._type = type
+
 
     @property
     def picture(self):

@@ -31,11 +31,11 @@ paths:
                       -
                         amount: ''
                         note: some text
-                        type: some type
+                        type: some text
                       -
                         amount: ''
                         note: some text
-                        type: some type
+                        type: some text
           description: Succesfull response - returns all expenses
       security:
         -

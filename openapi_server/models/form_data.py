@@ -15,30 +15,30 @@ class FormData(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, amount=None, cost_type=None, note=None):  # noqa: E501
+    def __init__(self, amount=None, type=None, note=None):  # noqa: E501
         """FormData - a model defined in OpenAPI
 
         :param amount: The amount of this FormData.  # noqa: E501
         :type amount: float
-        :param cost_type: The cost_type of this FormData.  # noqa: E501
-        :type cost_type: str
+        :param type: The cost_type of this FormData.  # noqa: E501
+        :type type: str
         :param note: The note of this FormData.  # noqa: E501
         :type note: str
         """
         self.openapi_types = {
             'amount': float,
-            'cost_type': str,
+            'type': str,
             'note': str
         }
 
         self.attribute_map = {
             'amount': 'amount',
-            'cost_type': 'cost_type',
+            'type': 'type',
             'note': 'note'
         }
 
         self._amount = amount
-        self._cost_type = cost_type
+        self._type = type
         self._note = note
 
     @classmethod
@@ -120,3 +120,26 @@ class FormData(Model):
             raise ValueError("Invalid value for `note`, must not be `None`")  # noqa: E501
 
         self._note = note
+
+    @property
+    def type(self):
+        """Gets the type of this FormData.
+
+
+        :return: The type of this FormData.
+        :rtype: str
+        """
+        return self._type
+
+    @type.setter
+    def note(self, type):
+        """Sets the type of this FormData.
+
+
+        :param note: The type of this FormData.
+        :type note: str
+        """
+        if type is None:
+            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
+
+        self._type = type
