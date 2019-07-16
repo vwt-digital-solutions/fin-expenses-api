@@ -141,3 +141,5 @@ class FormData(Model):
         """
         if date_of_transaction is None:
             raise ValueError("Invalid value for `date_of_transaction`, must not be `None`")
+
+        self._date_of_transaction = date_of_transaction
