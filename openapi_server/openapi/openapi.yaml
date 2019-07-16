@@ -31,11 +31,11 @@ paths:
                       -
                         amount: ''
                         note: some text
-                        type: some text
+                        cost_type: some text
                       -
                         amount: ''
                         note: some text
-                        type: some text
+                        cost_type: some text
           description: Succesfull response - returns all expenses
       security:
         -
@@ -185,7 +185,7 @@ components:
       required:
         - amount
         - note
-        - type
+        - cost_type
       type: object
       properties:
         amount:
@@ -193,14 +193,14 @@ components:
           type: number
         note:
           type: string
-        type:
+        cost_type:
           type: string
       example: |-
         {
             "note": "This is a note\n",
             "id": "R1rt2345\n",
             "amount": 45.56,
-            "type": "Office Utilities",
+            "cost_type": "Office Utilities",
             "status": "new"
         }
     ExpenseDataArray:
@@ -220,8 +220,8 @@ components:
             id: |
               R1rt2345
             amount: 45.56
-            type: |
-              This is a type
+            cost_type: |
+              This is a cost_type
             status: new
           -
             note: |
@@ -229,8 +229,8 @@ components:
             id: |
               R1rt23f45
             amount: 45.16
-            type: |
-              This is a type
+            cost_type: |
+              This is a cost_type
             status: opened
   parameters:
     expensesId:

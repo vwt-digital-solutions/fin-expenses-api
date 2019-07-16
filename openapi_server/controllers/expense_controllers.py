@@ -91,7 +91,7 @@ class ClaimExpenses:
                 ),
                 "amount": data.amount,
                 "note": data.note,
-                "type": data.type,
+                "cost_type": data.cost_type,
                 "date": datetime.datetime.now().strftime("%d%m%Y"),
             }
         )
