@@ -92,7 +92,7 @@ class ClaimExpenses:
                 "amount": data.amount,
                 "note": data.note,
                 "cost_type": data.cost_type,
-                "date": datetime.datetime.now().strftime("%d%m%Y"),
+                "date": datetime.datetime.now().isoformat(timespec='minutes'),
             }
         )
         self.db_client.put(entity)
