@@ -1,11 +1,10 @@
 import datetime
 import config
+from jwkaas import JWKaas
 
 import connexion
 from flask import make_response, jsonify
 from google.cloud import datastore
-
-from jwkaas import JWKaas
 
 from openapi_server.models.documents import Documents
 from openapi_server.models.expenses import Expenses
@@ -50,7 +49,7 @@ class ClaimExpenses:
 
         if expenses_data:
             results = [
-                {"amount": ed["amount"], "note": ed["note"], "type": ed["type"]} for ed in expenses_data
+                {"amount": ed["amount"], "note": ed["note"], "cost_type": ed["cost_type"]} for ed in expenses_data
             ]
             return jsonify(results)
         else:
@@ -67,7 +66,7 @@ class ClaimExpenses:
                 {
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "type": ed["type"],
+                    "cost_type": ed["cost_type"],
                     "date": ed["date"],
                     "employee": ed["employee"],
                 }
@@ -88,6 +87,7 @@ class ClaimExpenses:
                     email=self.employee_info["unique_name"],
                     family_name=self.employee_info["family_name"],
                     given_name=self.employee_info["given_name"],
+                    full_name=self.employee_info["name"],
                 ),
                 "amount": data.amount,
                 "note": data.note,
