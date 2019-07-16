@@ -21,7 +21,7 @@ class FormData(Model):
         :param amount: The amount of this FormData.  # noqa: E501
         :type amount: float
         :param cost_type: The cost_type of this FormData.  # noqa: E501
-        :type cost_type: str
+        :cost_type type: str
         :param note: The note of this FormData.  # noqa: E501
         :type note: str
         """
@@ -38,7 +38,7 @@ class FormData(Model):
         }
 
         self._amount = amount
-        self._cost_type = cost_type
+        self._type = cost_type
         self._note = note
 
     @classmethod
@@ -46,7 +46,7 @@ class FormData(Model):
         """Returns the dict as a model
 
         :param dikt: A dict.
-        :type: dict
+        :cost_type: dict
         :return: The formData of this FormData.  # noqa: E501
         :rtype: FormData
         """
