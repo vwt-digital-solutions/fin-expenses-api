@@ -32,10 +32,12 @@ paths:
                         amount: ''
                         note: some text
                         cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
                       -
                         amount: ''
                         note: some text
                         cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
           description: Succesfull response - returns all expenses
       security:
         -
@@ -186,6 +188,7 @@ components:
         - amount
         - note
         - cost_type
+        - date_of_transaction
       type: object
       properties:
         amount:
@@ -195,12 +198,15 @@ components:
           type: string
         cost_type:
           type: string
+        date_of_transaction:
+          type: string
       example: |-
         {
-            "note": "This is a note\n",
-            "id": "R1rt2345\n",
+            "note": "This is a note",
+            "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
+            "date_of_transaction": "2019-07-16T13:26:00.000Z"
             "status": "new"
         }
     ExpenseDataArray:
@@ -223,6 +229,7 @@ components:
             cost_type: |
               This is a cost_type
             status: new
+            date_of_transaction: 2019-07-16T13:26:00.000Z"
           -
             note: |
               This is a notes
@@ -232,6 +239,7 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
+            date_of_transaction: 2014-01-16T10:04:00.000X"
   parameters:
     expensesId:
       style: simple

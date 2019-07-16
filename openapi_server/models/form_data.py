@@ -15,7 +15,7 @@ class FormData(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, amount=None, cost_type=None, note=None):  # noqa: E501
+    def __init__(self, amount=None, cost_type=None, date_of_transaction=None, note=None):  # noqa: E501
         """FormData - a model defined in OpenAPI
 
         :param amount: The amount of this FormData.  # noqa: E501
@@ -28,18 +28,21 @@ class FormData(Model):
         self.openapi_types = {
             'amount': float,
             'cost_type': str,
-            'note': str
+            'note': str,
+            'date_of_transaction': str
         }
 
         self.attribute_map = {
             'amount': 'amount',
             'cost_type': 'cost_type',
-            'note': 'note'
+            'note': 'note',
+            'date_of_transaction': 'date_of_transaction'
         }
 
         self._amount = amount
         self._type = cost_type
         self._note = note
+        self._date_of_transaction = date_of_transaction
 
     @classmethod
     def from_dict(cls, dikt) -> 'FormData':
@@ -120,3 +123,21 @@ class FormData(Model):
             raise ValueError("Invalid value for `note`, must not be `None`")  # noqa: E501
 
         self._note = note
+
+    @property
+    def date_of_transaction(self):
+        """
+        Gets the date_of_transaction of this FormData
+        :return:
+        """
+        return self._date_of_transaction
+
+    @date_of_transaction.setter
+    def date_of_transaction(self, date_of_transaction):
+        """
+        Sets date_of_transaction of this FormData
+        :param date_of_transaction:
+        :return:
+        """
+        if date_of_transaction is None:
+            raise ValueError("Invalid value for `date_of_transaction`, must not be `None`")

@@ -67,7 +67,8 @@ class ClaimExpenses:
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date": ed["date"],
+                    "date_of_claim": ed["date_of_claim"],
+                    "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"],
                 }
                 for ed in expenses_data
@@ -92,7 +93,8 @@ class ClaimExpenses:
                 "amount": data.amount,
                 "note": data.note,
                 "cost_type": data.cost_type,
-                "date": datetime.datetime.now().isoformat(timespec='minutes'),
+                "date_of_transaction": data.date_of_transaction,
+                "date_of_claim": datetime.datetime.now().isoformat(timespec='seconds'),
             }
         )
         self.db_client.put(entity)
@@ -146,9 +148,12 @@ def add_expense():  # noqa: E501
 
     :rtype: None
     """
-    if connexion.request.is_json:
-        form_data = FormData.from_dict(connexion.request.get_json())  # noqa: E501
-    return expense_instance.add_expenses(form_data)
+    try:
+        if connexion.request.is_json:
+            form_data = FormData.from_dict(connexion.request.get_json())  # noqa: E501
+            return expense_instance.add_expenses(form_data)
+    except Exception as er:
+        return jsonify({f'Error: {er}'})
 
 
 def delete_attachments_by_id():  # noqa: E501
