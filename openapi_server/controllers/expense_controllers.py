@@ -67,7 +67,7 @@ class ClaimExpenses:
                 {
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "type": ed["type"],
+                    "cost_type": ed["cost_type"],
                     "date": ed["date"],
                     "employee": ed["employee"],
                 }
