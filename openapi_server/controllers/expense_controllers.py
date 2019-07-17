@@ -50,7 +50,7 @@ class ClaimExpenses:
         :return:
         """
         logger.info(os.path)
-        f_path = "./assets/cost_types.csv"
+        f_path = "./openapi_server/assets/cost_types.csv"
         with open(f_path, "r") as file:
             reader = csv.DictReader(file, delimiter=';')
             results = [
