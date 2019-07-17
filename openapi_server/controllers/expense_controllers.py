@@ -1,10 +1,10 @@
 import csv
 import datetime
-import sys
+import os
 
 import config
 from jwkaas import JWKaas
-import os
+import logging
 
 import connexion
 from flask import make_response, jsonify
@@ -15,6 +15,7 @@ from openapi_server.models.expenses import Expenses
 from openapi_server.models.form_data import FormData
 from openapi_server.models.image import Image
 
+logger = logging.getLogger(__name__)
 
 class ClaimExpenses:
     """
@@ -44,6 +45,7 @@ class ClaimExpenses:
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
     def get_cost_types(self):
+        logger.info(os.path)
         f_path = "assets/cost_types.csv"
         with open(f_path, "r") as file:
             reader = csv.DictReader(file, delimiter=';')
