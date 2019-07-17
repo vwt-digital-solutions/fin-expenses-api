@@ -44,7 +44,7 @@ class ClaimExpenses:
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
     def get_cost_types(self):
-        f_path = os.path.join(sys.path[0], "controllers/cost_types.csv")
+        f_path = "assets/cost_types.csv"
         with open(f_path, "r") as file:
             reader = csv.DictReader(file, delimiter=';')
             results = [
