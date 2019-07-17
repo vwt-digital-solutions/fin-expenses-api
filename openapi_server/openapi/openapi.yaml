@@ -61,6 +61,28 @@ paths:
       summary: Make expense
       description: Create an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/cost_types:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostTypes'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    CostTypes:
+                      - ctype: some text
+                        cid: ''
+          description: Succesfull response - returns all costtypes
+      security:
+        - oAuth2:
+            - employee
+      operationId: get_cost_types
+      summary: Get all cost_types
+      description: Retrieve all cost_types
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents':
     post:
       requestBody:
@@ -240,6 +262,23 @@ components:
               This is a cost_type
             status: opened
             date_of_transaction: 2014-01-16T10:04:00.000X"
+    CostTypes:
+      title: costTypes
+      description: CostType data
+      required:
+        - cid
+        - ctype
+      type: object
+      properties:
+        cid:
+          type: number
+        ctype:
+          type: string
+      example: |-
+        {
+            "cid": "410200",
+            "ctype": "Omschrijving"
+        }
   parameters:
     expensesId:
       style: simple

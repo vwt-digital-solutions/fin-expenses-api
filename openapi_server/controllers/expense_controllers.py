@@ -1,3 +1,4 @@
+import csv
 import datetime
 import config
 from jwkaas import JWKaas
@@ -38,6 +39,22 @@ class ClaimExpenses:
             )
         token = self.request.environ["HTTP_AUTHORIZATION"]
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
+
+    def get_cost_types(self):
+        with open('cost_types.csv') as file:
+            reader = csv.DictReader(file, delimiter=';')
+
+            if reader:
+                results = [
+                    {
+                        "ctype": row['Omschrijving'],
+                        "cid": row['Grootboek']
+                    }
+                    for row in reader
+                ]
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
 
     def get_expenses(self, expenses_id):
         """Get expenses with expense_id"""
@@ -177,6 +194,15 @@ def get_all_expenses():  # noqa: E501
     """
     return expense_instance.get_all_expenses()
 
+def get_cost_types():  # noqa: E501
+    """Get all cost_types
+
+     # noqa: E501
+
+
+    :rtype: None
+    """
+    return expense_instance.get_cost_types()
 
 def get_attachments_by_id():  # noqa: E501
     """Get attachment by attachment id
