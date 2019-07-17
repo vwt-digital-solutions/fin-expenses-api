@@ -1,8 +1,10 @@
 import csv
 import datetime
+import sys
+
 import config
 from jwkaas import JWKaas
-from os.path import abspath, exists
+import os
 
 import connexion
 from flask import make_response, jsonify
@@ -42,20 +44,17 @@ class ClaimExpenses:
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
     def get_cost_types(self):
-        f_path = abspath("cost_types.csv")
-        if exists(f_path):
-            with open(f_path) as file:
-                reader = csv.DictReader(file, delimiter=';')
-                results = [
-                    {
-                        "ctype": row['Omschrijving'],
-                        "cid": row['Grootboek']
-                    }
-                    for row in reader
-                ]
-                return jsonify(results)
-        else:
-            return make_response(jsonify(None), 204)
+        f_path = os.path.join(sys.path[0], "controllers/cost_types.csv").replace("\\", "/")
+        with open(f_path, "r") as file:
+            reader = csv.DictReader(file, delimiter=';')
+            results = [
+                {
+                    "ctype": row['Omschrijving'],
+                    "cid": row['Grootboek']
+                }
+                for row in reader
+            ]
+            return jsonify(results)
 
     def get_expenses(self, expenses_id):
         """Get expenses with expense_id"""
