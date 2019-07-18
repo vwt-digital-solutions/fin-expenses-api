@@ -17,6 +17,10 @@ from openapi_server.models.image import Image
 
 logger = logging.getLogger(__name__)
 
+# Constants
+MAX_DAYS_RESOLVE = 3
+
+
 class ClaimExpenses:
     """
     Class based function to house all Expenses functionality
@@ -105,6 +109,8 @@ class ClaimExpenses:
         self.get_employee_info()
         key = self.db_client.key("Expenses")
         entity = datastore.Entity(key=key)
+        date_of_claim = datetime.datetime.now()
+        max_date_to_resolve = date_of_claim + datetime.timedelta(days=MAX_DAYS_RESOLVE)
         entity.update(
             {
                 "employee": dict(
@@ -117,7 +123,15 @@ class ClaimExpenses:
                 "note": data.note,
                 "cost_type": data.cost_type,
                 "date_of_transaction": data.date_of_transaction,
-                "date_of_claim": datetime.datetime.now().isoformat(timespec='seconds'),
+                "date_of_claim": date_of_claim.isoformat(timespec='seconds'),
+                "status": dict(
+                    date_exported='Never',
+                    exported=False, new=True,
+                    paid=False,
+                    rejected=False,
+                    require_feedback=False,
+                    late_on_approval=date_of_claim > max_date_to_resolve)
+
             }
         )
         self.db_client.put(entity)
