@@ -39,6 +39,7 @@ class ClaimExpenses:
         self.jwks_url = jwks_url
         self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
+        self.now = datetime.datetime.now()
 
     def get_employee_info(self):
         """
@@ -241,7 +242,7 @@ class ClaimExpenses:
     def get_booking_export_file(self, file_name=None, all_exports=False):
         """
         Get a booking file that has been exporteb before. If the query string param is all
-        then a json file of all exports will be shown
+        then a json file of all exports will be shown for the pre-current year
         :param file_name:
         :param all_exports:
         :return:
@@ -250,7 +251,7 @@ class ClaimExpenses:
 
         if all_exports:
             all_exports_files = []
-            blobs = expenses_bucket.list_blobs(prefix="exports")
+            blobs = expenses_bucket.list_blobs(prefix=f"exports/{self.now.year}")
 
             for blob in blobs:
                 blob_name = blob.name
