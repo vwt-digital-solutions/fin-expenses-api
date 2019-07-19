@@ -5,10 +5,11 @@ import os
 import config
 from jwkaas import JWKaas
 import logging
+import pandas as pd
 
 import connexion
-from flask import make_response, jsonify
-from google.cloud import datastore
+from flask import make_response, jsonify, Response
+from google.cloud import datastore, storage
 
 from openapi_server.models.documents import Documents
 from openapi_server.models.expenses import Expenses
@@ -28,12 +29,15 @@ class ClaimExpenses:
     """
 
     def __init__(self, expected_audience, expected_issuer, jwks_url):
-        self.db_client = datastore.Client()
+        self.ds_client = datastore.Client()  # Datastore
+        self.cs_client = storage.Client()  # CloudStore
         self.request = connexion.request
         self.employee_info = dict()
         self.expected_audience = expected_audience
         self.expected_issuer = expected_issuer
         self.jwks_url = jwks_url
+        self.hashed_email = ""
+        self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
     def get_employee_info(self):
         """
@@ -56,12 +60,9 @@ class ClaimExpenses:
         logger.info(os.path)
         f_path = "./openapi_server/assets/cost_types.csv"
         with open(f_path, "r") as file:
-            reader = csv.DictReader(file, delimiter=';')
+            reader = csv.DictReader(file, delimiter=";")
             results = [
-                {
-                    "ctype": row['Omschrijving'],
-                    "cid": row['Grootboek']
-                }
+                {"ctype": row["Omschrijving"], "cid": row["Grootboek"]}
                 for row in reader
             ]
             return jsonify(results)
@@ -69,14 +70,19 @@ class ClaimExpenses:
     def get_expenses(self, expenses_id):
         """Get expenses with expense_id"""
 
-        expenses_info = self.db_client.query(kind="Expenses")
-        expenses_key = self.db_client.key("Expenses", expenses_id)
+        expenses_info = self.ds_client.query(kind="Expenses")
+        expenses_key = self.ds_client.key("Expenses", expenses_id)
         expenses_info.key_filter(expenses_key, "=")
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
             results = [
-                {"amount": ed["amount"], "note": ed["note"], "cost_type": ed["cost_type"]} for ed in expenses_data
+                {
+                    "amount": ed["amount"],
+                    "note": ed["note"],
+                    "cost_type": ed["cost_type"],
+                }
+                for ed in expenses_data
             ]
             return jsonify(results)
         else:
@@ -85,7 +91,7 @@ class ClaimExpenses:
     def get_all_expenses(self):
         """Get JSON of all the expenses"""
 
-        expenses_info = self.db_client.query(kind="Expenses")
+        expenses_info = self.ds_client.query(kind="Expenses")
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
@@ -97,6 +103,7 @@ class ClaimExpenses:
                     "date_of_claim": ed["date_of_claim"],
                     "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"],
+                    "status": ed["status"],
                 }
                 for ed in expenses_data
             ]
@@ -107,7 +114,7 @@ class ClaimExpenses:
     def add_expenses(self, data):
         """Add expense with given data amount and given data note"""
         self.get_employee_info()
-        key = self.db_client.key("Expenses")
+        key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
         date_of_claim = datetime.datetime.now()
         max_date_to_resolve = date_of_claim + datetime.timedelta(days=MAX_DAYS_RESOLVE)
@@ -123,19 +130,110 @@ class ClaimExpenses:
                 "note": data.note,
                 "cost_type": data.cost_type,
                 "date_of_transaction": data.date_of_transaction,
-                "date_of_claim": date_of_claim.isoformat(timespec='seconds'),
+                "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
                 "status": dict(
-                    date_exported='Never',
-                    exported=False, new=True,
+                    date_exported="Never",
+                    exported=False,
+                    new=True,
                     paid=False,
                     rejected=False,
                     require_feedback=False,
-                    late_on_approval=date_of_claim > max_date_to_resolve)
-
+                    late_on_approval=date_of_claim > max_date_to_resolve,
+                ),
             }
         )
-        self.db_client.put(entity)
+        self.ds_client.put(entity)
         return make_response(jsonify(entity.key.id_or_name), 201)
+
+    @staticmethod
+    def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
+        """Creates a new bucket."""
+        storage_client = storage.Client()
+        if not storage_client.bucket(config.GOOGLE_STORAGE_BUCKET).exists():
+            bucket = storage_client.create_bucket(bucket_name)
+            logger.info(f"Bucket {bucket} created on {bucket_date}")
+
+    def update_exported_expenses(self, expenses_exported, document_date):
+        """
+        Do some sanity changed to keep data updated. 
+        :param expenses_exported: Expense <Entity Keys>
+        :param document_date: Date when it was exported
+        """
+        for exp in expenses_exported:
+            with self.ds_client.transaction():
+                expense = self.ds_client.get(exp)
+                expense['status']['date_exported'] = document_date
+                expense['status']['exported'] = True
+                expense['status']['new'] = False
+                self.ds_client.put(expense)
+
+    def get_booking_file(self):
+        """
+        Create a booking file of new expenses. On export a change in the dataStore
+        will run to update status.
+        Exported file is stored in CloudStore with the format:
+        => 13:39:00-19072019.csv
+        where HH13:MM39:S00 and 19072019 the date when the export was made.
+        :return:
+        """
+        today = datetime.datetime.now()
+
+        # Check bucket exists
+        self.get_or_create_cloudstore_bucket(self.bucket_name, today)
+
+        document_date = f"{today.day}{today:%m}{today.year}"
+        document_export_date = F"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-".__add__(document_date)
+
+        never_exported = []
+        expenses_query = self.ds_client.query(kind="Expenses")
+        for entity in expenses_query.fetch():
+            if not entity["status"]["exported"]:
+                never_exported.append(self.ds_client.key("Expenses", entity.id))
+        expenses_never_exported = self.ds_client.get_multi(never_exported)
+
+        self.update_exported_expenses(never_exported, document_export_date)
+
+        booking_file_data = []
+
+        for expense in expenses_never_exported:
+            booking_file_data.append(
+                {
+                    "BoekingsomschrijvingBron": "",
+                    "Document-datum": document_date,
+                    "Boekings-jaar": today.year,
+                    "Periode": today.month,
+                    "Bron-bedrijfs-nummer": "",
+                    "Bron gr boekrek": expense["cost_type"].split(":")[1],
+                    "Bron Org Code": "",
+                    "Bron Process": "",
+                    "Bron Produkt": "",
+                    "Bron EC": "",
+                    "Bron VP": "",
+                    "Doel-bedrijfs-nummer": "",
+                    "Doel-gr boekrek": "",
+                    "Doel Org code": "",
+                    "Doel Proces": "",
+                    "Doel Produkt": "",
+                    "Doel EC": "",
+                    "Doel VP": "",
+                    "D/C": "",
+                    "Bedrag excl. BTW": expense["amount"],
+                    "BTW-Bedrag": 0,
+                }
+            )
+
+        booking_file = pd.DataFrame(booking_file_data).to_csv(index=False)
+
+        # Save File to CloudStorage
+        bucket = self.cs_client.get_bucket(self.bucket_name)
+
+        blob = bucket.blob(
+            f"exports/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
+        )
+
+        blob.upload_from_string(booking_file, content_type="text/csv")
+
+        return document_export_date, booking_file
 
 
 expense_instance = ClaimExpenses(
@@ -190,7 +288,7 @@ def add_expense():  # noqa: E501
             form_data = FormData.from_dict(connexion.request.get_json())  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
-        return jsonify({f'Error: {er}'})
+        return jsonify({f"Error: {er}"})
 
 
 def delete_attachments_by_id():  # noqa: E501
@@ -204,15 +302,13 @@ def delete_attachments_by_id():  # noqa: E501
     return "do some magic!"
 
 
-def get_all_expenses():  # noqa: E501
-    """Get all expenses
-
-     # noqa: E501
-
-
+def get_all_expenses():
+    """
+    Get all expenses
     :rtype: None
     """
     return expense_instance.get_all_expenses()
+
 
 def get_cost_types():  # noqa: E501
     """Get all cost_types
@@ -223,6 +319,7 @@ def get_cost_types():  # noqa: E501
     :rtype: None
     """
     return expense_instance.get_cost_types()
+
 
 def get_attachments_by_id():  # noqa: E501
     """Get attachment by attachment id
@@ -268,12 +365,28 @@ def update_attachments_by_id():  # noqa: E501
     return "do some magic!"
 
 
-def make_bookingfile(expenses_id):  # noqa: E501
+def make_bookingfile():
     """Make a booking file based of expenses id
 
      # noqa: E501
 
 
     :rtype: None
+    :return"""
+    return "do some magic"
+
+
+def get_booking_document():
     """
-    return "do some magic!"
+    Make a booking file based of expenses id. Looks up all objects with
+    status: exported => False. Gives the object a new status and does a few sanity checks
+    """
+    export_id, export_file = expense_instance.get_booking_file()
+    return Response(
+        export_file,
+        headers={
+            "Content-Type": "text/csv",
+            "Content-Disposition": f"attachment; filename={export_id}.csv",
+            "Authorization": "",
+        },
+    )
