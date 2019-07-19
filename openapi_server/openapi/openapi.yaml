@@ -177,22 +177,6 @@ paths:
       summary: Delete an document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
-  '/finance/expenses/{expenses_id}/documents':
-    post:
-      parameters:
-        -
-          $ref: '#/components/parameters/expensesId'
-      responses:
-        '200':
-          description: Succesfully made a booking file
-      security:
-        -
-          oAuth2:
-            - employee
-      operationId: make_bookingfile
-      summary: Make a booking file based of expenses id
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-
   '/finance/expenses/bookings/documents':
     get:
       operationId: get_booking_document
@@ -211,6 +195,28 @@ paths:
       security:
         - oAuth2: [manager]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
+  '/finance/expenses/bookings/documents/exports':
+    get:
+      operationId: get_booking_document_exports
+      summary: Get all exports done within a year
+      parameters:
+        - $ref: '#/components/parameters/ExportDate'
+      responses:
+        '200':
+          description: Download Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingFileExports'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
+      security:
+        - oAuth2: [manager]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
 
 components:
   schemas:
@@ -298,7 +304,25 @@ components:
             "cid": "410200",
             "ctype": "Omschrijving"
         }
+    BookingFileExports:
+      title: Exported files
+      description: Booking File Exported data
+      type: object
+      properties:
+        date_exported:
+          type: string
+      example: |-
+        {
+            "date_exported": "13:39:00-19072019"
+            "booking_document": "13:39:00-19072019"
+        }
   parameters:
+    ExportDate:
+      name: date_id
+      schema:
+        type: string
+      in: query
+      required: false
     expensesId:
       style: simple
       explode: false
