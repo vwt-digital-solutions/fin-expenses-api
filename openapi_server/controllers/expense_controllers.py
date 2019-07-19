@@ -1,6 +1,7 @@
 import csv
 import datetime
 import os
+import tempfile
 
 import config
 from jwkaas import JWKaas
@@ -8,7 +9,7 @@ import logging
 import pandas as pd
 
 import connexion
-from flask import make_response, jsonify, Response
+from flask import make_response, jsonify, Response, request
 from google.cloud import datastore, storage
 
 from openapi_server.models.documents import Documents
@@ -155,16 +156,16 @@ class ClaimExpenses:
 
     def update_exported_expenses(self, expenses_exported, document_date):
         """
-        Do some sanity changed to keep data updated. 
+        Do some sanity changed to keep data updated.
         :param expenses_exported: Expense <Entity Keys>
         :param document_date: Date when it was exported
         """
         for exp in expenses_exported:
             with self.ds_client.transaction():
                 expense = self.ds_client.get(exp)
-                expense['status']['date_exported'] = document_date
-                expense['status']['exported'] = True
-                expense['status']['new'] = False
+                expense["status"]["date_exported"] = document_date
+                expense["status"]["exported"] = True
+                expense["status"]["new"] = False
                 self.ds_client.put(expense)
 
     def get_booking_file(self):
@@ -182,7 +183,9 @@ class ClaimExpenses:
         self.get_or_create_cloudstore_bucket(self.bucket_name, today)
 
         document_date = f"{today.day}{today:%m}{today.year}"
-        document_export_date = F"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-".__add__(document_date)
+        document_export_date = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-".__add__(
+            document_date
+        )
 
         never_exported = []
         expenses_query = self.ds_client.query(kind="Expenses")
@@ -234,6 +237,34 @@ class ClaimExpenses:
         blob.upload_from_string(booking_file, content_type="text/csv")
 
         return document_export_date, booking_file
+
+    def get_booking_export_file(self, file_name=None, all_exports=False):
+        """
+        Get a booking file that has been exporteb before. If the query string param is all
+        then a json file of all exports will be shown
+        :param file_name:
+        :param all_exports:
+        :return:
+        """
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+
+        if all_exports:
+            all_exports_files = []
+            blobs = expenses_bucket.list_blobs(prefix="exports")
+
+            for blob in blobs:
+                blob_name = blob.name
+                all_exports_files.append(
+                    {"date_exported": blob_name.split("/")[4], "export": blob.name}
+                )
+            return all_exports_files
+        else:
+            with tempfile.NamedTemporaryFile(delete=False) as export_file:
+                expenses_bucket.blob(f"exports/2019/7/19/{file_name}").download_to_file(
+                    export_file
+                )
+                export_file.close()
+                return export_file
 
 
 expense_instance = ClaimExpenses(
@@ -365,15 +396,26 @@ def update_attachments_by_id():  # noqa: E501
     return "do some magic!"
 
 
-def make_bookingfile():
-    """Make a booking file based of expenses id
-
-     # noqa: E501
-
-
+def get_booking_document_exports():
+    """
+    Get a requested booking document
     :rtype: None
     :return"""
-    return "do some magic"
+
+    date_param = request.args.get("date_id")
+    if date_param == "all":
+        all_exports = expense_instance.get_booking_export_file(all_exports=True)
+        return jsonify(all_exports)
+    else:
+        export_file = expense_instance.get_booking_export_file(file_name=date_param)
+        return Response(
+            open(export_file.name),
+            headers={
+                "Content-Type": "text/csv",
+                "Content-Disposition": f"attachment; filename={date_param}",
+                "Authorization": "",
+            },
+        )
 
 
 def get_booking_document():
