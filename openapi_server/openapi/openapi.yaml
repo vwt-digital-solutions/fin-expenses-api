@@ -193,6 +193,25 @@ paths:
       summary: Make a booking file based of expenses id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
+  '/finance/expenses/bookings/documents':
+    get:
+      operationId: get_booking_document
+      summary: Get a booking document
+      responses:
+        '200':
+          description: Download Success
+          content:
+            text/csv:
+              schema:
+                $ref: '#/components/schemas/Documents'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
+      security:
+        - oAuth2: [manager]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
 components:
   schemas:
     Documents:
