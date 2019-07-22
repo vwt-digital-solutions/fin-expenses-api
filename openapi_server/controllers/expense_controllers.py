@@ -179,7 +179,7 @@ class ClaimExpenses:
         :return:
         """
         today = datetime.datetime.now()
-
+        no_expenses = True  # Initialise
         # Check bucket exists
         self.get_or_create_cloudstore_bucket(self.bucket_name, today)
 
@@ -193,51 +193,56 @@ class ClaimExpenses:
         for entity in expenses_query.fetch():
             if not entity["status"]["exported"]:
                 never_exported.append(self.ds_client.key("Expenses", entity.id))
-        expenses_never_exported = self.ds_client.get_multi(never_exported)
 
-        self.update_exported_expenses(never_exported, document_export_date)
+        if never_exported:
+            expenses_never_exported = self.ds_client.get_multi(never_exported)
 
-        booking_file_data = []
+            self.update_exported_expenses(never_exported, document_export_date)
 
-        for expense in expenses_never_exported:
-            booking_file_data.append(
-                {
-                    "BoekingsomschrijvingBron": "",
-                    "Document-datum": document_date,
-                    "Boekings-jaar": today.year,
-                    "Periode": today.month,
-                    "Bron-bedrijfs-nummer": "",
-                    "Bron gr boekrek": expense["cost_type"].split(":")[1],
-                    "Bron Org Code": "",
-                    "Bron Process": "",
-                    "Bron Produkt": "",
-                    "Bron EC": "",
-                    "Bron VP": "",
-                    "Doel-bedrijfs-nummer": "",
-                    "Doel-gr boekrek": "",
-                    "Doel Org code": "",
-                    "Doel Proces": "",
-                    "Doel Produkt": "",
-                    "Doel EC": "",
-                    "Doel VP": "",
-                    "D/C": "",
-                    "Bedrag excl. BTW": expense["amount"],
-                    "BTW-Bedrag": 0,
-                }
+            booking_file_data = []
+
+            for expense in expenses_never_exported:
+                booking_file_data.append(
+                    {
+                        "BoekingsomschrijvingBron": "",
+                        "Document-datum": document_date,
+                        "Boekings-jaar": today.year,
+                        "Periode": today.month,
+                        "Bron-bedrijfs-nummer": "",
+                        "Bron gr boekrek": expense["cost_type"].split(":")[1],
+                        "Bron Org Code": "",
+                        "Bron Process": "",
+                        "Bron Produkt": "",
+                        "Bron EC": "",
+                        "Bron VP": "",
+                        "Doel-bedrijfs-nummer": "",
+                        "Doel-gr boekrek": "",
+                        "Doel Org code": "",
+                        "Doel Proces": "",
+                        "Doel Produkt": "",
+                        "Doel EC": "",
+                        "Doel VP": "",
+                        "D/C": "",
+                        "Bedrag excl. BTW": expense["amount"],
+                        "BTW-Bedrag": 0,
+                    }
+                )
+
+            booking_file = pd.DataFrame(booking_file_data).to_csv(index=False)
+
+            # Save File to CloudStorage
+            bucket = self.cs_client.get_bucket(self.bucket_name)
+
+            blob = bucket.blob(
+                f"exports/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
-        booking_file = pd.DataFrame(booking_file_data).to_csv(index=False)
+            blob.upload_from_string(booking_file, content_type="text/csv")
 
-        # Save File to CloudStorage
-        bucket = self.cs_client.get_bucket(self.bucket_name)
-
-        blob = bucket.blob(
-            f"exports/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
-        )
-
-        blob.upload_from_string(booking_file, content_type="text/csv")
-
-        return document_export_date, booking_file
+            return no_expenses, document_export_date, booking_file
+        else:
+            no_expenses = False
+            return no_expenses, None, jsonify({'Info': 'No Exports Available'})
 
     def get_booking_export_file(self, file_name=None, all_exports=False):
         """
@@ -424,12 +429,17 @@ def get_booking_document():
     Make a booking file based of expenses id. Looks up all objects with
     status: exported => False. Gives the object a new status and does a few sanity checks
     """
-    export_id, export_file = expense_instance.get_booking_file()
-    return Response(
-        export_file,
-        headers={
-            "Content-Type": "text/csv",
-            "Content-Disposition": f"attachment; filename={export_id}.csv",
-            "Authorization": "",
-        },
-    )
+    expenses, export_id, export_file = expense_instance.get_booking_file()
+
+    if expenses:
+        return Response(
+            export_file,
+            headers={
+                "Content-Type": "text/csv",
+                "Content-Disposition": f"attachment; filename={export_id}.csv",
+                "Authorization": "",
+            },
+        )
+    else:
+        return export_file
+
