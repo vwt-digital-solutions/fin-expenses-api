@@ -204,25 +204,26 @@ class ClaimExpenses:
             for expense in expenses_never_exported:
                 booking_file_data.append(
                     {
-                        "BoekingsomschrijvingBron": "",
+                        "BoekingsomschrijvingBron":
+                            f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
                         "Document-datum": document_date,
                         "Boekings-jaar": today.year,
                         "Periode": today.month,
-                        "Bron-bedrijfs-nummer": "",
+                        "Bron-bedrijfs-nummer": 200,
                         "Bron gr boekrek": expense["cost_type"].split(":")[1],
                         "Bron Org Code": "",
-                        "Bron Process": "",
-                        "Bron Produkt": "",
-                        "Bron EC": "",
-                        "Bron VP": "",
+                        "Bron Process": 000,
+                        "Bron Produkt": 000,
+                        "Bron EC": 000,
+                        "Bron VP": 00,
                         "Doel-bedrijfs-nummer": "",
-                        "Doel-gr boekrek": "",
+                        "Doel-gr boekrek": expense["cost_type"].split(":")[1],
                         "Doel Org code": "",
-                        "Doel Proces": "",
-                        "Doel Produkt": "",
-                        "Doel EC": "",
-                        "Doel VP": "",
-                        "D/C": "",
+                        "Doel Proces": 000,
+                        "Doel Produkt": 000,
+                        "Doel EC": 000,
+                        "Doel VP": 00,
+                        "D/C": "D",
                         "Bedrag excl. BTW": expense["amount"],
                         "BTW-Bedrag": 0,
                     }
@@ -242,7 +243,7 @@ class ClaimExpenses:
             return no_expenses, document_export_date, booking_file
         else:
             no_expenses = False
-            return no_expenses, None, jsonify({'Info': 'No Exports Available'})
+            return no_expenses, None, jsonify({"Info": "No Exports Available"})
 
     def get_booking_export_file(self, file_name=None, all_exports=False):
         """
@@ -442,4 +443,3 @@ def get_booking_document():
         )
     else:
         return export_file
-
