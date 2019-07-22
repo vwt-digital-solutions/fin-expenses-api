@@ -210,7 +210,7 @@ class ClaimExpenses:
                         "Boekings-jaar": today.year,
                         "Periode": today.month,
                         "Bron-bedrijfs-nummer": 200,
-                        "Bron gr boekrek": expense["cost_type"].split(":")[1],
+                        "Bron gr boekrek": "",
                         "Bron Org Code": "",
                         "Bron Process": 000,
                         "Bron Produkt": 000,
@@ -266,8 +266,9 @@ class ClaimExpenses:
                 )
             return all_exports_files
         else:
+            month, day, file_name = file_name.split('_')
             with tempfile.NamedTemporaryFile(delete=False) as export_file:
-                expenses_bucket.blob(f"exports/2019/7/19/{file_name}").download_to_file(
+                expenses_bucket.blob(f"exports/{self.now.year}/{month}/{day}/{file_name}").download_to_file(
                     export_file
                 )
                 export_file.close()
