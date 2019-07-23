@@ -41,6 +41,7 @@ class ClaimExpenses:
         self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
         self.now = datetime.datetime.now()
+        self.hr_afas_client = datastore.Client(project=config.HR_AFAS_LINK_PROJECT)
 
     def get_employee_info(self):
         """
@@ -55,7 +56,26 @@ class ClaimExpenses:
         token = self.request.environ["HTTP_AUTHORIZATION"]
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
-    def get_cost_types(self):
+    def get_employee_afas_data(self, unique_name):
+        """
+        Data Access Link to the AFAS environment to retrieve employee information
+        - Bank Account
+        - Company Code
+        - Any other detail we will be needing to complete the payment
+        This link is made available through the HR-On boarding project
+        :param unique_name: An email address
+        """
+
+        employee_afas_key = self.hr_afas_client.key("Employee", unique_name)
+        employee_afas_query = self.hr_afas_client.get(employee_afas_key)
+        if employee_afas_query:
+            data = dict(employee_afas_query.items())
+            return data
+        else:
+            return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+
+    @staticmethod
+    def get_cost_types():
         """
         Get cost types from a CSV file
         :return:
@@ -128,6 +148,9 @@ class ClaimExpenses:
         entity.update(
             {
                 "employee": dict(
+                    afas_data=self.get_employee_afas_data(
+                        self.employee_info["unique_name"]
+                    ),
                     email=self.employee_info["unique_name"],
                     family_name=self.employee_info["family_name"],
                     given_name=self.employee_info["given_name"],
@@ -201,8 +224,7 @@ class ClaimExpenses:
             for expense in expenses_never_exported:
                 booking_file_data.append(
                     {
-                        "BoekingsomschrijvingBron":
-                            f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
+                        "BoekingsomschrijvingBron": f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
                         "Document-datum": document_date,
                         "Boekings-jaar": today.year,
                         "Periode": today.month,
