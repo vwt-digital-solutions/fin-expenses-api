@@ -177,17 +177,30 @@ paths:
       summary: Delete an document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
-  '/finance/expenses/bookings/documents':
+  '/finance/expenses/bookings':
     get:
-      operationId: get_booking_document
-      summary: Get a booking document
+      operationId: get_booking_document_list
+      summary: Get a list of all booking documents list
       responses:
         '200':
           description: Download Success
           content:
-            text/csv:
+            application/json:
               schema:
-                $ref: '#/components/schemas/Documents'
+                $ref: '#/components/schemas/BookingFile'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
+      security:
+        - oAuth2: [manager]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    post:
+      operationId: create_booking_document
+      summary: Creates a single booking document
+      responses:
+        '200':
+          description: Download Success
         '401':
           description: Not authenticated
         '403':
@@ -196,19 +209,19 @@ paths:
         - oAuth2: [manager]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
-  '/finance/expenses/bookings/documents/exports':
+  '/finance/expenses/bookings/{booking_id}/booking-files':
     get:
-      operationId: get_booking_document_exports
-      summary: Get all exports done within a year
+      operationId: get_booking_document_file
+      summary: Returns a CSV of a booking file
       parameters:
-        - $ref: '#/components/parameters/ExportDate'
+        - $ref: '#/components/parameters/BookingDate'
       responses:
         '200':
           description: Download Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BookingFileExports'
+                $ref: '#/components/schemas/BookingFile'
         '401':
           description: Not authenticated
         '403':
@@ -304,24 +317,26 @@ components:
             "cid": "410200",
             "ctype": "Omschrijving"
         }
-    BookingFileExports:
+    BookingFile:
       title: Exported files
       description: Booking File Exported data
       type: object
       properties:
         date_exported:
           type: string
+        file_name:
+          type: string
       example: |-
         {
             "date_exported": "13:39:00-19072019"
-            "booking_document": "13:39:00-19072019"
+            "file_name": "13:39:00-19072019"
         }
   parameters:
-    ExportDate:
-      name: date_id
+    BookingDate:
+      name: booking_id
       schema:
         type: string
-      in: query
+      in: path
       required: false
     expensesId:
       style: simple
