@@ -21,8 +21,12 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_DAYS_RESOLVE = 3
-EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval"]
+EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", ""]
+ASSETS = {
+    'active_directory': "./openapi_server/assets/active_directory_test_data.csv",
+    'cost_types': "./openapi_server/assets/cost_types.csv"
 
+}
 
 class ClaimExpenses:
     """
@@ -56,6 +60,33 @@ class ClaimExpenses:
         token = self.request.environ["HTTP_AUTHORIZATION"]
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
+    def creating_fake_data(self):
+        """
+        Creating data for users. Provided by the CSV  file in Assets
+         => Active Directory test
+        """
+
+        ###########################################
+        # CREATING TEST HR-AFAS DATA OF EMPLOYEES #
+        #       KEEP THIS OUT OF LIVE VERSION     #
+        #    USE UNTIL WE HAVE TEST ENVIRONMENT   #
+        ###########################################
+        self.get_employee_info()
+
+        with open(ASSETS['active_directory'], "r") as test_file:
+            reader = csv.DictReader(test_file, delimiter=";")
+            hr_data_s = {}
+            for item in reader:
+                for key, value in item.items():
+                    employee_key = self.hr_afas_client.key(
+                        "Employee", item["email_address"]
+                    )
+                hr_data = datastore.Entity(key=employee_key)
+                if not key == "":
+                    hr_data_s[key] = value
+            hr_data.update(hr_data_s)
+            self.hr_afas_client.put(hr_data)
+
     def get_employee_afas_data(self, unique_name):
         """
         Data Access Link to the AFAS environment to retrieve employee information
@@ -81,8 +112,7 @@ class ClaimExpenses:
         :return:
         """
         logger.info(os.path)
-        f_path = "./openapi_server/assets/cost_types.csv"
-        with open(f_path, "r") as file:
+        with open(ASSETS['cost_types'], "r") as file:
             reader = csv.DictReader(file, delimiter=";")
             results = [
                 {"ctype": row["Omschrijving"], "cid": row["Grootboek"]}
