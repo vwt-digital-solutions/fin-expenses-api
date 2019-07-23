@@ -47,6 +47,7 @@ paths:
       summary: Get all expenses
       description: Retrieve all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/expenses:
     post:
       requestBody:
         $ref: '#/components/requestBodies/formData'
