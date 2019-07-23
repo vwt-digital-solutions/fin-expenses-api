@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_DAYS_RESOLVE = 3
+EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval"]
 
 
 class ClaimExpenses:
@@ -114,12 +115,16 @@ class ClaimExpenses:
             return make_response(jsonify(None), 204)
 
     def add_expenses(self, data):
-        """Add expense with given data amount and given data note"""
+        """
+        Add expense with given data amount and given data note. An expense can have one of 6
+        statuses.
+        Status Life Cycle:
+        *** to_be_approved => { rejected } <= approved => payable => exported
+        """
         self.get_employee_info()
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
         date_of_claim = datetime.datetime.now()
-        max_date_to_resolve = date_of_claim + datetime.timedelta(days=MAX_DAYS_RESOLVE)
         entity.update(
             {
                 "employee": dict(
@@ -133,15 +138,7 @@ class ClaimExpenses:
                 "cost_type": data.cost_type,
                 "date_of_transaction": data.date_of_transaction,
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
-                "status": dict(
-                    date_exported="Never",
-                    exported=False,
-                    new=True,
-                    paid=False,
-                    rejected=False,
-                    require_feedback=False,
-                    late_on_approval=date_of_claim > max_date_to_resolve,
-                ),
+                "status": dict(date_exported="never", text="to_be_approved"),
             }
         )
         self.ds_client.put(entity)
@@ -165,8 +162,7 @@ class ClaimExpenses:
             with self.ds_client.transaction():
                 expense = self.ds_client.get(exp)
                 expense["status"]["date_exported"] = document_date
-                expense["status"]["exported"] = True
-                expense["status"]["new"] = False
+                expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
 
     def get_booking_file(self):
@@ -191,7 +187,7 @@ class ClaimExpenses:
         never_exported = []
         expenses_query = self.ds_client.query(kind="Expenses")
         for entity in expenses_query.fetch():
-            if not entity["status"]["exported"]:
+            if entity["status"]["text"] in EXPORTABLE_STATUSES:
                 never_exported.append(self.ds_client.key("Expenses", entity.id))
 
         if never_exported:
