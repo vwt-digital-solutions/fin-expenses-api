@@ -176,6 +176,7 @@ class ClaimExpenses:
         """
         today = datetime.datetime.now()
         no_expenses = True  # Initialise
+
         # Check bucket exists
         self.get_or_create_cloudstore_bucket(self.bucket_name, today)
 
@@ -258,15 +259,15 @@ class ClaimExpenses:
             for blob in blobs:
                 blob_name = blob.name
                 all_exports_files.append(
-                    {"date_exported": blob_name.split("/")[4], "export": blob.name}
+                    {"date_exported": blob_name.split("/")[4], "file_name": blob.name}
                 )
             return all_exports_files
         else:
-            month, day, file_name = file_name.split('_')
+            month, day, file_name = file_name.split("_")
             with tempfile.NamedTemporaryFile(delete=False) as export_file:
-                expenses_bucket.blob(f"exports/{self.now.year}/{month}/{day}/{file_name}").download_to_file(
-                    export_file
-                )
+                expenses_bucket.blob(
+                    f"exports/{self.now.year}/{month}/{day}/{file_name}"
+                ).download_to_file(export_file)
                 export_file.close()
                 return export_file
 
@@ -400,29 +401,35 @@ def update_attachments_by_id():  # noqa: E501
     return "do some magic!"
 
 
-def get_booking_document_exports():
+def get_booking_document_file(booking_id):
     """
-    Get a requested booking document
+    Get a requested booking file from a booking identity in the format of
+    month_day_file_name => 7_12_12:34-12-07-2019
     :rtype: None
     :return"""
 
-    date_param = request.args.get("date_id")
-    if date_param == "all":
-        all_exports = expense_instance.get_booking_export_file(all_exports=True)
-        return jsonify(all_exports)
-    else:
-        export_file = expense_instance.get_booking_export_file(file_name=date_param)
-        return Response(
-            open(export_file.name),
-            headers={
-                "Content-Type": "text/csv",
-                "Content-Disposition": f"attachment; filename={date_param}",
-                "Authorization": "",
-            },
-        )
+    export_file = expense_instance.get_booking_export_file(file_name=booking_id)
+    return Response(
+        open(export_file.name),
+        headers={
+            "Content-Type": "text/csv",
+            "Content-Disposition": f"attachment; filename={booking_id}",
+            "Authorization": "",
+        },
+    )
 
 
-def get_booking_document():
+def get_booking_document_list():
+    """
+    Get a list of all documents ever created
+    :rtype: None
+    :return"""
+
+    all_exports = expense_instance.get_booking_export_file(all_exports=True)
+    return jsonify(all_exports)
+
+
+def create_booking_document():
     """
     Make a booking file based of expenses id. Looks up all objects with
     status: exported => False. Gives the object a new status and does a few sanity checks
