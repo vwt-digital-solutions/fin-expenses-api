@@ -496,13 +496,13 @@ def create_booking_document():
     expenses, export_id, export_file = expense_instance.get_booking_file()
 
     if expenses:
-        return Response(
-            export_file,
-            headers={
-                "Content-Type": "text/csv",
-                "Content-Disposition": f"attachment; filename={export_id}.csv",
-                "Authorization": "",
-            },
-        )
+        response = make_response(export_file, 200)
+        response.headers = {
+            "Content-Type": "text/csv",
+            "Content-Disposition": f"attachment; filename={export_id}.csv",
+            "Authorization": "",
+            "Access-Control-Expose-Headers": 'Content-Disposition',
+        }
+        return response
     else:
         return export_file
