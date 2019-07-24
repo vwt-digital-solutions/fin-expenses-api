@@ -150,7 +150,7 @@ class ClaimExpenses:
                     family_name=self.employee_info["family_name"],
                     given_name=self.employee_info["given_name"],
                     full_name=self.employee_info["name"],
-                ),
+                ) if 'unique_name' in self.employee_info.keys() else '',
                 "amount": data.amount,
                 "note": data.note,
                 "cost_type": data.cost_type,
@@ -215,35 +215,40 @@ class ClaimExpenses:
             booking_file_data = []
 
             for expense in expenses_never_exported:
-                department_number_aka_afdeling_code = expense['employee']['afas_data']['Afdeling Code']
-                company_number = self.ds_client.get(
-                    self.ds_client.key('Departments', department_number_aka_afdeling_code)
-                )
-                booking_file_data.append(
-                    {
-                        "BoekingsomschrijvingBron": f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
-                        "Document-datum": document_date,
-                        "Boekings-jaar": today.year,
-                        "Periode": today.month,
-                        "Bron-bedrijfs-nummer": 200,
-                        "Bron gr boekrek": 114310, # (voor nu, later definitief vaststellen)
-                        "Bron Org Code": 94015,
-                        "Bron Process": 000,
-                        "Bron Produkt": 000,
-                        "Bron EC": 000,
-                        "Bron VP": 00,
-                        "Doel-bedrijfs-nummer": company_number['Administratief Bedrijf'].split('_')[0],
-                        "Doel-gr boekrek": expense["cost_type"].split(":")[1],
-                        "Doel Org code": department_number_aka_afdeling_code,
-                        "Doel Proces": 000,
-                        "Doel Produkt": 000,
-                        "Doel EC": 000,
-                        "Doel VP": 00,
-                        "D/C": "D",
-                        "Bedrag excl. BTW": expense["amount"],
-                        "BTW-Bedrag": 0.00,
-                    }
-                )
+                if expense['employee'].__len__() > 0:
+                    department_number_aka_afdeling_code = expense['employee']['afas_data']['Afdeling Code']
+                    company_number = self.ds_client.get(
+                        self.ds_client.key('Departments', department_number_aka_afdeling_code)
+                    )
+                    booking_file_data.append(
+                        {
+                            "BoekingsomschrijvingBron":
+                                f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
+                            "Document-datum": document_date,
+                            "Boekings-jaar": today.year,
+                            "Periode": today.month,
+                            "Bron-bedrijfs-nummer": 200,
+                            "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
+                            "Bron Org Code": 94015,
+                            "Bron Process": 000,
+                            "Bron Produkt": 000,
+                            "Bron EC": 000,
+                            "Bron VP": 00,
+                            "Doel-bedrijfs-nummer": company_number['Administratief Bedrijf'].split('_')[0],
+                            "Doel-gr boekrek": expense["cost_type"].split(":")[1],
+                            "Doel Org code": department_number_aka_afdeling_code,
+                            "Doel Proces": 000,
+                            "Doel Produkt": 000,
+                            "Doel EC": 000,
+                            "Doel VP": 00,
+                            "D/C": "D",
+                            "Bedrag excl. BTW": expense["amount"],
+                            "BTW-Bedrag": 0.00,
+                        }
+                    )
+                else:
+                    no_expenses = False
+                    return no_expenses, None, jsonify({"Info": "No Exports Available"})
 
             booking_file = pd.DataFrame(booking_file_data).to_csv(index=False)
 
