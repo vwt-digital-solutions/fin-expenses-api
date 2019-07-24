@@ -10,10 +10,11 @@ import connexion
 from flask import make_response, jsonify, Response, request
 from google.cloud import datastore, storage
 
+from openapi_server.models.booking_file import BookingFile
+from openapi_server.models.cost_types import CostTypes
 from openapi_server.models.documents import Documents
-from openapi_server.models.expenses import Expenses
-from openapi_server.models.form_data import FormData
-from openapi_server.models.image import Image
+from openapi_server.models.expense_data import ExpenseData
+from openapi_server.models.expense_data_array import ExpenseDataArray
 
 logger = logging.getLogger(__name__)
 
@@ -328,19 +329,15 @@ def add_document():  # noqa: E501
     return "do some magic!"
 
 
-def add_expense():  # noqa: E501
+def add_expense():
     """Make expense
-
-     # noqa: E501
-
     :param form_data:
     :type form_data: dict | bytes
-
     :rtype: None
     """
     try:
         if connexion.request.is_json:
-            form_data = FormData.from_dict(connexion.request.get_json())  # noqa: E501
+            form_data = ExpenseData.from_dict(connexion.request.get_json())  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
         return {f"Error: {er}"}
