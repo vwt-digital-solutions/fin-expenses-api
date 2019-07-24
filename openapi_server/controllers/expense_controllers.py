@@ -24,7 +24,8 @@ MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", ""]
 ASSETS = {
     'active_directory': "./openapi_server/assets/active_directory_test_data.csv",
-    'cost_types': "./openapi_server/assets/cost_types.csv"
+    'cost_types': "./openapi_server/assets/cost_types.csv",
+    'departments': "./openapi_server/assets/Centercodemodel_VW_Telecom.csv"
 
 }
 
@@ -60,10 +61,14 @@ class ClaimExpenses:
         token = self.request.environ["HTTP_AUTHORIZATION"]
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
-    def creating_fake_data(self):
+    def data_ingest(self, client, file, entity, unique_data):
         """
         Creating data for users. Provided by the CSV  file in Assets
          => Active Directory test
+         :param entity: An <Entity> your data will be saved eg => Expenses, Employee, Department
+         :param file: Specify a CSV file from which to download ingest data
+         :param client: Specify a storage client i.e On_Boarding or FinExpenses
+         :type unique_data: A unique data to be the key_id or name
         """
 
         ###########################################
@@ -71,21 +76,20 @@ class ClaimExpenses:
         #       KEEP THIS OUT OF LIVE VERSION     #
         #    USE UNTIL WE HAVE TEST ENVIRONMENT   #
         ###########################################
-        self.get_employee_info()
-
-        with open(ASSETS['active_directory'], "r") as test_file:
+        with open(file, "r+", encoding="utf-8") as test_file:
             reader = csv.DictReader(test_file, delimiter=";")
-            hr_data_s = {}
+            data = {}
             for item in reader:
+                employee_key = client.key(
+                    entity, item[unique_data]
+                )
+                hrm_afas_data = datastore.Entity(key=employee_key)
+
                 for key, value in item.items():
-                    employee_key = self.hr_afas_client.key(
-                        "Employee", item["email_address"]
-                    )
-                hr_data = datastore.Entity(key=employee_key)
-                if not key == "":
-                    hr_data_s[key] = value
-            hr_data.update(hr_data_s)
-            self.hr_afas_client.put(hr_data)
+                    if not key == "":
+                        data[key] = value
+                hrm_afas_data.update(data)
+                client.put(hrm_afas_data)
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -97,8 +101,8 @@ class ClaimExpenses:
         :param unique_name: An email address
         """
 
-        employee_afas_key = self.hr_afas_client.key("Employee", unique_name)
-        employee_afas_query = self.hr_afas_client.get(employee_afas_key)
+        employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
+        employee_afas_query = self.ds_client.get(employee_afas_key)
         if employee_afas_query:
             data = dict(employee_afas_query.items())
             return data
@@ -247,11 +251,13 @@ class ClaimExpenses:
         if never_exported:
             expenses_never_exported = self.ds_client.get_multi(never_exported)
 
-            self.update_exported_expenses(never_exported, document_export_date)
-
             booking_file_data = []
 
             for expense in expenses_never_exported:
+                department_number_aka_afdeling_code = expense['employee']['afas_data']['Afdeling Code']
+                company_number = self.ds_client.get(
+                    self.ds_client.key('Departments', department_number_aka_afdeling_code)
+                )
                 booking_file_data.append(
                     {
                         "BoekingsomschrijvingBron": f"{expense['employee']['full_name']} - {expense['date_of_transaction']}",
@@ -259,22 +265,22 @@ class ClaimExpenses:
                         "Boekings-jaar": today.year,
                         "Periode": today.month,
                         "Bron-bedrijfs-nummer": 200,
-                        "Bron gr boekrek": "",
-                        "Bron Org Code": "",
+                        "Bron gr boekrek": 114310, # (voor nu, later definitief vaststellen)
+                        "Bron Org Code": 94015,
                         "Bron Process": 000,
                         "Bron Produkt": 000,
                         "Bron EC": 000,
                         "Bron VP": 00,
-                        "Doel-bedrijfs-nummer": "",
+                        "Doel-bedrijfs-nummer": company_number['Administratief Bedrijf'].split('_')[0],
                         "Doel-gr boekrek": expense["cost_type"].split(":")[1],
-                        "Doel Org code": "",
+                        "Doel Org code": department_number_aka_afdeling_code,
                         "Doel Proces": 000,
                         "Doel Produkt": 000,
                         "Doel EC": 000,
                         "Doel VP": 00,
                         "D/C": "D",
                         "Bedrag excl. BTW": expense["amount"],
-                        "BTW-Bedrag": 0,
+                        "BTW-Bedrag": 0.00,
                     }
                 )
 
@@ -288,6 +294,7 @@ class ClaimExpenses:
             )
 
             blob.upload_from_string(booking_file, content_type="text/csv")
+            self.update_exported_expenses(never_exported, document_export_date)
 
             return no_expenses, document_export_date, booking_file
         else:
@@ -376,7 +383,7 @@ def add_expense():  # noqa: E501
             form_data = FormData.from_dict(connexion.request.get_json())  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
-        return jsonify({f"Error: {er}"})
+        return {f"Error: {er}"}
 
 
 def delete_attachments_by_id():  # noqa: E501
