@@ -1,6 +1,4 @@
-import csv
 import datetime
-import os
 import tempfile
 
 import config
@@ -21,13 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_DAYS_RESOLVE = 3
-EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", ""]
-ASSETS = {
-    'active_directory': "./openapi_server/assets/active_directory_test_data.csv",
-    'cost_types': "./openapi_server/assets/cost_types.csv",
-    'departments': "./openapi_server/assets/Centercodemodel_VW_Telecom.csv"
+EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"]
 
-}
 
 class ClaimExpenses:
     """
@@ -46,7 +39,6 @@ class ClaimExpenses:
         self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
         self.now = datetime.datetime.now()
-        self.hr_afas_client = datastore.Client(project=config.HR_AFAS_LINK_PROJECT)
 
     def get_employee_info(self):
         """
@@ -60,52 +52,6 @@ class ClaimExpenses:
             )
         token = self.request.environ["HTTP_AUTHORIZATION"]
         self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
-
-    def data_ingest(self, client, file, entity, unique_data):
-        """
-        Creating data for users. Provided by the CSV  file in Assets
-         => Active Directory test
-         How?
-         Specify Data To Ingest
-         --> Test data
-         self.data_ingest(
-            file=ASSETS['active_directory'],
-             client=self.ds_client,
-             entity='AFAS_HRM',
-             unique_data='email_address'
-         )
-         --> Departments
-         self.data_ingest(
-             file=ASSETS['departments'],
-             client=self.ds_client,
-             entity='Departments',
-             unique_data='Afdeling'
-         )
-         :param entity: An <Entity> your data will be saved eg => Expenses, Employee, Department
-         :param file: Specify a CSV file from which to download ingest data
-         :param client: Specify a storage client i.e On_Boarding or FinExpenses
-         :type unique_data: A unique data to be the key_id or name
-        """
-
-        ###########################################
-        # CREATING TEST HR-AFAS DATA OF EMPLOYEES #
-        #       KEEP THIS OUT OF LIVE VERSION     #
-        #    USE UNTIL WE HAVE TEST ENVIRONMENT   #
-        ###########################################
-        with open(file, "r+", encoding="utf-8") as test_file:
-            reader = csv.DictReader(test_file, delimiter=";")
-            data = {}
-            for item in reader:
-                employee_key = client.key(
-                    entity, item[unique_data]
-                )
-                hrm_afas_data = datastore.Entity(key=employee_key)
-
-                for key, value in item.items():
-                    if not key == "":
-                        data[key] = value
-                hrm_afas_data.update(data)
-                client.put(hrm_afas_data)
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -125,20 +71,18 @@ class ClaimExpenses:
         else:
             return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
 
-    @staticmethod
-    def get_cost_types():
+    def get_cost_types(self):
         """
         Get cost types from a CSV file
         :return:
         """
-        logger.info(os.path)
-        with open(ASSETS['cost_types'], "r") as file:
-            reader = csv.DictReader(file, delimiter=";")
-            results = [
-                {"ctype": row["Omschrijving"], "cid": row["Grootboek"]}
-                for row in reader
-            ]
-            return jsonify(results)
+
+        cost_types = self.ds_client.query(kind="CostTypes")
+        results = [
+            {"ctype": row["Omschrijving"], "cid": row["Grootboek"]}
+            for row in cost_types.fetch()
+        ]
+        return jsonify(results)
 
     def get_expenses(self, expenses_id):
         """Get expenses with expense_id"""
