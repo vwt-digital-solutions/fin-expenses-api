@@ -58,17 +58,20 @@ class TestExpenseControllers(BaseTestCase):
             content_type='application/json')
         self.assertEqual(response.status_code, 201)
 
-    def test_get_all_expense(self):
-        """Test case for get all expense"""
+    def test_create_booking_document(self):
+        """Test case for create_booking_document
+
+        Creates a single booking document
+        """
+        access_token = self.get_token()
 
         headers = {
-            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {access_token}',
         }
         response = self.client.open(
-            '/employees/expenses',
-            method='GET',
-            headers=headers,
-            content_type='application/json')
+            '/finances/expenses/bookings',
+            method='POST',
+            headers=headers)
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
