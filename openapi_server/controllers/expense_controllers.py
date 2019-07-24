@@ -65,6 +65,22 @@ class ClaimExpenses:
         """
         Creating data for users. Provided by the CSV  file in Assets
          => Active Directory test
+         How?
+         Specify Data To Ingest
+         --> Test data
+         self.data_ingest(
+            file=ASSETS['active_directory'],
+             client=self.ds_client,
+             entity='AFAS_HRM',
+             unique_data='email_address'
+         )
+         --> Departments
+         self.data_ingest(
+             file=ASSETS['departments'],
+             client=self.ds_client,
+             entity='Departments',
+             unique_data='Afdeling'
+         )
          :param entity: An <Entity> your data will be saved eg => Expenses, Employee, Department
          :param file: Specify a CSV file from which to download ingest data
          :param client: Specify a storage client i.e On_Boarding or FinExpenses
