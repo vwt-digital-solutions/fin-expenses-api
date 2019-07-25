@@ -16,7 +16,7 @@ servers:
   -
     url: /
 paths:
-  /employees/expenses:
+  /finances/expenses:
     get:
       responses:
         '200':
@@ -32,38 +32,64 @@ paths:
                         amount: ''
                         note: some text
                         cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
                       -
                         amount: ''
                         note: some text
                         cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
           description: Succesfull response - returns all expenses
+        default:
+          description: Response Successfully Executed
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2: [manager.write]
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/expenses:
     post:
       requestBody:
         $ref: '#/components/requestBodies/formData'
       responses:
         '201':
           description: Succesfully made or updated an expense
+        default:
+          description: Expense Made/Updated successfully!
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2: [employee.write]
       operationId: add_expense
       summary: Make expense
       description: Create an expense
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/cost-types:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostTypes'
+              examples:
+                CostTypes:
+                  value:
+                    CostTypes:
+                      - ctype: some text
+                        cid: ''
+          description: Succesfull response - returns all costtypes
+        default:
+          description: Cost Types retrieved successfully
+      security:
+        - oauth2: [employee.write]
+      operationId: get_cost_types
+      summary: Get all cost_types
+      description: Retrieve all cost_types
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents':
     post:
       requestBody:
         content:
-          '*/*':
+          'application/json':
             schema:
               $ref: '#/components/schemas/Documents'
         required: true
@@ -73,10 +99,12 @@ paths:
       responses:
         '200':
           description: Make new document
+        default:
+          description: A new document has been made
       security:
         -
-          oAuth2:
-            - employee
+          oauth2:
+            - employee.write
       operationId: add_document
       summary: Make new document
       description: Add a document to an expense
@@ -84,8 +112,7 @@ paths:
   '/employees/expenses/{expenses_id}':
     get:
       parameters:
-        -
-          $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/expensesId'
       responses:
         '200':
           content:
@@ -93,10 +120,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExpenseData'
           description: Successful response - returns information of expense
+        default:
+          description: Expense Success
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2:
+            - employee.write
       operationId: get_expenses
       summary: Get information from expenses by id
       description: Retrieve an expense
@@ -113,10 +141,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Documents'
           description: Succesfull response - returns document
+        default:
+          description: Document successfully Retrieved
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2: [employee.write]
       operationId: get_document_by_id
       summary: Get document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -129,10 +157,10 @@ paths:
       responses:
         '200':
           description: Succesfully updated a document
+        default:
+          description: Expense successfully Updated
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2: [employee.write]
       operationId: update_attachments_by_id
       summary: Update document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -145,29 +173,73 @@ paths:
       responses:
         '200':
           description: Succesfully deleted a document
+        default:
+          description: Delete Successfull OK
       security:
-        -
-          oAuth2:
-            - employee
+        - oauth2: [employee.write]
       operationId: delete_attachments_by_id
       summary: Delete an document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
-  '/finance/expenses/{expenses_id}/documents':
-    post:
-      parameters:
-        -
-          $ref: '#/components/parameters/expensesId'
+  '/finances/expenses/bookings':
+    get:
+      operationId: get_booking_document_list
+      summary: Get a list of all booking documents list
       responses:
         '200':
-          description: Succesfully made a booking file
+          description: Download Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingFile'
+        default:
+          description: List Successfully Retrieved OK
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
       security:
-        -
-          oAuth2:
-            - employee
-      operationId: make_bookingfile
-      summary: Make a booking file based of expenses id
+        - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    post:
+      operationId: create_booking_document
+      summary: Creates a single booking document
+      responses:
+        '200':
+          description: Download Success
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
+        default:
+          description: Booking file made Successfully OK
+      security:
+        - oauth2: [manager.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
+  '/finances/expenses/bookings/{booking_id}/booking-files':
+    get:
+      operationId: get_booking_document_file
+      summary: Returns a CSV of a booking file
+      parameters:
+        - $ref: '#/components/parameters/BookingDate'
+      responses:
+        '200':
+          description: Download Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingFile'
+        '401':
+          description: Not authenticated
+        '403':
+          description: Access token does not have the required scope
+        default:
+          description: Document file successfully retrieved
+      security:
+        - oauth2: [manager.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+
 
 components:
   schemas:
@@ -186,6 +258,7 @@ components:
         - amount
         - note
         - cost_type
+        - date_of_transaction
       type: object
       properties:
         amount:
@@ -195,12 +268,15 @@ components:
           type: string
         cost_type:
           type: string
+        date_of_transaction:
+          type: string
       example: |-
         {
-            "note": "This is a note\n",
-            "id": "R1rt2345\n",
+            "note": "This is a note",
+            "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
+            "date_of_transaction": "2019-07-16T13:26:00.000Z"
             "status": "new"
         }
     ExpenseDataArray:
@@ -223,6 +299,7 @@ components:
             cost_type: |
               This is a cost_type
             status: new
+            date_of_transaction: 2019-07-16T13:26:00.000Z"
           -
             note: |
               This is a notes
@@ -232,7 +309,46 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
+            date_of_transaction: 2014-01-16T10:04:00.000X"
+    CostTypes:
+      title: costTypes
+      description: CostType data
+      required:
+        - cid
+        - ctype
+      type: object
+      properties:
+        cid:
+          type: string
+          description: A cost type doel organisation code
+        ctype:
+          type: string
+      example: |-
+        {
+            "cid": "410200",
+            "ctype": "Omschrijving"
+        }
+    BookingFile:
+      title: Exported files
+      description: Booking File Exported data
+      type: object
+      properties:
+        date_exported:
+          type: string
+        file_name:
+          type: string
+      example: |-
+        {
+            "date_exported": "13:39:00-19072019"
+            "file_name": "13:39:00-19072019"
+        }
   parameters:
+    BookingDate:
+      name: booking_id
+      schema:
+        type: string
+      in: path
+      required: false
     expensesId:
       style: simple
       explode: false
@@ -257,18 +373,18 @@ components:
             $ref: '#/components/schemas/ExpenseData'
       required: true
   securitySchemes:
-    oAuth2:
+    oauth2:
+      type: oauth2
       description: This API uses OAuth 2 with the implicit grant flow.
       flows:
-        authorizationCode:
+        clientCredentials:
           authorizationUrl: >-
             https://azuread.url/2.0/authorize
           tokenUrl: >-
             https://azuread.url/v2.0/token
           scopes:
-            manager: Read all expenses and documents
-            creditor: Write all expenses and documents
-            employee: Read expense and document information
-      type: oauth2
+            manager.write: Read all expenses and documents
+            creditor.write: Write all expenses and documents
+            employee.write: Read expense and document information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope

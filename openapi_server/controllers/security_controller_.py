@@ -1,7 +1,6 @@
 import config
 import connexion
 
-from typing import List
 from jwkaas import JWKaas
 
 my_jwkaas = None
