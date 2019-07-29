@@ -95,7 +95,7 @@ paths:
         required: true
       parameters:
         -
-          $ref: '#/components/parameters/expensesId'
+          $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
           description: Make new document
@@ -112,7 +112,7 @@ paths:
   '/employees/expenses/{expenses_id}':
     get:
       parameters:
-        - $ref: '#/components/parameters/expensesId'
+        - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
           content:
@@ -132,8 +132,8 @@ paths:
   '/employees/expenses/{expenses_id}/documents/{documents_id}':
     get:
       parameters:
-        - $ref: '#/components/parameters/expensesId'
-        - $ref: '#/components/parameters/documentId'
+        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/DocumentId'
       responses:
         '200':
           content:
@@ -151,9 +151,9 @@ paths:
     put:
       parameters:
         -
-          $ref: '#/components/parameters/expensesId'
+          $ref: '#/components/parameters/ExpensesId'
         -
-          $ref: '#/components/parameters/documentId'
+          $ref: '#/components/parameters/DocumentId'
       responses:
         '200':
           description: Succesfully updated a document
@@ -167,9 +167,9 @@ paths:
     delete:
       parameters:
         -
-          $ref: '#/components/parameters/expensesId'
+          $ref: '#/components/parameters/ExpensesId'
         -
-          $ref: '#/components/parameters/documentId'
+          $ref: '#/components/parameters/DocumentId'
       responses:
         '200':
           description: Succesfully deleted a document
@@ -183,9 +183,9 @@ paths:
   '/finances/expenses/{document_type}/files':
     get:
       operationId: get_document_list
-      summary: Get a list of all booking or payment documents list
+      summary: Get a list of all booking or payment files
       parameters:
-        - $ref: '#/components/parameters/DocumentName'
+        - $ref: '#/components/parameters/DocumentType'
       responses:
         '200':
           description: Download Success
@@ -208,6 +208,7 @@ paths:
       operationId: create_document
       summary: Creates a single booking or payment document
       parameters:
+        - $ref: '#/components/parameters/DocumentType'
         - $ref: '#/components/parameters/DocumentName'
       responses:
         '200':
@@ -223,13 +224,13 @@ paths:
       security:
         - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/finances/expenses/documents/{document_id}/kinds/{document_type}':
+  '/finances/expenses/documents/{document_date}/kinds/{document_type}':
     get:
       operationId: get_document
       summary: Returns a CSV => of a booking file or XML => of payment file
       parameters:
         - $ref: '#/components/parameters/DocumentDate'
-        - $ref: '#/components/parameters/DocumentName'
+        - $ref: '#/components/parameters/DocumentType'
 
       responses:
         '200':
@@ -353,12 +354,12 @@ components:
         }
   parameters:
     DocumentDate:
-      name: document_id
+      name: document_date
       schema:
         type: string
       in: path
       required: true
-    expensesId:
+    ExpensesId:
       style: simple
       explode: false
       name: expenses_id
@@ -366,7 +367,7 @@ components:
         type: integer
       in: path
       required: true
-    documentId:
+    DocumentId:
       style: simple
       explode: false
       name: documents_id
@@ -377,11 +378,19 @@ components:
     DocumentName:
       style: simple
       explode: false
+      name: name
+      schema:
+        type: string
+      in: query
+      required: false
+    DocumentType:
+      style: simple
+      explode: false
       name: document_type
       schema:
         type: string
       in: path
-      required: true
+      required: false
   requestBodies:
     formData:
       content:
