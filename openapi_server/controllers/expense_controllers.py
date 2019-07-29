@@ -196,6 +196,11 @@ class ClaimExpenses:
 
     @staticmethod
     def get_iban_details(iban):
+        """
+        Get the needed IBAN numbers of any dutch rekening number
+        :param iban:
+        :return:
+        """
         detail = iban.split(' ')
         bank_data = config.BIC_NUMBERS
         return next(r['bic'] for r in bank_data if r['identifier'] == detail[1])
