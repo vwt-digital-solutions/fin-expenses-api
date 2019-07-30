@@ -1,4 +1,6 @@
 import csv
+import secrets
+import string
 
 import datetime
 import tempfile
@@ -295,6 +297,22 @@ class ClaimExpenses:
             no_expenses = False
             return no_expenses, None, jsonify({"Info": "No Exports Available"})
 
+    @staticmethod
+    def generate_random_msgid():
+        """
+        A message ID that will be read in the XML should be unique. This has
+        a minimal random collision disadvantage
+        :return:
+        """
+        alphabet = string.ascii_letters + string.digits
+        while True:
+            random_id = ''.join(secrets.choice(alphabet) for i in range(9))
+            if (any(c.islower() for c in random_id)
+                    and any(c.isupper() for c in random_id)
+                    and sum(c.isdigit() for c in random_id) >= 3):
+                break
+        return '/'.join(random_id[i:i + 3] for i in range(0, len(random_id), 3)).upper()
+
     def create_payment_file(self, document_type, document_name):
 
         """
@@ -307,20 +325,23 @@ class ClaimExpenses:
         exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
         )
+        str_num_unique = string.ascii_letters[:8] + string.digits
         if exported:
             booking_file_detail = self.get_document_files_or_list(
                 document_type=document_type,
                 document_id=document_name,
                 raw=True)
-
+            message_id = f"{200}/{self.generate_random_msgid()}"
+            payment_info_id = \
+                f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/" \
+                    f"{''.join(secrets.choice(string.digits) for i in range(8))}"
+            ET.register_namespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance')
             root = ET.Element("Document")
-            ET.register_namespace('xmlns', 'urn:iso:std:iso:20022:tech:xsd:pain.001.001.0')
-            ET.register_namespace('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
             customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
 
             # Group Header
             header = ET.SubElement(customer_header, "GrpHdr")
-            ET.SubElement(header, "MsgId").text = '200/222/BWS/G30'  # TODO Random Unique
+            ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
             ET.SubElement(header, "NbOfTxs").text = '45'  # Default Value
             initiating_party = ET.SubElement(header, "InitgPty")
@@ -328,7 +349,7 @@ class ClaimExpenses:
 
             #  Payment Information
             payment_info = ET.SubElement(customer_header, "PmtInf")
-            ET.SubElement(payment_info, "PmtInfId").text = "200/G15/99010246"  # TODO Random Unique
+            ET.SubElement(payment_info, "PmtInfId").text = payment_info_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(booking_file_detail.__len__())
 
@@ -356,7 +377,7 @@ class ClaimExpenses:
                 # Transaction Transfer Test Information
                 transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
                 transfer_payment_id = ET.SubElement(transfer, "PmtId")
-                ET.SubElement(transfer_payment_id, "InstrId").text = "200/G15/99010246"  # TODO Random Unique
+                ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
                 ET.SubElement(transfer_payment_id, "EndToEndId").text = expense['data']['BoekingsomschrijvingBron']
 
                 # Amount
@@ -393,13 +414,19 @@ class ClaimExpenses:
 
             # Upload file to Blob Storage
             blob.upload_from_string(payment_file_string, content_type="application/xml")
-            self.update_exported_expenses(exported, document_export_date, document_type)
 
-            # with tempfile.NamedTemporaryFile(delete=False) as file:
-            #     ET.ElementTree(root).write(open(f'{file.name}.xml', 'wb'))
-            #     file.close()
+            with tempfile.NamedTemporaryFile(delete=False) as file:
+                ET.ElementTree(root).write(open(f'{file.name}.xml', 'wb'),
+                                           encoding='utf-8',
+                                           xml_declaration=True,
+                                           method='xml')
+                file.close()
 
-            return no_expenses, document_export_date, payment_file_string.decode()
+                ready_payment_file = open(f"{file.name}.xml", 'r')
+
+                #  Do some sanity routine
+                self.update_exported_expenses(exported, document_export_date, document_type)
+                return no_expenses, document_export_date, ready_payment_file.read()
         else:
             no_expenses = False
             return no_expenses, None, jsonify({"Info": "No Exports needed to create Payment Available"})
