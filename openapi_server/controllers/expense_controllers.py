@@ -1,8 +1,10 @@
+import base64
 import csv
 import secrets
 import string
 
 import datetime
+import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
 
@@ -76,6 +78,18 @@ class ClaimExpenses:
             return data
         else:
             return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+
+    def create_attachment(self, attachment, expenses_id, email):
+        """Creates an attachment"""
+
+        today = datetime.datetime.now()
+        email_name = email.split("@")[0]
+
+        filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
+
+        bucket = self.cs_client.get_bucket(self.bucket_name)
+        blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
+        blob.upload_from_string(base64.b64decode(attachment.split(',')[1]), content_type=mimetypes.guess_type(attachment)[0])
 
     def get_cost_types(self):
         """
@@ -167,6 +181,9 @@ class ClaimExpenses:
             }
         )
         self.ds_client.put(entity)
+
+        self.create_attachment(data.attachment, entity.key.id_or_name, self.employee_info["unique_name"])
+
         return make_response(jsonify(entity.key.id_or_name), 201)
 
     @staticmethod
