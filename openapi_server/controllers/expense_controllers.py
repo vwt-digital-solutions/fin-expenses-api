@@ -82,14 +82,17 @@ class ClaimExpenses:
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
-        today = datetime.datetime.now()
+        today = self.now
         email_name = email.split("@")[0]
 
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
-        blob.upload_from_string(base64.b64decode(attachment.split(',')[1]), content_type=mimetypes.guess_type(attachment)[0])
+        blob.upload_from_string(
+            base64.b64decode(attachment.split(",")[1]),
+            content_type=mimetypes.guess_type(attachment)[0],
+        )
 
     def get_cost_types(self):
         """
@@ -182,7 +185,9 @@ class ClaimExpenses:
         )
         self.ds_client.put(entity)
 
-        self.create_attachment(data.attachment, entity.key.id_or_name, self.employee_info["unique_name"])
+        self.create_attachment(
+            data.attachment, entity.key.id_or_name, self.employee_info["unique_name"]
+        )
 
         return make_response(jsonify(entity.key.id_or_name), 201)
 
@@ -220,9 +225,9 @@ class ClaimExpenses:
         :param iban:
         :return:
         """
-        detail = iban.split(' ')
+        detail = iban.split(" ")
         bank_data = config.BIC_NUMBERS
-        return next(r['bic'] for r in bank_data if r['identifier'] == detail[1])
+        return next(r["bic"] for r in bank_data if r["identifier"] == detail[1])
 
     def filter_expenses(self, document_type):
         """
@@ -248,7 +253,12 @@ class ClaimExpenses:
         for entity in expenses_query.fetch():
             if entity["status"]["text"] in status[document_type]:
                 never_exported.append(self.ds_client.key("Expenses", entity.id))
-        return never_exported, document_export_date, document_date, now.isoformat(timespec='seconds')
+        return (
+            never_exported,
+            document_export_date,
+            document_date,
+            now.isoformat(timespec="seconds"),
+        )
 
     def create_booking_file(self, document_type):
         """
@@ -256,41 +266,50 @@ class ClaimExpenses:
         :param document_type:
         :return:
         """
-        never_exported, document_export_date, document_date, document_time = self.filter_expenses(document_type)
+        never_exported, document_export_date, document_date, document_time = self.filter_expenses(
+            document_type
+        )
         if never_exported:
             booking_file_data = []
             for exps in never_exported:
                 expense_detail = self.ds_client.get(exps)
-                if expense_detail['employee'].__len__() > 0:
-                    department_number_aka_afdeling_code = expense_detail['employee']['afas_data']['Afdeling Code']
+                if expense_detail["employee"].__len__() > 0:
+                    department_number_aka_afdeling_code = expense_detail["employee"][
+                        "afas_data"
+                    ]["Afdeling Code"]
                     company_number = self.ds_client.get(
-                        self.ds_client.key('Departments', department_number_aka_afdeling_code)
+                        self.ds_client.key(
+                            "Departments", department_number_aka_afdeling_code
+                        )
                     )
                     booking_file_data.append(
                         {
-                            "BoekingsomschrijvingBron":
-                                f"{expense_detail['employee']['email']} - {expense_detail['employee']['full_name']}"
-                                f" - {expense_detail['date_of_transaction']}",
+                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]} - {expense_detail['employee']['family_name']}"
+                            f" - {expense_detail['date_of_transaction']}",
                             "Document-datum": document_date,
                             "Boekings-jaar": self.now.year,
                             "Periode": self.now.month,
                             "Bron-bedrijfs-nummer": 200,
                             "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
                             "Bron Org Code": 94015,
-                            "Bron Process": 000,
-                            "Bron Produkt": 000,
-                            "Bron EC": 000,
-                            "Bron VP": 00,
-                            "Doel-bedrijfs-nummer": company_number['Administratief Bedrijf'].split('_')[0],
-                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[1],
+                            "Bron Process": "000",
+                            "Bron Produkt": "000",
+                            "Bron EC": "000",
+                            "Bron VP": "00",
+                            "Doel-bedrijfs-nummer": company_number[
+                                "Administratief Bedrijf"
+                            ].split("_")[0],
+                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[
+                                1
+                            ],
                             "Doel Org code": department_number_aka_afdeling_code,
-                            "Doel Proces": 000,
-                            "Doel Produkt": 000,
-                            "Doel EC": 000,
-                            "Doel VP": 00,
-                            "D/C": "D",
+                            "Doel Proces": "000",
+                            "Doel Produkt": "000",
+                            "Doel EC": "000",
+                            "Doel VP": "00",
+                            "D/C": "C",
                             "Bedrag excl. BTW": expense_detail["amount"],
-                            "BTW-Bedrag": 0.00,
+                            "BTW-Bedrag": "0.00",
                         }
                     )
                 else:
@@ -307,7 +326,9 @@ class ClaimExpenses:
             )
 
             blob.upload_from_string(booking_file, content_type="text/csv")
-            self.update_exported_expenses(never_exported, document_export_date, document_type)
+            self.update_exported_expenses(
+                never_exported, document_export_date, document_type
+            )
             no_expenses = True
             return no_expenses, document_export_date, booking_file
         else:
@@ -323,12 +344,16 @@ class ClaimExpenses:
         """
         alphabet = string.ascii_letters + string.digits
         while True:
-            random_id = ''.join(secrets.choice(alphabet) for i in range(9))
-            if (any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3):
+            random_id = "".join(secrets.choice(alphabet) for i in range(9))
+            if (
+                any(c.islower() for c in random_id)
+                and any(c.isupper() for c in random_id)
+                and sum(c.isdigit() for c in random_id) >= 3
+            ):
                 break
-        return '/'.join(random_id[i:i + 3] for i in range(0, len(random_id), 3)).upper()
+        return "/".join(
+            random_id[i : i + 3] for i in range(0, len(random_id), 3)
+        ).upper()
 
     def create_payment_file(self, document_type, document_name):
 
@@ -345,14 +370,14 @@ class ClaimExpenses:
         str_num_unique = string.ascii_letters[:8] + string.digits
         if exported:
             booking_file_detail = self.get_document_files_or_list(
-                document_type=document_type,
-                document_id=document_name,
-                raw=True)
+                document_type=document_type, document_id=document_name, raw=True
+            )
             message_id = f"{200}/{self.generate_random_msgid()}"
-            payment_info_id = \
-                f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/" \
-                    f"{''.join(secrets.choice(string.digits) for i in range(8))}"
-            ET.register_namespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance')
+            payment_info_id = (
+                f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
+                f"{''.join(secrets.choice(string.digits) for i in range(8))}"
+            )
+            ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
             root = ET.Element("Document")
             customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
 
@@ -360,67 +385,87 @@ class ClaimExpenses:
             header = ET.SubElement(customer_header, "GrpHdr")
             ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
-            ET.SubElement(header, "NbOfTxs").text = '45'  # Default Value
+            ET.SubElement(header, "NbOfTxs").text = "45"  # Default Value
             initiating_party = ET.SubElement(header, "InitgPty")
-            ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT['bedrijf']
+            ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
 
             #  Payment Information
             payment_info = ET.SubElement(customer_header, "PmtInf")
             ET.SubElement(payment_info, "PmtInfId").text = payment_info_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
-            ET.SubElement(payment_info, "NbOfTxs").text = str(booking_file_detail.__len__())
+            ET.SubElement(payment_info, "NbOfTxs").text = str(
+                booking_file_detail.__len__()
+            )
 
             # Payment Type Information
             payment_typ_info = ET.SubElement(payment_info, "PmtTpInf")
-            ET.SubElement(payment_typ_info, "InstrPrty").text = 'NORM'
+            ET.SubElement(payment_typ_info, "InstrPrty").text = "NORM"
             payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
             ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-            ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split('T')[0]
+            ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
+                0
+            ]
 
             # Debitor Information
             payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
             ET.SubElement(payment_debitor_info, "Nm").text = "VWT BV"
             payment_debitor_account = ET.SubElement(payment_info, "DbtrAcct")
             payment_debitor_account_id = ET.SubElement(payment_debitor_account, "Id")
-            ET.SubElement(payment_debitor_account_id, "IBAN").text = config.VWT_ACCOUNT['iban']
+            ET.SubElement(payment_debitor_account_id, "IBAN").text = config.VWT_ACCOUNT[
+                "iban"
+            ]
 
             # Debitor Agent Tags Information
             payment_debitor_agent = ET.SubElement(payment_info, "DbtrAgt")
-            payment_debitor_agent_id = ET.SubElement(payment_debitor_agent, "FinInstnId")
-            ET.SubElement(payment_debitor_agent_id, "BIC").text = config.VWT_ACCOUNT['bic']
+            payment_debitor_agent_id = ET.SubElement(
+                payment_debitor_agent, "FinInstnId"
+            )
+            ET.SubElement(payment_debitor_agent_id, "BIC").text = config.VWT_ACCOUNT[
+                "bic"
+            ]
 
             for expense in booking_file_detail:
                 # Transaction Transfer Test Information
                 transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
                 transfer_payment_id = ET.SubElement(transfer, "PmtId")
                 ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
-                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense['data']['BoekingsomschrijvingBron']
+                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["data"][
+                    "BoekingsomschrijvingBron"
+                ]
 
                 # Amount
                 amount = ET.SubElement(transfer, "Amt")
-                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = expense['data']['Bedrag excl. BTW']
+                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = expense["data"][
+                    "Bedrag excl. BTW"
+                ]
                 ET.SubElement(amount, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
                 amount_agent = ET.SubElement(transfer, "CdtrAgt")
                 payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
-                ET.SubElement(payment_creditor_agent_id, "BIC").text = self.get_iban_details(expense['iban'])
+                ET.SubElement(
+                    payment_creditor_agent_id, "BIC"
+                ).text = self.get_iban_details(expense["iban"])
 
                 # Creditor name
                 creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = expense['data']['BoekingsomschrijvingBron'].split('-')[1]
+                ET.SubElement(creditor_name, "Nm").text = expense["data"][
+                    "BoekingsomschrijvingBron"
+                ].split("-")[1]
 
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
                 creditor_account_id = ET.SubElement(creditor_account, "Id")
-                ET.SubElement(creditor_account_id, "IBAN").text = expense['iban']
+                ET.SubElement(creditor_account_id, "IBAN").text = expense["iban"]
 
                 # Remittance Information
                 remittance_info = ET.SubElement(transfer, "RmtInf")
-                ET.SubElement(remittance_info, "Ustrd").text = expense['data']['BoekingsomschrijvingBron']
+                ET.SubElement(remittance_info, "Ustrd").text = expense["data"][
+                    "BoekingsomschrijvingBron"
+                ]
 
-            payment_file_string = ET.tostring(root, encoding='utf8', method='xml')
+            payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
 
             # Save File to CloudStorage
             bucket = self.cs_client.get_bucket(self.bucket_name)
@@ -433,23 +478,31 @@ class ClaimExpenses:
             blob.upload_from_string(payment_file_string, content_type="application/xml")
 
             with tempfile.NamedTemporaryFile(delete=False) as file:
-                ET.ElementTree(root).write(open(f'{file.name}.xml', 'wb'),
-                                           encoding='utf-8',
-                                           xml_declaration=True,
-                                           method='xml')
+                ET.ElementTree(root).write(
+                    open(f"{file.name}.xml", "wb"),
+                    encoding="utf-8",
+                    xml_declaration=True,
+                    method="xml",
+                )
                 file.close()
 
-                ready_payment_file = open(f"{file.name}.xml", 'r')
+                ready_payment_file = open(f"{file.name}.xml", "r")
 
                 #  Do some sanity routine
-                self.update_exported_expenses(exported, document_export_date, document_type)
+                self.update_exported_expenses(
+                    exported, document_export_date, document_type
+                )
                 return no_expenses, document_export_date, ready_payment_file.read()
         else:
             no_expenses = False
-            return no_expenses, None, jsonify({"Info": "No Exports needed to create Payment Available"})
+            return (
+                no_expenses,
+                None,
+                jsonify({"Info": "No Exports needed to create Payment Available"}),
+            )
 
     def get_document_files_or_list(
-            self, document_type, document_id=None, all_exports=False, raw=None
+        self, document_type, document_id=None, all_exports=False, raw=None
     ):
         """
         1 => Gets a booking file or a list of them that has been exported before. If the query string param is all
@@ -486,17 +539,20 @@ class ClaimExpenses:
                 ###########################################################################
                 payment_data = []
                 content = expenses_bucket.blob(
-                        f"exports/booking_file/{self.now.year}/{month}/{day}/{file_name}"
-                    ).download_as_string()
+                    f"exports/booking_file/{self.now.year}/{month}/{day}/{file_name}"
+                ).download_as_string()
                 with tempfile.NamedTemporaryFile(delete=False) as file:
                     file.write(content)
                     file.close()
-                    opened_content = open(file.name, 'r')
+                    opened_content = open(file.name, "r")
                     reader = csv.DictReader(opened_content)
                     for piece in reader:
                         employee_detail = self.get_employee_afas_data(
-                            piece['BoekingsomschrijvingBron'].split('-')[0].strip())
-                        payment_data.append(dict(data=piece, iban=employee_detail['IBAN']))
+                            piece["BoekingsomschrijvingBron"].split("-")[0].strip()
+                        )
+                        payment_data.append(
+                            dict(data=piece, iban=employee_detail["IBAN"])
+                        )
                 return payment_data
             else:
                 with tempfile.NamedTemporaryFile(delete=False) as export_file:
@@ -624,22 +680,25 @@ def update_attachments_by_id():
     return "do some magic!"
 
 
-def get_document(document_id, document_type):
+def get_document(document_date, document_type):
     """
     Get a requested booking or payment file from a booking or payment identity in the format of
     1. Booking File => month_day_file_name => 7_12_12:34-12-07-2019
     2. Document File => month_day_file_name => 7_12_12:34-12-07-2019
+    e.g => http://{HOST}/finances/expenses/documents/7_12_12:34-12-07-2019/kinds/payment_file
     :rtype: None
     :return"""
 
     export_file = expense_instance.get_document_files_or_list(
-        document_id=document_id, document_type=document_type
+        document_id=document_date, document_type=document_type
     )
+    # Separate Content
+    content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
     return Response(
         open(export_file.name),
         headers={
-            "Content-Type": "text/csv",
-            "Content-Disposition": f"attachment; filename={document_id}",
+            "Content-Type": f"{content_type[document_type]}",
+            "Content-Disposition": f"attachment; filename={document_date}.{content_type[document_type].split('/')[1]}",
             "Authorization": "",
         },
     )
@@ -662,17 +721,16 @@ def create_document(document_type):
     Make a booking file based of expenses id. Looks up all objects with
     status: exported => False. Gives the object a new status and does a few sanity checks
     """
-    document_name = connexion.request.args.get('name')
+    document_name = connexion.request.args.get("name")
 
-    expenses, export_id, export_file = expense_instance.create_booking_file(document_type) if \
-        document_type == "booking_file" else \
-        expense_instance.create_payment_file(document_type, document_name)
+    expenses, export_id, export_file = (
+        expense_instance.create_booking_file(document_type)
+        if document_type == "booking_file"
+        else expense_instance.create_payment_file(document_type, document_name)
+    )
 
     # Separate Content
-    content_type = {
-        'payment_file': 'application/xml',
-        'booking_file': 'text/csv'
-    }
+    content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
 
     if expenses:
         response = make_response(export_file, 200)
