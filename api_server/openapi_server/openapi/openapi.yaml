@@ -252,6 +252,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{expenses_id}':
     post:
+      summary: Update status of expense
       operationId: update_status
       requestBody:
         content:
