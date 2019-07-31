@@ -22,6 +22,7 @@ from google.cloud import datastore, storage
 from openapi_server.models.booking_file import BookingFile
 from openapi_server.models.cost_types import CostTypes
 from openapi_server.models.documents import Documents
+from openapi_server.models.status import Status
 from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.expense_data_array import ExpenseDataArray
 
@@ -192,6 +193,22 @@ class ClaimExpenses:
         )
 
         return make_response(jsonify(entity.key.id_or_name), 201)
+
+    def update_status_expenses(self, expenses_id, data):
+        """
+        Change the status and add note from expense
+        :param expenses_id:
+        :param data:
+        :return:
+        """
+
+        exp_key = self.ds_client.key("Expenses", expenses_id)
+        expense = self.ds_client.get(exp_key)
+
+        expense["status"]["text"] = data.status
+        expense["finance_note"] = data.note
+
+        self.ds_client.put(expense)
 
     @staticmethod
     def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
@@ -750,9 +767,17 @@ def create_document(document_type):
     else:
         return export_file
 
+
 def update_status(expenses_id):
     """
     Update status and possibly add note by expense id
     :rtype: Expenses
     """
-    return "do some magic!"
+    try:
+        if connexion.request.is_json:
+            form_data = Status.from_dict(
+                connexion.request.get_json()
+            )  # noqa: E501
+            return expense_instance.update_status_expenses(expenses_id, form_data)
+    except Exception as er:
+        return jsonify(er.args), 500
