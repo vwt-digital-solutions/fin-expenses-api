@@ -5,7 +5,7 @@ from datetime import date, datetime  # noqa: F401
 
 from typing import List, Dict  # noqa: F401
 
-from api_server.openapi_server.models.base_model_ import Model
+from openapi_server.models.base_model_ import Model
 from api_server.openapi_server import util
 
 

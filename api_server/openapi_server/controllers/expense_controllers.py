@@ -17,11 +17,11 @@ import connexion
 from flask import make_response, jsonify, Response, request
 from google.cloud import datastore, storage
 
-from api_server.openapi_server.models.booking_file import BookingFile
-from api_server.openapi_server.models.cost_types import CostTypes
-from api_server.openapi_server.models.documents import Documents
-from api_server.openapi_server.models.expense_data import ExpenseData
-from api_server.openapi_server.models.expense_data_array import ExpenseDataArray
+from openapi_server.models.booking_file import BookingFile
+from openapi_server.models.cost_types import CostTypes
+from openapi_server.models.documents import Documents
+from openapi_server.models.expense_data import ExpenseData
+from openapi_server.models.expense_data_array import ExpenseDataArray
 
 logger = logging.getLogger(__name__)
 
