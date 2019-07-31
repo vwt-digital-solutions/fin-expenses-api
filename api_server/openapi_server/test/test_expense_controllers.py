@@ -8,7 +8,7 @@ import unittest
 
 import adal
 
-from openapi_server.test import BaseTestCase
+from api_server.openapi_server.test import BaseTestCase
 
 
 def get_token():

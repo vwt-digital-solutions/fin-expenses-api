@@ -1,7 +1,7 @@
 import connexion
 from flask_cors import CORS
 
-from openapi_server import encoder
+from api_server.openapi_server import encoder
 
 app = connexion.App(__name__, specification_dir='./openapi/')
 app.app.json_encoder = encoder.JSONEncoder
