@@ -279,7 +279,7 @@ class ClaimExpenses:
             never_exported,
             document_export_date,
             document_date,
-            now.isoformat(timespec="seconds"),
+            now.isoformat(timespec="seconds")
         )
 
     def create_booking_file(self, document_type):
@@ -402,15 +402,22 @@ class ClaimExpenses:
                 f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
                 f"{''.join(secrets.choice(string.digits) for i in range(8))}"
             )
-            ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
-            root = ET.Element("Document")
+
+            # Set namespaces
+            ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
+            root = ET.Element("{urn:iso:std:iso:20022:tech:xsd:pain.001.001.03}Document")
+
+            root.set('xmlns:xsi', "http://www.w3.org/2001/XMLSchema-instance")
+
             customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
 
             # Group Header
             header = ET.SubElement(customer_header, "GrpHdr")
             ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
-            ET.SubElement(header, "NbOfTxs").text = "45"  # Default Value
+            ET.SubElement(header, "NbOfTxs").text = str(
+                booking_file_detail.__len__()
+            )
             initiating_party = ET.SubElement(header, "InitgPty")
             ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
 
