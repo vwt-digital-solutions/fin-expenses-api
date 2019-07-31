@@ -100,6 +100,64 @@ class TestExpenseControllers(BaseTestCase):
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
+    def test_get_cost_types(self):
+        """Test case for get_cost_types
+
+        Get all cost_types
+        """
+        access_token = get_token()
+        headers = {
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {access_token}',
+        }
+        response = self.client.open(
+            '/employees/cost-types',
+            method='GET',
+            headers=headers)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_get_booking_document(self):
+        """Test case for get_document
+
+        Returns a CSV => of a booking file or XML => of payment file
+        """
+        access_token = get_token()
+        headers = {
+            'Accept': 'text/csv',
+            'Authorization': f'Bearer {access_token}',
+        }
+
+        document_type = 'booking_file'
+        document_date = '7_31_13:39:17-31072019.csv'
+        response = self.client.open(
+            f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
+            method='GET',
+            headers=headers)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_get_payment_document(self):
+        """Test case for get_document
+
+        Returns a CSV => of a booking file or XML => of payment file
+        """
+        access_token = get_token()
+
+        headers = {
+            'Accept': 'application/xml',
+            'Authorization': f'Bearer {access_token}',
+
+        }
+        document_type = 'payment_file'
+        document_date = '7_31_13:45:49-31072019'
+        response = self.client.open(
+            f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
+            method='GET',
+            headers=headers)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
 
 if __name__ == '__main__':
     unittest.main()
