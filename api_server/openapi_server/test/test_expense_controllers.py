@@ -67,13 +67,36 @@ class TestExpenseControllers(BaseTestCase):
         """
         access_token = get_token()
 
+        query_string = [('name', '')]
+        document_type = 'booking_file'
         headers = {
             'Authorization': f'Bearer {access_token}',
         }
         response = self.client.open(
-            '/finances/expenses/bookings',
+            f'/finances/expenses/{document_type}/files',
             method='POST',
-            headers=headers)
+            headers=headers,
+            query_string=query_string)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_create_payment_document(self):
+        """Test case for create_document
+
+        Creates a single booking or payment document
+        """
+        access_token = get_token()
+
+        query_string = [('name', '7_31_13:39:17-31072019.csv')]
+        document_type = 'payment_file'
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+        }
+        response = self.client.open(
+            f'/finances/expenses/{document_type}/files',
+            method='POST',
+            headers=headers,
+            query_string=query_string)
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 

@@ -32,6 +32,7 @@ MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"] #TODO REMOVE "to_be_approved" after DAT-243
 VWT_TIME_ZONE = 'Europe/Amsterdam'
 
+
 class ClaimExpenses:
     """
     Class based function to house all Expenses functionality
@@ -188,7 +189,9 @@ class ClaimExpenses:
         self.ds_client.put(entity)
 
         self.create_attachment(
-            data.attachment, entity.key.id_or_name, self.employee_info["unique_name"]
+            data.attachment,
+            entity.key.id_or_name,
+            self.employee_info["unique_name"] if "unique_name" in self.employee_info.keys() else ""
         )
 
         return make_response(jsonify(entity.key.id_or_name), 201)
