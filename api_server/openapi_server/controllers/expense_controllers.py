@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_DAYS_RESOLVE = 3
-EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"]
+EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"] #TODO REMOVE "to_be_approved" after DAT-243
 
 
 class ClaimExpenses:
