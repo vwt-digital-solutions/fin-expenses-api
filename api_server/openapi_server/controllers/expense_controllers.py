@@ -394,7 +394,7 @@ class ClaimExpenses:
 
             #  Payment Information
             payment_info = ET.SubElement(customer_header, "PmtInf")
-            ET.SubElement(payment_info, "PmtInfId").text = payment_info_id
+            ET.SubElement(payment_info, "PmtInfId").text = message_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(
                 booking_file_detail.__len__()
