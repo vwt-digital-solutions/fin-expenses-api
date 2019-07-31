@@ -47,7 +47,9 @@ class TestExpenseControllers(BaseTestCase):
             amount=3.4,
             cost_type='cost_type_example:00000',
             note='note_example',
-            date_of_transaction="2019-07-11"
+            date_of_transaction="2019-07-11",
+            attachment="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/l"
+                       "K3Q6wAAAABJRU5ErkJggg=="
         )
 
         response = self.client.open(
