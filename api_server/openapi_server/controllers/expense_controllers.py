@@ -151,6 +151,14 @@ class ClaimExpenses:
         else:
             return make_response(jsonify(None), 204)
 
+    def update_status(self, expenses_id, data):
+        """
+        Update status from expense by expense id
+        :param expenses_id:
+        :param data:
+        :return:
+        """
+
     def add_expenses(self, data):
         """
         Add expense with given data amount and given data note. An expense can have one of 6
@@ -744,3 +752,10 @@ def create_document(document_type):
         return response
     else:
         return export_file
+
+def update_status(expenses_id):
+    """
+    Update status and possibly add note by expense id
+    :rtype: Expenses
+    """
+    return "do some magic!"

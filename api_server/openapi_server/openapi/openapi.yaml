@@ -201,8 +201,8 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: List of files got Successfully OK
-      #      security:
-      #        - oauth2: [manager.write]
+      security:
+        - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
       operationId: create_document
@@ -221,8 +221,8 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: Booking file made Successfully OK
-      #      security:
-      #        - oauth2: [manager.write]
+      security:
+        - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/documents/{document_date}/kinds/{document_type}':
     get:
@@ -247,12 +247,47 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: Document file successfully retrieved
-      #      security:
-      #        - oauth2: [manager.write]
+      security:
+        - oauth2: [manager.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  '/finances/expenses/{expenses_id}':
+    post:
+      operationId: update_status
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Status'
+        required: true
+      parameters:
+        -
+          $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Updated expense status
+        default:
+          description: Status of an expense has been updated
+      security:
+        -
+          oauth2:
+            - manager.write
+            - creditor.write
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
 components:
   schemas:
+    Status:
+      description: Status for expense
+      properties:
+        status:
+          type: string
+        note:
+          type: string
+      required:
+        - status
+      example:
+        status: 'cancelled_by_creditor'
+        note: 'Wrong ammount'
     Documents:
       description: Information for documents
       properties:
