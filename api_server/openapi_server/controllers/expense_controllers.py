@@ -8,6 +8,8 @@ import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
 
+import pytz
+
 import config
 from jwkaas import JWKaas
 import logging
@@ -28,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"] #TODO REMOVE "to_be_approved" after DAT-243
-
+VWT_TIME_ZONE = 'Europe/Amsterdam'
 
 class ClaimExpenses:
     """
@@ -81,7 +83,7 @@ class ClaimExpenses:
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
-        today = datetime.datetime.now()
+        today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
 
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
@@ -161,7 +163,7 @@ class ClaimExpenses:
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
-        date_of_claim = datetime.datetime.now()
+        date_of_claim = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         entity.update(
             {
                 "employee": dict(
@@ -237,7 +239,7 @@ class ClaimExpenses:
         # Check bucket exists
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
 
-        now = datetime.datetime.now()
+        now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
         document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
             document_date
@@ -266,7 +268,7 @@ class ClaimExpenses:
         :param document_type:
         :return:
         """
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         never_exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
         )
@@ -365,7 +367,7 @@ class ClaimExpenses:
         :type document_type: object
         """
         no_expenses = True  # Initialise
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
         exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
@@ -520,7 +522,7 @@ class ClaimExpenses:
         :param all_exports:
         :return:
         """
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
         if all_exports:
             all_exports_files = []
