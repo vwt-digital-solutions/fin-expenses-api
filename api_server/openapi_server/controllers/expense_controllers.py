@@ -46,7 +46,6 @@ class ClaimExpenses:
         self.jwks_url = jwks_url
         self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
-        self.now = datetime.datetime.now()
 
     def get_employee_info(self):
         """
@@ -82,7 +81,7 @@ class ClaimExpenses:
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
-        today = self.now
+        today = datetime.datetime.now()
         email_name = email.split("@")[0]
 
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
@@ -159,7 +158,7 @@ class ClaimExpenses:
         *** to_be_approved => { rejected } <= approved => payable => exported
         """
         self.get_employee_info()
-        self.get_or_create_cloudstore_bucket(self.bucket_name, self.now)
+        self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
         date_of_claim = datetime.datetime.now()
@@ -236,9 +235,9 @@ class ClaimExpenses:
         :return:
         """
         # Check bucket exists
-        self.get_or_create_cloudstore_bucket(self.bucket_name, self.now)
+        self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
 
-        now = self.now
+        now = datetime.datetime.now()
         document_date = f"{now.day}{now:%m}{now.year}"
         document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
             document_date
@@ -267,6 +266,7 @@ class ClaimExpenses:
         :param document_type:
         :return:
         """
+        today = datetime.datetime.now()
         never_exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
         )
@@ -288,8 +288,8 @@ class ClaimExpenses:
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
                             f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": document_date,
-                            "Boekings-jaar": self.now.year,
-                            "Periode": self.now.month,
+                            "Boekings-jaar": today.year,
+                            "Periode": today.month,
                             "Bron-bedrijfs-nummer": 200,
                             "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
                             "Bron Org Code": 94015,
@@ -323,7 +323,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{self.now.year}/{self.now.month}/{self.now.day}/{document_export_date}.csv"
+                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
             blob.upload_from_string(booking_file, content_type="text/csv")
@@ -365,6 +365,8 @@ class ClaimExpenses:
         :type document_type: object
         """
         no_expenses = True  # Initialise
+        today = datetime.datetime.now()
+
         exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
         )
@@ -472,7 +474,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{self.now.year}/{self.now.month}/{self.now.day}/{document_export_date}"
+                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}"
             )
 
             # Upload file to Blob Storage
@@ -518,11 +520,12 @@ class ClaimExpenses:
         :param all_exports:
         :return:
         """
+        today = datetime.datetime.now()
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
         if all_exports:
             all_exports_files = []
             blobs = expenses_bucket.list_blobs(
-                prefix=f"exports/{document_type}/{self.now.year}"
+                prefix=f"exports/{document_type}/{today.year}"
             )
 
             for blob in blobs:
@@ -540,7 +543,7 @@ class ClaimExpenses:
                 ###########################################################################
                 payment_data = []
                 content = expenses_bucket.blob(
-                    f"exports/booking_file/{self.now.year}/{month}/{day}/{file_name}"
+                    f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
                 ).download_as_string()
                 with tempfile.NamedTemporaryFile(delete=False) as file:
                     file.write(content)
@@ -558,7 +561,7 @@ class ClaimExpenses:
             else:
                 with tempfile.NamedTemporaryFile(delete=False) as export_file:
                     expenses_bucket.blob(
-                        f"exports/{document_type}/{self.now.year}/{month}/{day}/{file_name}"
+                        f"exports/{document_type}/{today.year}/{month}/{day}/{file_name}"
                     ).download_to_file(export_file)
                     export_file.close()
                     return export_file
