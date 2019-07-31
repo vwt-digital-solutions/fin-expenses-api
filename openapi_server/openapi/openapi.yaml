@@ -240,11 +240,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/BookingFile'
         '401':
-            description: The unauthorized client is not allowed to access the authorization grant type.
+          description: The unauthorized client is not allowed to access the authorization grant type.
         '400':
-            description: A missing parameter or, unsupported parameter value.
+          description: A missing parameter or, unsupported parameter value.
         '403':
-            description: The Access token does not have the required scope
+          description: The Access token does not have the required scope
         default:
           description: Document file successfully retrieved
       security:

@@ -159,6 +159,7 @@ class ClaimExpenses:
         *** to_be_approved => { rejected } <= approved => payable => exported
         """
         self.get_employee_info()
+        self.get_or_create_cloudstore_bucket(self.bucket_name, self.now)
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
         date_of_claim = datetime.datetime.now()
@@ -284,8 +285,8 @@ class ClaimExpenses:
                     )
                     booking_file_data.append(
                         {
-                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]} - {expense_detail['employee']['family_name']}"
-                            f" - {expense_detail['date_of_transaction']}",
+                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
+                            f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": document_date,
                             "Boekings-jaar": self.now.year,
                             "Periode": self.now.month,
@@ -548,7 +549,7 @@ class ClaimExpenses:
                     reader = csv.DictReader(opened_content)
                     for piece in reader:
                         employee_detail = self.get_employee_afas_data(
-                            piece["BoekingsomschrijvingBron"].split("-")[0].strip()
+                            piece["BoekingsomschrijvingBron"].split("-")[0].strip() + '@vwtelecom.com'
                         )
                         payment_data.append(
                             dict(data=piece, iban=employee_detail["IBAN"])
@@ -613,7 +614,7 @@ def add_expense():
             )  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
-        return {f"Error: {er}"}
+        return jsonify(er.args), 500
 
 
 def delete_attachments_by_id():  # noqa: E501
