@@ -8,6 +8,8 @@ import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
 
+import pytz
+
 import config
 from jwkaas import JWKaas
 import logging
@@ -19,7 +21,6 @@ from google.cloud import datastore, storage
 
 from openapi_server.models.booking_file import BookingFile
 from openapi_server.models.cost_types import CostTypes
-from openapi_server.models.status import Status
 from openapi_server.models.documents import Documents
 from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.expense_data_array import ExpenseDataArray
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["payable", "approved", "late_on_approval", "to_be_approved"] #TODO REMOVE "to_be_approved" after DAT-243
-
+VWT_TIME_ZONE = 'Europe/Amsterdam'
 
 class ClaimExpenses:
     """
@@ -82,7 +83,7 @@ class ClaimExpenses:
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
-        today = datetime.datetime.now()
+        today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
 
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
@@ -162,7 +163,7 @@ class ClaimExpenses:
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
-        date_of_claim = datetime.datetime.now()
+        date_of_claim = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         entity.update(
             {
                 "employee": dict(
@@ -191,22 +192,6 @@ class ClaimExpenses:
         )
 
         return make_response(jsonify(entity.key.id_or_name), 201)
-
-    def update_status_expenses(self, expenses_id, data):
-        """
-        Change the status and add note from expense
-        :param expenses_id:
-        :param data:
-        :return:
-        """
-
-        exp_key = self.ds_client.key("Expenses", expenses_id)
-        expense = self.ds_client.get(exp_key)
-
-        expense["status"]["text"] = data.status
-        expense["finance_note"] = data.note
-
-        self.ds_client.put(expense)
 
     @staticmethod
     def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
@@ -254,7 +239,7 @@ class ClaimExpenses:
         # Check bucket exists
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
 
-        now = datetime.datetime.now()
+        now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
         document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
             document_date
@@ -283,7 +268,7 @@ class ClaimExpenses:
         :param document_type:
         :return:
         """
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         never_exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
         )
@@ -382,7 +367,7 @@ class ClaimExpenses:
         :type document_type: object
         """
         no_expenses = True  # Initialise
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
         exported, document_export_date, document_date, document_time = self.filter_expenses(
             document_type
@@ -411,7 +396,7 @@ class ClaimExpenses:
 
             #  Payment Information
             payment_info = ET.SubElement(customer_header, "PmtInf")
-            ET.SubElement(payment_info, "PmtInfId").text = payment_info_id
+            ET.SubElement(payment_info, "PmtInfId").text = message_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(
                 booking_file_detail.__len__()
@@ -537,7 +522,7 @@ class ClaimExpenses:
         :param all_exports:
         :return:
         """
-        today = datetime.datetime.now()
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
         if all_exports:
             all_exports_files = []
@@ -765,17 +750,9 @@ def create_document(document_type):
     else:
         return export_file
 
-
 def update_status(expenses_id):
     """
     Update status and possibly add note by expense id
     :rtype: Expenses
     """
-    try:
-        if connexion.request.is_json:
-            form_data = Status.from_dict(
-                connexion.request.get_json()
-            )  # noqa: E501
-            return expense_instance.update_status_expenses(expenses_id, form_data)
-    except Exception as er:
-        return jsonify(er.args), 500
+    return "do some magic!"
