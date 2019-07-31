@@ -1,3 +1,3 @@
-import api_server.openapi_server
+import openapi_server
 
 app = openapi_server.app
