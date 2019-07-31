@@ -747,3 +747,10 @@ def create_document(document_type):
         return response
     else:
         return export_file
+
+def update_status(expenses_id):
+    """
+    Update status and possibly add note by expense id
+    :rtype: Expenses
+    """
+    return "do some magic!"
