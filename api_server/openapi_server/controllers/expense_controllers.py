@@ -353,10 +353,11 @@ class ClaimExpenses:
                 never_exported, document_export_date, document_type
             )
             no_expenses = True
-            return no_expenses, document_export_date, booking_file
+            location = f"{today.month}_{today.day}_{document_export_date}.csv"
+            return no_expenses, document_export_date, booking_file, location
         else:
             no_expenses = False
-            return no_expenses, None, jsonify({"Info": "No Exports Available"})
+            return no_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
     @staticmethod
     def generate_random_msgid():
@@ -524,13 +525,15 @@ class ClaimExpenses:
                 self.update_exported_expenses(
                     exported, document_export_date, document_type
                 )
-                return no_expenses, document_export_date, ready_payment_file.read()
+                location = f"{today.month}_{today.day}_{document_export_date}"
+                return no_expenses, document_export_date, ready_payment_file.read(), location
         else:
             no_expenses = False
             return (
                 no_expenses,
                 None,
                 jsonify({"Info": "No Exports needed to create Payment Available"}),
+                None,
             )
 
     def get_document_files_or_list(
@@ -756,7 +759,7 @@ def create_document(document_type):
     """
     document_name = connexion.request.args.get("name")
 
-    expenses, export_id, export_file = (
+    expenses, export_id, export_file, location = (
         expense_instance.create_booking_file(document_type)
         if document_type == "booking_file"
         else expense_instance.create_payment_file(document_type, document_name)
@@ -769,7 +772,7 @@ def create_document(document_type):
         response = make_response(export_file, 200)
         response.headers = {
             "Content-Type": f"{content_type[document_type]}",
-            "Content-Disposition": f"attachment; filename={export_id}.{content_type[document_type].split('/')[1]}",
+            "Content-Disposition": f"attachment; filename={export_id}.{content_type[document_type].split('/')[1]}; file_location={location}",
             "Authorization": "",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
