@@ -253,7 +253,7 @@ paths:
   '/finances/expenses/{expenses_id}':
     post:
       summary: Update status of expense
-      operationId: update_status
+      operationId: update_expenses
       requestBody:
         content:
           'application/json':
@@ -288,7 +288,7 @@ components:
         - status
       example:
         status: 'cancelled_by_creditor'
-        note: 'Wrong ammount'
+        note: 'Wrong amount'
     Documents:
       description: Information for documents
       properties:
