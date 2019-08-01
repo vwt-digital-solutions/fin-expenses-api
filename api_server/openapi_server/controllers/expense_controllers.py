@@ -8,6 +8,7 @@ import datetime
 import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
+import xml.dom.minidom as MD
 
 import pytz
 
@@ -523,23 +524,18 @@ class ClaimExpenses:
             # Upload file to Blob Storage
             blob.upload_from_string(payment_file_string, content_type="application/xml")
 
-            with tempfile.NamedTemporaryFile(delete=False) as file:
-                ET.ElementTree(root).write(
-                    open(f"{file.name}.xml", "wb"),
-                    encoding="utf-8",
-                    xml_declaration=True,
-                    method="xml",
-                )
-                file.close()
+            #  Do some sanity routine
 
-                ready_payment_file = open(f"{file.name}.xml", "r")
+            location = f"{today.month}_{today.day}_{document_export_date}"
+            payment_file = MD.parseString(payment_file_string).toprettyxml(encoding='utf-8')
 
-                #  Do some sanity routine
-                self.update_exported_expenses(
-                    exported, document_export_date, document_type
-                )
-                location = f"{today.month}_{today.day}_{document_export_date}"
-                return no_expenses, document_export_date, ready_payment_file.read(), location
+            ############################
+            #  KEEP AS LAST TO HAPPEN  #
+            ############################
+            self.update_exported_expenses(
+                exported, document_export_date, document_type
+            )
+            return no_expenses, document_export_date, payment_file, location
         else:
             no_expenses = False
             return (
@@ -744,7 +740,7 @@ def get_document(document_date, document_type):
     # Separate Content
     content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
     return Response(
-        open(export_file.name),
+        MD.parse(export_file.name).toprettyxml(encoding='utf-8').decode(),
         headers={
             "Content-Type": f"{content_type[document_type]}",
             "Content-Disposition": f"attachment; filename={document_date}.{content_type[document_type].split('/')[1]}",
