@@ -334,7 +334,7 @@ class ClaimExpenses:
                             "Doel Produkt": "000",
                             "Doel EC": "000",
                             "Doel VP": "00",
-                            "D/C": "C",
+                            "D/C": "D",
                             "Bedrag excl. BTW": expense_detail["amount"],
                             "BTW-Bedrag": "0.00",
                         }
