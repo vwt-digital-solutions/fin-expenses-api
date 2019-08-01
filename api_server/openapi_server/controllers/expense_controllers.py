@@ -214,7 +214,7 @@ class ClaimExpenses:
             if "note" in data:
                 expense["finance_note"] = data["note"]
             if "amount" in data:
-                expense["amount"] = data["amount"]
+                expense["amount"] = int(data["amount"])
             if "cost_type" in data:
                 expense["cost_type"] = data["cost_type"]
             if "date_of_transaction" in data:
