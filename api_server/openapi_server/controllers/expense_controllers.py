@@ -249,7 +249,11 @@ class ClaimExpenses:
         """
         detail = iban.split(" ")
         bank_data = config.BIC_NUMBERS
-        return next(r["bic"] for r in bank_data if r["identifier"] == detail[1])
+        bic = next(r["bic"] for r in bank_data if r["identifier"] == detail[1])
+        if bic:
+            return bic
+        else:
+            return 'NOTPROVIDED'  # ABN-AMRO will determine the BIC based on the Debtor Account
 
     def filter_expenses(self, document_type):
         """
@@ -416,7 +420,7 @@ class ClaimExpenses:
             ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
             ET.SubElement(header, "NbOfTxs").text = str(
-                booking_file_detail.__len__()
+                booking_file_detail.__len__()  # Number Of Transactions in the batch
             )
             initiating_party = ET.SubElement(header, "InitgPty")
             ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
@@ -426,7 +430,7 @@ class ClaimExpenses:
             ET.SubElement(payment_info, "PmtInfId").text = message_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(
-                booking_file_detail.__len__()
+                booking_file_detail.__len__()  # Number Of Transactions in the batch
             )
 
             # Payment Type Information
@@ -435,9 +439,8 @@ class ClaimExpenses:
             payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
             ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-            ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
-                0
-            ]
+            ET.SubElement(payment_info, "ReqdExctnDt").text = \
+                document_time.split("T")[0]
 
             # Debitor Information
             payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
@@ -489,7 +492,8 @@ class ClaimExpenses:
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
                 creditor_account_id = ET.SubElement(creditor_account, "Id")
-                ET.SubElement(creditor_account_id, "IBAN").text = expense["iban"]
+                ET.SubElement(creditor_account_id, "IBAN").text = \
+                    expense["iban"].replace(" ", "")  # <ValidationPass> on whitespaces
 
                 # Remittance Information
                 remittance_info = ET.SubElement(transfer, "RmtInf")
