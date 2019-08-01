@@ -471,7 +471,7 @@ class ClaimExpenses:
             ]
 
             for expense in booking_file_detail:
-                # Transaction Transfer Test Information
+                # Transaction Transfer Information
                 transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
                 transfer_payment_id = ET.SubElement(transfer, "PmtId")
                 ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
@@ -484,7 +484,7 @@ class ClaimExpenses:
                 ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = expense["data"][
                     "Bedrag excl. BTW"
                 ]
-                ET.SubElement(amount, "ChrgBr").text = "SLEV"
+                ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
                 amount_agent = ET.SubElement(transfer, "CdtrAgt")
