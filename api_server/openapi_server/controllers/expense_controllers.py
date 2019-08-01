@@ -197,7 +197,7 @@ class ClaimExpenses:
 
         return make_response(jsonify(entity.key.id_or_name), 201)
 
-    def update_status_expenses(self, expenses_id, data):
+    def update_expenses(self, expenses_id, data):
         """
         Change the status and add note from expense
         :param expenses_id:
@@ -508,7 +508,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}"
+                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_name}"
             )
 
             # Upload file to Blob Storage
@@ -785,7 +785,7 @@ def create_document(document_type):
         return export_file
 
 
-def update_status(expenses_id):
+def update_expenses(expenses_id):
     """
     Update status and possibly add note by expense id
     :rtype: Expenses
@@ -795,6 +795,6 @@ def update_status(expenses_id):
             form_data = Status.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            return expense_instance.update_status_expenses(expenses_id, form_data)
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
