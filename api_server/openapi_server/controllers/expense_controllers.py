@@ -508,7 +508,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4]}"
+                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4].split('_')[2]}"
             )
 
             # Upload file to Blob Storage
