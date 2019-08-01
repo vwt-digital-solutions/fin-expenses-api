@@ -1,5 +1,6 @@
 import base64
 import csv
+import json
 import secrets
 import string
 
@@ -204,14 +205,22 @@ class ClaimExpenses:
         :param data:
         :return:
         """
+        with self.ds_client.transaction():
+            exp_key = self.ds_client.key("Expenses", expenses_id)
+            expense = self.ds_client.get(exp_key)
 
-        exp_key = self.ds_client.key("Expenses", expenses_id)
-        expense = self.ds_client.get(exp_key)
+            if "status" in data:
+                expense["status"]["text"] = data["status"]
+            if "note" in data:
+                expense["finance_note"] = data["note"]
+            if "amount" in data:
+                expense["amount"] = data["amount"]
+            if "cost_type" in data:
+                expense["cost_type"] = data["cost_type"]
+            if "date_of_transaction" in data:
+                expense["date_of_transaction"] = data["date_of_transaction"]
 
-        expense["status"]["text"] = data.status
-        expense["finance_note"] = data.note
-
-        self.ds_client.put(expense)
+            self.ds_client.put(expense)
 
     @staticmethod
     def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
@@ -792,9 +801,7 @@ def update_expenses(expenses_id):
     """
     try:
         if connexion.request.is_json:
-            form_data = Status.from_dict(
-                connexion.request.get_json()
-            )  # noqa: E501
+            form_data = json.loads(connexion.request.get_data().decode())
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
