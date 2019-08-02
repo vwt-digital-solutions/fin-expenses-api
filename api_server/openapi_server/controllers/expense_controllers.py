@@ -346,14 +346,18 @@ class ClaimExpenses:
                             "Doel VP": "00",
                             "D/C": "D",
                             "Bedrag excl. BTW": expense_detail["amount"],
-                            "BTW-Bedrag": "0.00",
+                            "BTW-Bedrag": "0,00",
                         }
                     )
                 else:
                     no_expenses = False
                     return no_expenses, None, jsonify({"Info": "No Exports Available"})
 
-            booking_file = pd.DataFrame(booking_file_data).to_csv(index=False)
+            booking_file = pd.DataFrame(booking_file_data).to_csv(
+                sep=';',
+                index=False,
+                decimal=','
+            )
 
             # Save File to CloudStorage
             bucket = self.cs_client.get_bucket(self.bucket_name)
