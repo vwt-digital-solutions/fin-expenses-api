@@ -593,8 +593,7 @@ class ClaimExpenses:
                 with tempfile.NamedTemporaryFile(delete=False) as file:
                     file.write(content)
                     file.close()
-                    opened_content = open(file.name, "r")
-                    reader = csv.DictReader(opened_content)
+                    reader = pd.read_csv(file.name, sep=';').to_dict(orient='records')
                     for piece in reader:
                         employee_detail = self.get_employee_afas_data(
                             piece["BoekingsomschrijvingBron"].split("-")[0].strip() + '@vwtelecom.com'
@@ -742,12 +741,22 @@ def get_document(document_date, document_type):
         document_id=document_date, document_type=document_type
     )
     # Separate Content
-    content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
+    content_response = {
+        "payment_file": {
+            "content_type": "application/xml",
+            "file": MD.parse(export_file.name).toprettyxml(encoding='utf-8').decode() if document_type == 'payment_file' else '',
+        },
+        "booking_file": {
+            "content_type": "text/csv",
+            "file": export_file.name if document_type == 'booking_file' else ''
+        }
+    }
+
     return Response(
-        MD.parse(export_file.name).toprettyxml(encoding='utf-8').decode(),
+        content_response[document_type]["file"],
         headers={
-            "Content-Type": f"{content_type[document_type]}",
-            "Content-Disposition": f"attachment; filename={document_date}.{content_type[document_type].split('/')[1]}",
+            "Content-Type": f"{content_response[document_type]['content_type']}",
+            "Content-Disposition": f"attachment; filename={document_date}.{content_response[document_type]['content_type'].split('/')[1]}",
             "Authorization": "",
         },
     )
