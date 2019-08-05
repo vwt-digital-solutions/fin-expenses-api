@@ -348,7 +348,7 @@ class ClaimExpenses:
                     )
                 else:
                     no_expenses = False
-                    return no_expenses, None, jsonify({"Info": "No Exports Available"})
+                    return no_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
             booking_file = pd.DataFrame(booking_file_data).to_csv(
                 sep=';',
