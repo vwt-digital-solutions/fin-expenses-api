@@ -210,16 +210,13 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-            if "status" in data:
-                expense["status"]["text"] = data["status"]
-            if "note" in data:
-                expense["finance_note"] = data["note"]
-            if "amount" in data:
-                expense["amount"] = int(data["amount"])
-            if "cost_type" in data:
-                expense["cost_type"] = data["cost_type"]
-            if "date_of_transaction" in data:
-                expense["date_of_transaction"] = data["date_of_transaction"]
+            fields = {'status', 'finance_note', 'amount', 'date_of_transaction', 'cost_type'}
+            items_to_update = list(fields.intersection(set(data.keys())))
+            for item in items_to_update:
+                if item == 'status':
+                    expense['status']['text'] = data[item]
+                else:
+                    expense[item] = data[item]
 
             self.ds_client.put(expense)
 
@@ -809,8 +806,12 @@ def update_expenses(expenses_id):
     :rtype: Expenses
     """
     try:
-        if connexion.request.is_json:
-            form_data = json.loads(connexion.request.get_data().decode())
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(
+                request.get_data().decode()
+            )
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
