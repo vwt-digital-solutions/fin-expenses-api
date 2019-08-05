@@ -12,6 +12,7 @@ import xml.dom.minidom as MD
 
 import pytz
 
+import urllib.parse
 import config
 from jwkaas import JWKaas
 import logging
@@ -133,6 +134,32 @@ class ClaimExpenses:
         else:
             return make_response(jsonify(None), 204)
 
+    def get_attachment(self, expenses_id):
+        """Get attachments with expenses_id"""
+        email_name = ""
+
+        expenses_info = self.ds_client.query(kind="Expenses")
+        expenses_key = self.ds_client.key("Expenses", expenses_id)
+        expenses_info.key_filter(expenses_key, "=")
+        expenses_data = expenses_info.fetch()
+
+        for expense in expenses_data:
+            email_name = expense["employee"]['email'].split('@')[0]
+
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+        blobs = expenses_bucket.list_blobs(
+            prefix=f"exports/attachments/{email_name}/{str(expenses_id)}"
+        )
+
+        results = [
+            {
+                "url": f"https://storage.cloud.google.com/{self.bucket_name}/{urllib.parse.quote(blob.name)}"
+            }
+            for blob in blobs
+        ]
+
+        return results
+
     def get_all_expenses(self):
         """Get JSON of all the expenses"""
 
@@ -149,6 +176,7 @@ class ClaimExpenses:
                     "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"],
                     "status": ed["status"],
+                    "attachment": self.get_attachment(ed.key.id),
                 }
                 for ed in expenses_data
             ]
@@ -815,3 +843,13 @@ def update_expenses(expenses_id):
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
+
+
+def get_attachment(expenses_id):
+    """
+    Get attachment by expenses id
+    :param expenses_id:
+    :return:
+    """
+
+    return jsonify(expense_instance.get_attachment(expenses_id))
