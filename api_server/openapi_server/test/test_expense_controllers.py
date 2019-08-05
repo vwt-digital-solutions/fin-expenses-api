@@ -136,7 +136,6 @@ class TestExpenseControllers(BaseTestCase):
         """
         access_token = get_token()
         headers = {
-            'Accept': 'text/csv',
             'Authorization': f'Bearer {access_token}',
         }
 
