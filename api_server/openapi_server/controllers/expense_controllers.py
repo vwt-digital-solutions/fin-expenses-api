@@ -142,6 +142,7 @@ class ClaimExpenses:
         if expenses_data:
             results = [
                 {
+                    "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
