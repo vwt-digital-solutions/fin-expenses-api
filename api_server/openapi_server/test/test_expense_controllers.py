@@ -78,7 +78,7 @@ class TestExpenseControllers(BaseTestCase):
             cost_type="Software:415020",
             date_of_transaction="1-8-2019"
         )
-        expenses_id = '4856876189614080'
+        expenses_id = '5725788003368960'
 
         response = self.client.open(
             f'/finances/expenses/{expenses_id}',
@@ -129,6 +129,25 @@ class TestExpenseControllers(BaseTestCase):
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
+    def test_get_attachment(self):
+        """Test case for get_attachment
+
+        Get attachment
+        """
+        access_token = get_token()
+        headers = {
+            'Accept': 'text/csv',
+            'Authorization': f'Bearer {access_token}',
+        }
+
+        expenses_id = '4856876189614080'
+        response = self.client.open(
+            f'/finances/attachments/{expenses_id}',
+            method='GET',
+            headers=headers)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
     def test_get_cost_types(self):
         """Test case for get_cost_types
 
@@ -158,7 +177,7 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         document_type = 'booking_file'
-        document_date = '8_3_08:01:35-3082019.csv'
+        document_date = '8_5_12:00:05-5082019.csv'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
@@ -179,7 +198,7 @@ class TestExpenseControllers(BaseTestCase):
 
         }
         document_type = 'payment_file'
-        document_date = '8_2_16:36:03-2082019'
+        document_date = '8_5_12:00:05-5082019'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
