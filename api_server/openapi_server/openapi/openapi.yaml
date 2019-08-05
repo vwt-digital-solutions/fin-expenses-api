@@ -16,6 +16,20 @@ servers:
   -
     url: /
 paths:
+  /finances/attachments/{expenses_id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:
       responses:
@@ -251,8 +265,8 @@ paths:
         - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{expenses_id}':
-    post:
-      summary: Update status of expense
+    put:
+      summary: Update expense
       operationId: update_expenses
       requestBody:
         content:
@@ -265,7 +279,7 @@ paths:
           $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Updated expense status
+          description: Updated expense
         default:
           description: Status of an expense has been updated
       security:
@@ -277,18 +291,33 @@ paths:
 
 components:
   schemas:
+    Url:
+      properties:
+        url:
+          type: string
+      example:
+        url: 'https://gcp.com/img.png'
+    UrlArray:
+      title: Root Type for UrlArray
+      description: Array of urls of attachments
+      type: object
+      properties:
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Url'
     Status:
       description: Status for expense
       properties:
         status:
           type: string
-        note:
+        finance_note:
           type: string
       required:
         - status
       example:
         status: 'cancelled_by_creditor'
-        note: 'Wrong amount'
+        finance_note: 'Wrong amount'
     Documents:
       description: Information for documents
       properties:
