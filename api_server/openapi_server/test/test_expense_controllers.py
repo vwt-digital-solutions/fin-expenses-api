@@ -60,9 +60,9 @@ class TestExpenseControllers(BaseTestCase):
             content_type='application/json')
         self.assertEqual(response.status_code, 201)
 
-    def test_change_expense_status(self):
+    def test_update_expense(self):
         """
-        Test case for updating the expense status and adding a finance-note
+        Test case for updating the expense
         :return:
         """
         access_token = get_token()
@@ -73,13 +73,16 @@ class TestExpenseControllers(BaseTestCase):
 
         post_data = dict(
             status="cancelled_by_creditor",
-            note="Wrong amount"
+            finance_note="Wrong amount",
+            amount=21,
+            cost_type="Software:415020",
+            date_of_transaction="1-8-2019"
         )
-        expenses_id = '5760325647335424'
+        expenses_id = '4856876189614080'
 
         response = self.client.open(
             f'/finances/expenses/{expenses_id}',
-            method='POST',
+            method='PUT',
             headers=headers,
             data=json.dumps(post_data),
             content_type='application/json')
@@ -113,7 +116,7 @@ class TestExpenseControllers(BaseTestCase):
         """
         access_token = get_token()
 
-        query_string = [('name', '7_31_13:39:17-31072019.csv')]
+        query_string = [('name', '8_3_08:01:35-3082019.csv')]
         document_type = 'payment_file'
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -155,7 +158,7 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         document_type = 'booking_file'
-        document_date = '8_1_07:52:41-1082019.csv'
+        document_date = '8_3_08:01:35-3082019.csv'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
@@ -176,7 +179,7 @@ class TestExpenseControllers(BaseTestCase):
 
         }
         document_type = 'payment_file'
-        document_date = '8_1_07:52:54-1082019'
+        document_date = '8_2_16:36:03-2082019'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
