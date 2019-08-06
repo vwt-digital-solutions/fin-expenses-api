@@ -275,18 +275,15 @@ paths:
               $ref: '#/components/schemas/Status'
         required: true
       parameters:
-        -
-          $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
           description: Updated expense
         default:
           description: Status of an expense has been updated
       security:
-        -
-          oauth2:
+        - oauth2:
             - manager.write
-            - creditor.write
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
 components:
