@@ -775,7 +775,7 @@ def get_document(document_date, document_type):
         },
         "booking_file": {
             "content_type": "text/csv",
-            "file": export_file.name if document_type == 'booking_file' else ''
+            "file": open(export_file.name, 'r') if document_type == 'booking_file' else ''
         }
     }
 
