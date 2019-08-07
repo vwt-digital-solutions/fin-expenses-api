@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["payable", "approved_by_manager", "late_on_approval"]
 VWT_TIME_ZONE = 'Europe/Amsterdam'
-FILTERED_OUT_ON_PROCESS = ['approved_by_manager', 'payment-document-created']
+FILTERED_OUT_ON_PROCESS = ['approved_by_manager', 'payment-document-created', 'booking_document_created']
 
 
 class ClaimExpenses:
@@ -165,7 +165,9 @@ class ClaimExpenses:
         """Get JSON of all the expenses"""
 
         expenses_info = self.ds_client.query(kind="Expenses")
-        expenses_data = expenses_info.fetch()
+        expenses_info.add_filter('status.text', '=', 'to_be_approved')
+        # expenses_info.order = ['-date_of_claim']
+        expenses_data = expenses_info.fetch(limit=20)
 
         if expenses_data:
             results = [
@@ -176,11 +178,10 @@ class ClaimExpenses:
                     "cost_type": ed["cost_type"],
                     "date_of_claim": ed["date_of_claim"],
                     "date_of_transaction": ed["date_of_transaction"],
-                    "employee": ed["employee"],
+                    "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
-                    "attachment": self.get_attachment(ed.key.id),
                 }
-                for ed in expenses_data if ed['status']['text'] not in FILTERED_OUT_ON_PROCESS
+                for ed in expenses_data
             ]
             return jsonify(results)
         else:
