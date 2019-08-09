@@ -76,6 +76,37 @@ paths:
       summary: Make new document
       description: Add a document to an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/{employee_id}/expenses:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+          description: Succesfull response - returns all expenses of a logged in employee
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_employee_expenses
+      summary: Get all expenses belonging to a specific logged in employee
+      description: Retrieve all expenses for a logged in employee
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}':
     get:
       parameters:
@@ -457,6 +488,14 @@ components:
       name: expenses_id
       schema:
         type: integer
+      in: path
+      required: true
+    EmployeeId:
+      style: simple
+      explode: false
+      name: employee_id
+      schema:
+        type: string
       in: path
       required: true
     DepartmentId:
