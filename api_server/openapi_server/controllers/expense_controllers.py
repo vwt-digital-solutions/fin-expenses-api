@@ -179,28 +179,41 @@ class ClaimExpenses:
 
         return results
 
-    def get_all_expenses(self, department_id=None):
+    def get_all_expenses(self, department_id=None, employee_id=None):
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
-            creditor="approved_by_manager", manager="to_be_approved"
+            creditor="approved_by_manager", manager="to_be_approved",
         )
 
         expenses_info = self.ds_client.query(kind="Expenses")
-        expenses_info.add_filter(
-            "status.text",
-            "=",
-            query_filter["manager"] if department_id else query_filter["creditor"],
-        )
+
         if department_id:
             #  Add filter to fetch identifying field TODO: Refactoring needed to make this more abstract
             self.get_manager_info()
             manager = self.ds_client.get(self.ds_client.key("Manager", department_id))
             expenses_info.add_filter(
-                "employee.afas_data.Manager", "=", manager["manager_id"]
+                "status.text",
+                "=",
+                query_filter["manager"] if department_id else query_filter["creditor"],
+            )
+            expenses_info.add_filter(
+                "employee.afas_data.Manager",
+                "=",
+                manager["manager_id"]
+            )
+            expenses_data = expenses_info.fetch(limit=20)
+        elif employee_id:
+            expenses_info.add_filter(
+                "employee.afas_data.email_address", "=", f"{employee_id}@vwtelecom.com"
             )
             expenses_data = expenses_info.fetch(limit=20)
         else:
+            expenses_info.add_filter(
+                "status.text",
+                "=",
+                query_filter["manager"] if department_id else query_filter["creditor"],
+            )
             expenses_data = expenses_info.fetch(limit=20)
 
         if expenses_data:
@@ -694,9 +707,12 @@ class ClaimExpenses:
                     return export_file
 
     def get_department_expenses(self, department_id):
-        """ Get expenses belonging to am manager"""
-        # if self.employee_info['']:
+        """ Get expenses belonging to a manager"""
         return self.get_all_expenses(department_id)
+
+    def get_employee_expenses(self, employee_id):
+        """ Get expenses belonging to a loggedin employee"""
+        return self.get_all_expenses(employee_id)
 
 
 expense_instance = ClaimExpenses(
@@ -904,6 +920,14 @@ def get_attachment(expenses_id):
 def get_department_expenses(department_id):
     """
     Get expenses corresponding to this manager
-    :param manager_id:
+    :param department_id:
     """
     return expense_instance.get_department_expenses(department_id)
+
+
+def get_employee_expenses(employee_id):
+    """
+    Get expenses corresponding to the logged in employee
+    :param employee_id:
+    """
+    return expense_instance.get_employee_expenses(employee_id)
