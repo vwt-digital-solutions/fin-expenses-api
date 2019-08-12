@@ -179,7 +179,7 @@ class ClaimExpenses:
 
         return results
 
-    def get_all_expenses(self, department_id=None, employee_id=None):
+    def get_all_expenses(self, set_id, dep_or_emp):
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
@@ -188,14 +188,14 @@ class ClaimExpenses:
 
         expenses_info = self.ds_client.query(kind="Expenses")
 
-        if department_id:
+        if dep_or_emp == 'dep':
             #  Add filter to fetch identifying field TODO: Refactoring needed to make this more abstract
             self.get_manager_info()
-            manager = self.ds_client.get(self.ds_client.key("Manager", department_id))
+            manager = self.ds_client.get(self.ds_client.key("Manager", set_id))
             expenses_info.add_filter(
                 "status.text",
                 "=",
-                query_filter["manager"] if department_id else query_filter["creditor"],
+                query_filter["manager"] if set_id else query_filter["creditor"],
             )
             expenses_info.add_filter(
                 "employee.afas_data.Manager",
@@ -203,16 +203,16 @@ class ClaimExpenses:
                 manager["manager_id"]
             )
             expenses_data = expenses_info.fetch(limit=20)
-        elif employee_id:
+        elif dep_or_emp == 'emp':
             expenses_info.add_filter(
-                "employee.afas_data.email_address", "=", f"{employee_id}@vwtelecom.com"
+                "employee.afas_data.email_address", "=", f"{set_id}@vwtelecom.com"
             )
             expenses_data = expenses_info.fetch(limit=20)
         else:
             expenses_info.add_filter(
                 "status.text",
                 "=",
-                query_filter["manager"] if department_id else query_filter["creditor"],
+                query_filter["manager"] if set_id else query_filter["creditor"],
             )
             expenses_data = expenses_info.fetch(limit=20)
 
@@ -708,11 +708,11 @@ class ClaimExpenses:
 
     def get_department_expenses(self, department_id):
         """ Get expenses belonging to a manager"""
-        return self.get_all_expenses(department_id)
+        return self.get_all_expenses(department_id, 'dep')
 
     def get_employee_expenses(self, employee_id):
         """ Get expenses belonging to a loggedin employee"""
-        return self.get_all_expenses(employee_id)
+        return self.get_all_expenses(employee_id, 'emp')
 
 
 expense_instance = ClaimExpenses(
