@@ -179,7 +179,7 @@ class ClaimExpenses:
 
         return results
 
-    def get_all_expenses(self, set_id, dep_or_emp):
+    def get_all_expenses(self, set_id=None, dep_or_emp=None):
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
