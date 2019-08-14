@@ -303,6 +303,8 @@ class ClaimExpenses:
             for item in items_to_update:
                 if item == "status":
                     expense["status"]["text"] = data[item]
+                if item == "rejectionNode":
+                    expense["status"]["rejection_note"] = data[item]
                 else:
                     expense[item] = data[item]
 
