@@ -265,7 +265,7 @@ class ClaimExpenses:
                 "cost_type": data.cost_type,
                 "date_of_transaction": int(data.date_of_transaction),
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
-                "status": dict(date_exported="never", text="to_be_approved"),
+                "status": dict(date_exported="never", text="to_be_reviewed"),
             }
         )
         self.ds_client.put(entity)
@@ -297,6 +297,7 @@ class ClaimExpenses:
                 "manager_note",
                 "amount",
                 "date_of_transaction",
+                "rejectionNote",
                 "cost_type",
             }
             items_to_update = list(fields.intersection(set(data.keys())))
