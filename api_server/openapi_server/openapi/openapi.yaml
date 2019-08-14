@@ -402,7 +402,7 @@ components:
         cost_type:
           type: string
         date_of_transaction:
-          type: string
+          type: integer
       example: |-
         {
             "note": "This is a note",

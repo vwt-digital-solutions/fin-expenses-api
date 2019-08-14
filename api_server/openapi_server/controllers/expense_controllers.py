@@ -7,6 +7,7 @@ import string
 import datetime
 import mimetypes
 import tempfile
+import time
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
 from typing import Dict, Any
@@ -262,7 +263,7 @@ class ClaimExpenses:
                 "amount": data.amount,
                 "note": data.note,
                 "cost_type": data.cost_type,
-                "date_of_transaction": data.date_of_transaction,
+                "date_of_transaction": time.strftime('%d-%m-%Y', time.localtime(int(data.date_of_transaction))),
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
                 "status": dict(date_exported="never", text="to_be_approved"),
             }
