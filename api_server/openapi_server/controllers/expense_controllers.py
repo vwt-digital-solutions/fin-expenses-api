@@ -203,19 +203,19 @@ class ClaimExpenses:
                 "=",
                 manager["manager_id"]
             )
-            expenses_data = expenses_info.fetch(limit=20)
+            expenses_data = expenses_info.fetch()
         elif dep_or_emp == 'emp':
             expenses_info.add_filter(
                 "employee.afas_data.email_address", "=", f"{set_id}@vwtelecom.com"
             )
-            expenses_data = expenses_info.fetch(limit=20)
+            expenses_data = expenses_info.fetch()
         else:
             expenses_info.add_filter(
                 "status.text",
                 "=",
                 query_filter["manager"] if set_id else query_filter["creditor"],
             )
-            expenses_data = expenses_info.fetch(limit=20)
+            expenses_data = expenses_info.fetch()
 
         if expenses_data:
             results = [
