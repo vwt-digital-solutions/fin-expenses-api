@@ -297,6 +297,7 @@ class ClaimExpenses:
                 "manager_note",
                 "amount",
                 "date_of_transaction",
+                "note",
                 "rejectionNote",
                 "cost_type",
             }
