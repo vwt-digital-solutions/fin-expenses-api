@@ -47,7 +47,7 @@ class TestExpenseControllers(BaseTestCase):
             amount=6.4,
             cost_type='Kantoorbenodigdheden:412000',
             note='Scharen en potloden',
-            date_of_transaction="2019-07-11",
+            date_of_transaction=1564963200,
             attachment="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/l"
                        "K3Q6wAAAABJRU5ErkJggg=="
         )
@@ -76,9 +76,9 @@ class TestExpenseControllers(BaseTestCase):
             finance_note="Wrong amount",
             amount=21,
             cost_type="Software:415020",
-            date_of_transaction="1-8-2019"
+            date_of_transaction=1564963200
         )
-        expenses_id = '5725788003368960'
+        expenses_id = '5655702123053056'
 
         response = self.client.open(
             f'/finances/expenses/{expenses_id}',
@@ -116,7 +116,7 @@ class TestExpenseControllers(BaseTestCase):
         """
         access_token = get_token()
 
-        query_string = [('name', '8_3_08:01:35-3082019.csv')]
+        query_string = [('name', '8_14_10:38:57-14082019.csv')]
         document_type = 'payment_file'
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -139,9 +139,9 @@ class TestExpenseControllers(BaseTestCase):
             'Authorization': f'Bearer {access_token}',
         }
 
-        expenses_id = '4856876189614080'
+        expenses_id = '5661919759302656'
         response = self.client.open(
-            f'/finances/attachments/{expenses_id}',
+            f'/finances/{expenses_id}/attachments',
             method='GET',
             headers=headers)
         self.assert200(response,
@@ -176,7 +176,7 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         document_type = 'booking_file'
-        document_date = '8_5_12:00:05-5082019.csv'
+        document_date = '8_14_10:38:57-14082019.csv'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
@@ -197,7 +197,7 @@ class TestExpenseControllers(BaseTestCase):
 
         }
         document_type = 'payment_file'
-        document_date = '8_5_12:00:05-5082019'
+        document_date = '8_12_13:41:57-12082019'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',

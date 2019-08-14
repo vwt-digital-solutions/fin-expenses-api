@@ -25,8 +25,8 @@ paths:
           description: Succesfully made or updated an expense
         default:
           description: Expense Made/Updated successfully!
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: add_expense
       summary: Make expense
       description: Create an expense
@@ -48,8 +48,8 @@ paths:
           description: Succesfull response - returns all costtypes
         default:
           description: Cost Types retrieved successfully
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: get_cost_types
       summary: Get all cost_types
       description: Retrieve all cost_types
@@ -70,8 +70,8 @@ paths:
           description: Make new document
         default:
           description: A new document has been made
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: add_document
       summary: Make new document
       description: Add a document to an expense
@@ -101,8 +101,8 @@ paths:
           description: Succesfull response - returns all expenses of a logged in employee
         default:
           description: Response Successfully Executed
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: get_employee_expenses
       summary: Get all expenses belonging to a specific logged in employee
       description: Retrieve all expenses for a logged in employee
@@ -120,8 +120,8 @@ paths:
           description: Successful response - returns information of expense
         default:
           description: Expense Success
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: get_expenses
       summary: Get information from expenses by id
       description: Retrieve an expense
@@ -140,8 +140,8 @@ paths:
           description: Succesfull response - returns document
         default:
           description: Document successfully Retrieved
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: get_document_by_id
       summary: Get document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -156,8 +156,8 @@ paths:
           description: Succesfully updated a document
         default:
           description: Expense successfully Updated
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: update_attachments_by_id
       summary: Update document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -172,8 +172,8 @@ paths:
           description: Succesfully deleted a document
         default:
           description: Delete Successfull OK
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       operationId: delete_attachments_by_id
       summary: Delete an document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -198,8 +198,8 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: List of files got Successfully OK
-      security:
-        - oauth2: [creditor.write]
+#      security:
+#        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
       operationId: create_document
@@ -218,8 +218,8 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: Booking file made Successfully OK
-      security:
-        - oauth2: [creditor.write]
+#      security:
+#        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/documents/{document_date}/kinds/{document_type}':
     get:
@@ -244,8 +244,8 @@ paths:
           description: The Access token does not have the required scope
         default:
           description: Document file successfully retrieved
-      security:
-        - oauth2: [creditor.write]
+#      security:
+#        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{expenses_id}':
     put:
@@ -264,8 +264,8 @@ paths:
           description: Updated expense
         default:
           description: Status of an expense has been updated
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses/{expenses_id}/attachments:
     get:
@@ -280,8 +280,8 @@ paths:
                 $ref: '#/components/schemas/UrlArray'
       summary: Get attachments by expense id
       operationId: get_attachment
-      security:
-        - oauth2: [finance.expenses]
+#      security:
+#        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:
@@ -306,9 +306,9 @@ paths:
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
-      security:
-        - oauth2:
-            - creditor.write
+#      security:
+#        - oauth2:
+#            - creditor.write
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
@@ -338,8 +338,8 @@ paths:
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
-      security:
-        - oauth2: [manager.write]
+#      security:
+#        - oauth2: [manager.write]
       operationId: get_department_expenses
       summary: Get all expenses belonging to a specific manager
       description: Retrieve all expenses for a given manager

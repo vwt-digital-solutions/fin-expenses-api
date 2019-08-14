@@ -184,7 +184,7 @@ class ClaimExpenses:
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
-            creditor="approved_by_manager", manager="to_be_approved",
+            creditor="approved_by_manager", creditor2="skipped_manager", creditor3="approved", manager="to_be_reviewed",
         )
 
         expenses_info = self.ds_client.query(kind="Expenses")
@@ -210,12 +210,27 @@ class ClaimExpenses:
             )
             expenses_data = expenses_info.fetch()
         else:
-            expenses_info.add_filter(
-                "status.text",
-                "=",
-                query_filter["manager"] if set_id else query_filter["creditor"],
-            )
             expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+                for ed in expenses_data:
+                    if (query_filter["creditor"] == ed["status"]["text"] or
+                            query_filter["creditor2"] == ed["status"]["text"] or
+                            query_filter["creditor3"] == ed["status"]["text"]):
+                        results.append({
+                            "id": ed.id,
+                            "amount": ed["amount"],
+                            "note": ed["note"],
+                            "cost_type": ed["cost_type"],
+                            "date_of_claim": ed["date_of_claim"],
+                            "date_of_transaction": ed["date_of_transaction"],
+                            "employee": ed["employee"]["full_name"],
+                            "status": ed["status"],
+                        })
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
 
         if expenses_data:
             results = [
@@ -413,7 +428,7 @@ class ClaimExpenses:
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
-                            f"-{expense_detail['date_of_transaction']}",
+                                                        f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": document_date,
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
@@ -482,13 +497,13 @@ class ClaimExpenses:
         while True:
             random_id = "".join(secrets.choice(alphabet) for i in range(9))
             if (
-                any(c.islower() for c in random_id)
-                and any(c.isupper() for c in random_id)
-                and sum(c.isdigit() for c in random_id) >= 3
+                    any(c.islower() for c in random_id)
+                    and any(c.isupper() for c in random_id)
+                    and sum(c.isdigit() for c in random_id) >= 3
             ):
                 break
         return "/".join(
-            random_id[i : i + 3] for i in range(0, len(random_id), 3)
+            random_id[i: i + 3] for i in range(0, len(random_id), 3)
         ).upper()
 
     def create_payment_file(self, document_type, document_name):
@@ -650,7 +665,7 @@ class ClaimExpenses:
             )
 
     def get_document_files_or_list(
-        self, document_type, document_id=None, all_exports=False, raw=None
+            self, document_type, document_id=None, all_exports=False, raw=None
     ):
         """
         1 => Gets a booking file or a list of them that has been exported before. If the query string param is all
