@@ -64,7 +64,6 @@ class DepartmentProcessor(DBProcessor):
 
 def read_topic_dep():
     client = pubsub_v1.SubscriberClient()
-    db_client = datastore.Client()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
                                             DEP_SUBSCRIPTION_NAME)
     logging.info('Start polling departments')
@@ -88,7 +87,6 @@ def read_topic_dep():
 
 def read_topic_emp():
     client = pubsub_v1.SubscriberClient()
-    db_client = datastore.Client()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
                                             DEP_SUBSCRIPTION_NAME)
     logging.info('Start polling employees')
