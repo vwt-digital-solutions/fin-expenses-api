@@ -263,7 +263,7 @@ class ClaimExpenses:
                 "amount": data.amount,
                 "note": data.note,
                 "cost_type": data.cost_type,
-                "date_of_transaction": time.strftime('%d-%m-%Y', time.localtime(int(data.date_of_transaction))),
+                "date_of_transaction": int(data.date_of_transaction),
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
                 "status": dict(date_exported="never", text="to_be_approved"),
             }
