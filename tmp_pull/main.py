@@ -30,7 +30,7 @@ class DBProcessor(object):
         return '', ''
 
     @staticmethod
-    def populate_from_payload(self, entity, payload):
+    def populate_from_payload(entity, payload):
         for name in payload:
             if hasattr(payload, name):
                 entity[name] = payload[name]
@@ -46,7 +46,7 @@ class EmployeeProcessor(DBProcessor):
         return 'employee'
 
     def identity(self, payload):
-        return 'AFAS_HRM', 'email_address'
+        return 'AFAS_HRM', payload['email_address']
 
 
 class DepartmentProcessor(DBProcessor):
@@ -59,7 +59,7 @@ class DepartmentProcessor(DBProcessor):
         return 'department'
 
     def identity(self, payload):
-        return 'Departments', 'Afdeling'
+        return 'Departments', payload['Afdeling']
 
 
 def read_topic_dep():
