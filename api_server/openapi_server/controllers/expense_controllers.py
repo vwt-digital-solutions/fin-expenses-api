@@ -215,8 +215,7 @@ class ClaimExpenses:
                 results = []
                 for ed in expenses_data:
                     if (query_filter["creditor"] == ed["status"]["text"] or
-                            query_filter["creditor2"] == ed["status"]["text"] or
-                            query_filter["creditor3"] == ed["status"]["text"]):
+                            query_filter["creditor2"] == ed["status"]["text"]):
                         results.append({
                             "id": ed.id,
                             "amount": ed["amount"],
