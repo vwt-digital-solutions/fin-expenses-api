@@ -260,6 +260,10 @@ class ClaimExpenses:
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
         date_of_claim = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        if data.amount >= 50:
+            ready_text = "ready_for_manager"
+        else:
+            ready_text = "ready_for_creditor"
         entity.update(
             {
                 "employee": dict(
@@ -278,7 +282,7 @@ class ClaimExpenses:
                 "cost_type": data.cost_type,
                 "date_of_transaction": int(data.date_of_transaction),
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
-                "status": dict(date_exported="never", text="ready_for_manager"),
+                "status": dict(date_exported="never", text=ready_text),
             }
         )
         self.ds_client.put(entity)
