@@ -110,8 +110,8 @@ def read_topic_emp(subscription_name):
     pass
 
 
-dep_thread = Thread(target=read_topic_dep, args=DEP_SUBSCRIPTION_NAME)
+dep_thread = Thread(target=read_topic_dep, args=[DEP_SUBSCRIPTION_NAME])
 dep_thread.start()
 
-emp_thread = Thread(target=read_topic_emp, args=EMP_SUBSCRIPTION_NAME)
+emp_thread = Thread(target=read_topic_emp, args=[EMP_SUBSCRIPTION_NAME])
 emp_thread.start()
