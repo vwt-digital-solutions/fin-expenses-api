@@ -111,14 +111,14 @@ class ClaimExpenses:
         today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
 
-        filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
-
-        bucket = self.cs_client.get_bucket(self.bucket_name)
-        blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
-        blob.upload_from_string(
-            base64.b64decode(attachment.split(",")[1]),
-            content_type=mimetypes.guess_type(attachment)[0],
-        )
+        for document in attachment:
+            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{attachment.index(document)}"
+            bucket = self.cs_client.get_bucket(self.bucket_name)
+            blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
+            blob.upload_from_string(
+                base64.b64decode(document.split(",")[1]),
+                content_type=mimetypes.guess_type(document)[0],
+            )
 
     def get_cost_types(self):
         """

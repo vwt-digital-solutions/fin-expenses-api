@@ -175,7 +175,7 @@ paths:
 #      security:
 #        - oauth2: [finance.expenses]
       operationId: delete_attachments_by_id
-      summary: Delete an document by document id
+      summary: Delete a document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{document_type}/files':
     get:
