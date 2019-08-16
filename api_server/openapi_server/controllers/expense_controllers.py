@@ -3,7 +3,6 @@ import csv
 import json
 import secrets
 import string
-import random
 
 import datetime
 import mimetypes
@@ -111,9 +110,9 @@ class ClaimExpenses:
 
         today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
-
-        for document in attachment:
-            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{random.randint(1, 10)}"
+        list_object = attachment.split(".")
+        for document in list_object:
+            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{list_object.index(document)}"
             bucket = self.cs_client.get_bucket(self.bucket_name)
             blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
             blob.upload_from_string(

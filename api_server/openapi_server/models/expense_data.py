@@ -13,7 +13,7 @@ class ExpenseData(Model):
     """
 
     def __init__(self, amount=None, note=None, cost_type=None, date_of_transaction=None, attachment=None):  # noqa: E501
-        """ExpenseData - a model defined in OpenAPI
+        self.list_ = """ExpenseData - a model defined in OpenAPI
 
         :param amount: The amount of this ExpenseData.  # noqa: E501
         :type amount: float
@@ -23,6 +23,8 @@ class ExpenseData(Model):
         :type cost_type: str
         :param date_of_transaction: The date_of_transaction of this ExpenseData.  # noqa: E501
         :type date_of_transaction: str
+        :param attachment: The list of attachments of this ExpenseData.  # noqa: E501
+        :type attachment: string
         """
         self.openapi_types = {
             'amount': float,
