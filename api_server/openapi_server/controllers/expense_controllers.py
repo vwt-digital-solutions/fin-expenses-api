@@ -3,6 +3,7 @@ import csv
 import json
 import secrets
 import string
+import random
 
 import datetime
 import mimetypes
@@ -112,7 +113,7 @@ class ClaimExpenses:
         email_name = email.split("@")[0]
 
         for document in attachment:
-            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{attachment.index(document)}"
+            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{random.randint(1, 10)}"
             bucket = self.cs_client.get_bucket(self.bucket_name)
             blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
             blob.upload_from_string(
