@@ -35,12 +35,11 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_DAYS_RESOLVE = 3
-EXPORTABLE_STATUSES = ["payable", "approved_by_manager", "late_on_approval"]
+EXPORTABLE_STATUSES = ["approved"]
 VWT_TIME_ZONE = "Europe/Amsterdam"
 FILTERED_OUT_ON_PROCESS = [
-    "approved_by_manager",
-    "payment-document-created",
-    "booking_document_created",
+    "approved",
+    "exported",
 ]
 
 
@@ -343,8 +342,8 @@ class ClaimExpenses:
         :param document_date: Date when it was exported
         """
         status = {
-            "payment_file": "payment-document-created",
-            "booking_file": "booking-file-created",
+            "payment_file": "exported",
+            "booking_file": "exported",
         }
 
         for exp in expenses_exported:
@@ -387,7 +386,7 @@ class ClaimExpenses:
 
         status = {
             "booking_file": EXPORTABLE_STATUSES,
-            "payment_file": ["booking-file-created"],
+            "payment_file": ["exported"],
         }
 
         never_exported = []
