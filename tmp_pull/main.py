@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from threading import Thread
 
 from google.cloud import pubsub_v1, datastore
@@ -62,10 +63,10 @@ class DepartmentProcessor(DBProcessor):
         return 'Departments', payload['Afdeling']
 
 
-def read_topic_dep():
+def read_topic_dep(subscription_name):
     client = pubsub_v1.SubscriberClient()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
-                                            DEP_SUBSCRIPTION_NAME)
+                                            subscription_name)
     logging.info('Start polling departments')
     parser = DepartmentProcessor()
 
@@ -85,10 +86,10 @@ def read_topic_dep():
     pass
 
 
-def read_topic_emp():
+def read_topic_emp(subscription_name):
     client = pubsub_v1.SubscriberClient()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
-                                            DEP_SUBSCRIPTION_NAME)
+                                            subscription_name)
     logging.info('Start polling employees')
     parser = EmployeeProcessor()
 
@@ -109,8 +110,8 @@ def read_topic_emp():
     pass
 
 
-dep_thread = Thread(target=read_topic_dep)
+dep_thread = Thread(target=read_topic_dep, args=DEP_SUBSCRIPTION_NAME)
 dep_thread.start()
 
-emp_thread = Thread(target=read_topic_emp)
+emp_thread = Thread(target=read_topic_emp, args=EMP_SUBSCRIPTION_NAME)
 emp_thread.start()
