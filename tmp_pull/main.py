@@ -101,6 +101,7 @@ def read_topic_emp():
         ack_ids = []
         for message in response.received_messages:
             mdata = json.loads(message.message.data)
+            logging.warn(mdata)
             parser.process(mdata)
             ack_ids.append(message.ack_id)
         if ack_ids:
