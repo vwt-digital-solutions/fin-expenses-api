@@ -63,10 +63,10 @@ class DepartmentProcessor(DBProcessor):
         return 'Departments', payload['Afdeling']
 
 
-def read_topic_dep(subscription_name):
+def read_topic_dep():
     client = pubsub_v1.SubscriberClient()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
-                                            subscription_name)
+                                            DEP_SUBSCRIPTION_NAME)
     logging.info('Start polling departments')
     parser = DepartmentProcessor()
 
@@ -86,10 +86,10 @@ def read_topic_dep(subscription_name):
     pass
 
 
-def read_topic_emp(subscription_name):
+def read_topic_emp():
     client = pubsub_v1.SubscriberClient()
     subscription = client.subscription_path(TOPIC_PROJECT_ID,
-                                            subscription_name)
+                                            EMP_SUBSCRIPTION_NAME)
     logging.info('Start polling employees')
     parser = EmployeeProcessor()
 
@@ -110,8 +110,8 @@ def read_topic_emp(subscription_name):
     pass
 
 
-dep_thread = Thread(target=read_topic_dep, args=[DEP_SUBSCRIPTION_NAME])
+dep_thread = Thread(target=read_topic_dep)
 dep_thread.start()
 
-emp_thread = Thread(target=read_topic_emp, args=[EMP_SUBSCRIPTION_NAME])
+emp_thread = Thread(target=read_topic_emp)
 emp_thread.start()
