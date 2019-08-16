@@ -6,6 +6,8 @@ from threading import Thread
 from google.cloud import pubsub_v1, datastore
 from google.api_core import exceptions
 
+from flask import current_app, Flask, render_template, request
+
 TOPIC_PROJECT_ID = 'vwt-d-gew1-odh-hub'
 DEP_SUBSCRIPTION_NAME = 'vwt-d-gew1-odh-hub-afas-csv3-pull-sub'
 EMP_SUBSCRIPTION_NAME = 'vwt-d-gew1-odh-hub-afas-csv1-pull-sub'
@@ -79,7 +81,9 @@ def read_topic_dep():
         ack_ids = []
         for message in response.received_messages:
             mdata = json.loads(message.message.data)
-            parser.process(mdata)
+            logging.warn(f'Department message: {mdata}')
+            if 'Afdeling' in mdata:
+                parser.process(mdata)
             ack_ids.append(message.ack_id)
         if ack_ids:
             client.acknowledge(subscription, ack_ids)
@@ -102,13 +106,15 @@ def read_topic_emp():
         ack_ids = []
         for message in response.received_messages:
             mdata = json.loads(message.message.data)
-            logging.warn(mdata)
-            parser.process(mdata)
+            logging.warn(f'Employee message: {mdata}')
+            if 'email_address' in mdata:
+                parser.process(mdata)
             ack_ids.append(message.ack_id)
         if ack_ids:
             client.acknowledge(subscription, ack_ids)
     pass
 
+app = Flask(__name__)
 
 dep_thread = Thread(target=read_topic_dep)
 dep_thread.start()
