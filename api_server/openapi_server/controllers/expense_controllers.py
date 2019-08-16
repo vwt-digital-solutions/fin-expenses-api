@@ -184,7 +184,7 @@ class ClaimExpenses:
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
-            creditor="approved_by_manager", creditor2="skipped_manager", creditor3="approved", manager="to_be_reviewed",
+            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
         )
 
         expenses_info = self.ds_client.query(kind="Expenses")
@@ -255,7 +255,7 @@ class ClaimExpenses:
         Add expense with given data amount and given data note. An expense can have one of 6
         statuses.
         Status Life Cycle:
-        *** to_be_approved => { rejected } <= approved => payable => exported
+        *** ready_for{role} => { rejected } <= approved => exported
         """
         self.get_employee_info()
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
@@ -280,7 +280,7 @@ class ClaimExpenses:
                 "cost_type": data.cost_type,
                 "date_of_transaction": int(data.date_of_transaction),
                 "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
-                "status": dict(date_exported="never", text="to_be_reviewed"),
+                "status": dict(date_exported="never", text="ready_for_manager"),
             }
         )
         self.ds_client.put(entity)
