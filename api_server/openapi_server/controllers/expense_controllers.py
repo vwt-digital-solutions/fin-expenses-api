@@ -600,9 +600,9 @@ class ClaimExpenses:
 
                 # Amount
                 amount = ET.SubElement(transfer, "Amt")
-                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = expense["data"][
+                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["data"][
                     "Bedrag excl. BTW"
-                ]
+                ])
                 ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
