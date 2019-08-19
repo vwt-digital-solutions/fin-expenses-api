@@ -74,7 +74,7 @@ class TestExpenseControllers(BaseTestCase):
 
         post_data = dict(
             status="rejected",
-            finance_note="Wrong amount",
+            rejection_note="Wrong amount",
             amount=21,
             cost_type="Software:415020",
             date_of_transaction=1564963200000
