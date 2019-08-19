@@ -431,7 +431,7 @@ class ClaimExpenses:
                         {
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
                                                         f"-{expense_detail['date_of_transaction']}",
-                            "Document-datum": document_date,
+                            "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
                             "Bron-bedrijfs-nummer": 200,
@@ -452,7 +452,7 @@ class ClaimExpenses:
                             "Doel Produkt": "000",
                             "Doel EC": "000",
                             "Doel VP": "00",
-                            "D/C": "D",
+                            "D/C": "C",
                             "Bedrag excl. BTW": expense_detail["amount"],
                             "BTW-Bedrag": "0,00",
                         }
