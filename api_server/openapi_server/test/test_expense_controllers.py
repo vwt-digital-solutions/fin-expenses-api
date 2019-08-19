@@ -47,7 +47,7 @@ class TestExpenseControllers(BaseTestCase):
             amount=6.4,
             cost_type='Kantoorbenodigdheden:412000',
             note='Scharen en potloden',
-            date_of_transaction=1564963200,
+            date_of_transaction=1564963200000,
             attachment="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/l"
                        "K3Q6wAAAABJRU5ErkJggg==.data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAD"
                        "UlEQVR42mP8z/C/HgAGgwJ/lK3Q6wAAAABJRU5ErkJggg=="
@@ -73,11 +73,11 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         post_data = dict(
-            status="cancelled_by_creditor",
+            status="rejected",
             finance_note="Wrong amount",
             amount=21,
             cost_type="Software:415020",
-            date_of_transaction=1564963200
+            date_of_transaction=1564963200000
         )
         expenses_id = '5713912150360064'
 
