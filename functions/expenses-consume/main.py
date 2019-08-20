@@ -29,7 +29,7 @@ class DBProcessor(object):
 
     @staticmethod
     def populate_from_payload(entity, payload):
-        for name in payload:
+        for name in payload.keys():
             value = payload[name]
             logging.warn(f'{name} = {value}')
             entity[name] = value
