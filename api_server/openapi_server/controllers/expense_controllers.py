@@ -172,9 +172,7 @@ class ClaimExpenses:
 
         results = [
             {
-                # "url": f"https://storage.cloud.google.com/{self.bucket_name}/{urllib.parse.quote(blob.name)}"
-                "url": blob
-
+                "url": f"https://storage.cloud.google.com/{self.bucket_name}/{urllib.parse.quote(blob.name)}"
             }
             for blob in blobs
         ]
