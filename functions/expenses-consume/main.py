@@ -91,13 +91,14 @@ def topic_to_datastore(request):
         token = bearer_token.split(' ')[1]
 
         claim = id_token.verify_oauth2_token(token, request,
-                                             audience='vwt.digital')
+                                             audience='vwt-digital')
         if claim['iss'] not in [
             'accounts.google.com',
             'https://accounts.google.com'
         ]:
             raise ValueError('Wrong issuer.')
     except Exception as e:
+        logging.error(e)
         return 'Invalid token: {}\n'.format(e), 400
 
     # Extract data from request
