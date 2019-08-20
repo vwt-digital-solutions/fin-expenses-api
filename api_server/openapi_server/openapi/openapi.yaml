@@ -124,6 +124,25 @@ paths:
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    put:
+      summary: Update expense
+      operationId: update_expenses_employee
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Status'
+        required: true
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Updated expense
+        default:
+          description: Status of an expense has been updated
+      security:
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents/{documents_id}':
     get:
       parameters:
@@ -244,7 +263,7 @@ paths:
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
-      operationId: update_expenses
+      operationId: update_expenses_finance
       requestBody:
         content:
           'application/json':
@@ -259,7 +278,7 @@ paths:
         default:
           description: Status of an expense has been updated
       security:
-        - oauth2: [finance.expenses]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses/{expenses_id}/attachments:
     get:

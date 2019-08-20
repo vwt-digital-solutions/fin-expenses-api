@@ -299,9 +299,10 @@ class ClaimExpenses:
 
         return make_response(jsonify(entity.key.id_or_name), 201)
 
-    def update_expenses(self, expenses_id, data):
+    def update_expenses(self, expenses_id, data, permission):
         """
         Change the status and add note from expense
+        :param permission:
         :param expenses_id:
         :param data:
         :return:
@@ -310,20 +311,37 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-            fields = {
-                "status",
-                "creditor_note",
-                "manager_note",
-                "amount",
-                "date_of_transaction",
-                "note",
-                "rejectionNote",
-                "cost_type",
-            }
+            if permission == "finance":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "note",
+                    "rejectionNote",
+                    "cost_type",
+                }
+                status = {
+                    "rejected_by_creditor",
+                    "approved",
+                }
+            elif permission == "employee":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "note",
+                    "cost_type",
+                }
+                status = {
+                    "ready_for_manager",
+                    "ready_for_creditor",
+                }
+
             items_to_update = list(fields.intersection(set(data.keys())))
             for item in items_to_update:
                 if item == "status":
-                    expense["status"]["text"] = data[item]
+                    if data[item] in status:
+                        expense["status"]["text"] = data[item]
                 elif item == "rejectionNote":
                     expense["status"]["rejection_note"] = data[item]
                 else:
@@ -916,21 +934,6 @@ def create_document(document_type):
         return export_file
 
 
-def update_expenses(expenses_id):
-    """
-    Update status and possibly add note by expense id
-    :rtype: Expenses
-    """
-    try:
-        request = connexion.request
-
-        if request.is_json:
-            form_data = json.loads(request.get_data().decode())
-            return expense_instance.update_expenses(expenses_id, form_data)
-    except Exception as er:
-        return jsonify(er.args), 500
-
-
 def get_attachment(expenses_id):
     """
     Get attachment by expenses id
@@ -955,3 +958,29 @@ def get_employee_expenses(employee_id):
     :param employee_id:
     """
     return expense_instance.get_employee_expenses(employee_id)
+
+
+def update_expenses_finance(expenses_id):
+    """
+    Update status and possibly add note by expense id
+    :rtype: Expenses
+    """
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "finance")
+    except Exception as er:
+        return jsonify(er.args), 500
+
+
+def update_expenses_employee(expenses_id):
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "employee")
+    except Exception as er:
+        return jsonify(er.args), 500
