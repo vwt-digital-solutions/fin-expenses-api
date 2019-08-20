@@ -204,8 +204,10 @@ class ClaimExpenses:
             )
             expenses_data = expenses_info.fetch(limit=10)
         elif dep_or_emp == 'emp':
+            self.get_employee_info()
+
             expenses_info.add_filter(
-                "employee.afas_data.email_address", "=", f"{set_id}@vwtelecom.com"
+                "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
             )
             expenses_data = expenses_info.fetch(limit=10)
         else:
