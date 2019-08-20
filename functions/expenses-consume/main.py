@@ -111,7 +111,7 @@ def topic_to_datastore(request):
         logging.info(f'Message received from {subscription} [{payload}]')
 
         if selector in parsers:
-            parsers[selector].process(payload)
+            parsers[selector].process(json.loads(payload))
 
     except Exception as e:
         logging.info('Extract of subscription failed')
