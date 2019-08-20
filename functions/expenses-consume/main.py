@@ -4,6 +4,7 @@ import base64
 import os
 
 from google.cloud import datastore
+from google.oauth2 import id_token
 
 
 class DBProcessor(object):
@@ -26,7 +27,7 @@ class DBProcessor(object):
         return '', ''
 
     @staticmethod
-    def populate_from_payload(self, entity, payload):
+    def populate_from_payload(entity, payload):
         for name in payload:
             if hasattr(payload, name):
                 entity[name] = payload[name]
@@ -42,7 +43,7 @@ class EmployeeProcessor(DBProcessor):
         return 'employee'
 
     def identity(self, payload):
-        return 'AFAS_HRM', 'email_address'
+        return 'AFAS_HRM', payload['email_address']
 
 
 class DepartmentProcessor(DBProcessor):
@@ -55,7 +56,7 @@ class DepartmentProcessor(DBProcessor):
         return 'department'
 
     def identity(self, payload):
-        return 'Departments', 'Afdeling'
+        return 'Departments', payload['Afdeling']
 
 
 parsers = {
@@ -66,6 +67,7 @@ parsers = {
 
 selector = os.environ.get('DATA_SELECTOR', 'Required parameter is missed')
 verification_token = os.environ['PUBSUB_VERIFICATION_TOKEN']
+domain_token = os.environ['DOMAIN_VALIDATION_TOKEN']
 
 
 def topic_to_datastore(request):
@@ -78,30 +80,34 @@ def topic_to_datastore(request):
                  <body>
                  </body>
              </html>
-         '''.format(token=verification_token)
+         '''.format(token=domain_token)
 
     if request.args.get('token', '') != verification_token:
         return 'Invalid request', 400
+
+    # Verify that the push request originates from Cloud Pub/Sub.
+    try:
+        bearer_token = request.headers.get('Authorization')
+        token = bearer_token.split(' ')[1]
+
+        claim = id_token.verify_oauth2_token(token, request,
+                                             audience='vwt.digital')
+        if claim['iss'] not in [
+            'accounts.google.com',
+            'https://accounts.google.com'
+        ]:
+            raise ValueError('Wrong issuer.')
+    except Exception as e:
+        return 'Invalid token: {}\n'.format(e), 400
 
     # Extract data from request
     envelope = json.loads(request.data.decode('utf-8'))
     payload = base64.b64decode(envelope['message']['data'])
 
-    # Extract timestamp from string
-    try:
-        ts = envelope['message']['publishTime'].\
-            split('.')[0].\
-            replace('T', ' ').\
-            replace('Z', '')
-    except Exception as e:
-        ts = None
-        logging.info('Extract of publishTime failed')
-        logging.debug(e)
-
     # Extract subscription from subscription string
     try:
         subscription = envelope['subscription'].split('/')[-1]
-        logging.info(f'Message received {subscription} at {ts} [{payload}]')
+        logging.info(f'Message received from {subscription} [{payload}]')
 
         if selector in parsers:
             parsers[selector].process(payload)
