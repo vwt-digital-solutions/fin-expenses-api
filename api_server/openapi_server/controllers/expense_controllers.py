@@ -307,23 +307,18 @@ class ClaimExpenses:
         :param data:
         :return:
         """
+        self.get_employee_info()
+
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-            if permission == "creditor":
-                fields = {
-                    "status",
-                    "amount",
-                    "date_of_transaction",
-                    "rejection_note",
-                    "cost_type",
-                }
-                status = {
-                    "rejected_by_creditor",
-                    "approved",
-                }
-            elif permission == "employee":
+            if permission == "employee":
+
+                # Check if expense is from employee
+                if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+                    return make_response(jsonify(None), 403)
+
                 fields = {
                     "status",
                     "amount",
@@ -334,6 +329,19 @@ class ClaimExpenses:
                 status = {
                     "ready_for_manager",
                     "ready_for_creditor",
+                    "cancelled",
+                }
+            elif permission == "creditor":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "rejection_note",
+                    "cost_type",
+                }
+                status = {
+                    "rejected_by_creditor",
+                    "approved",
                 }
             elif permission == "manager":
                 fields = {
@@ -352,7 +360,13 @@ class ClaimExpenses:
             for item in items_to_update:
                 if item == "status":
                     if data[item] in status:
-                        expense["status"]["text"] = data[item]
+                        if permission == "employee":
+                            if data["amount"] < 50:
+                                expense["status"]["text"] = "ready_for_creditor"
+                            else:
+                                expense["status"]["text"] = "ready_for_manager"
+                        else:
+                            expense["status"]["text"] = data[item]
                 elif item == "rejection_note":
                     expense["status"]["rejection_note"] = data[item]
                 else:
