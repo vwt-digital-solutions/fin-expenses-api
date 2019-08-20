@@ -356,6 +356,26 @@ paths:
       summary: Get all expenses belonging to a specific manager
       description: Retrieve all expenses for a given manager
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /manager/expenses/{expenses_id}:
+    put:
+      summary: Update expense
+      operationId: update_expenses_manager
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Status'
+        required: true
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Updated expense
+        default:
+          description: Status of an expense has been updated
+      security:
+        - oauth2: [manager.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
 components:
   schemas:

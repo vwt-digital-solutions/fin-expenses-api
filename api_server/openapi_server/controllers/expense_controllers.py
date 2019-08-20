@@ -311,13 +311,12 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-            if permission == "finance":
+            if permission == "creditor":
                 fields = {
                     "status",
                     "amount",
                     "date_of_transaction",
-                    "note",
-                    "rejectionNote",
+                    "rejection_note",
                     "cost_type",
                 }
                 status = {
@@ -336,13 +335,25 @@ class ClaimExpenses:
                     "ready_for_manager",
                     "ready_for_creditor",
                 }
+            elif permission == "manager":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "rejection_note",
+                    "cost_type",
+                }
+                status = {
+                    "ready_for_creditor",
+                    "rejected_by_manager",
+                }
 
             items_to_update = list(fields.intersection(set(data.keys())))
             for item in items_to_update:
                 if item == "status":
                     if data[item] in status:
                         expense["status"]["text"] = data[item]
-                elif item == "rejectionNote":
+                elif item == "rejection_note":
                     expense["status"]["rejection_note"] = data[item]
                 else:
                     expense[item] = data[item]
@@ -962,7 +973,7 @@ def get_employee_expenses(employee_id):
 
 def update_expenses_finance(expenses_id):
     """
-    Update status and possibly add note by expense id
+    Update expense by expense_id with creditor permissions
     :rtype: Expenses
     """
     try:
@@ -970,17 +981,38 @@ def update_expenses_finance(expenses_id):
 
         if request.is_json:
             form_data = json.loads(request.get_data().decode())
-            return expense_instance.update_expenses(expenses_id, form_data, "finance")
+            return expense_instance.update_expenses(expenses_id, form_data, "creditor")
     except Exception as er:
         return jsonify(er.args), 500
 
 
 def update_expenses_employee(expenses_id):
+    """
+    Update expense by expense_id with employee permissions
+    :param expenses_id:
+    :return:
+    """
     try:
         request = connexion.request
 
         if request.is_json:
             form_data = json.loads(request.get_data().decode())
             return expense_instance.update_expenses(expenses_id, form_data, "employee")
+    except Exception as er:
+        return jsonify(er.args), 500
+
+
+def update_expenses_manager(expenses_id):
+    """
+    Update expense by expense_id with employee permissions
+    :param expenses_id:
+    :return:
+    """
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "manager")
     except Exception as er:
         return jsonify(er.args), 500
