@@ -11,19 +11,19 @@ from google.oauth2 import id_token
 
 class DBProcessor(object):
     def __init__(self):
+        self.client = datastore.Client()
         pass
 
     def process(self, payload):
-        client = datastore.Client()
         kind, key = self.identity(payload)
-        entity_key = client.key(kind, key)
-        entity = client.get(entity_key)
+        entity_key = self.client.key(kind, key)
+        entity = self.client.get(entity_key)
 
         if entity is None:
             entity = datastore.Entity(key=entity_key)
 
         self.populate_from_payload(entity, payload)
-        client.put(entity)
+        self.client.put(entity)
 
     def identity(self, payload):
         return '', ''
