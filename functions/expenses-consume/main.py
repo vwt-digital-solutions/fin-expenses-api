@@ -30,7 +30,7 @@ class DBProcessor(object):
     @staticmethod
     def populate_from_payload(entity, payload):
         for name, value in inspect.getmembers(payload):
-            setattr(entity, name, value)
+            entity[name] = value
 
 
 class EmployeeProcessor(DBProcessor):
