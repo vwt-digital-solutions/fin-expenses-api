@@ -1,3 +1,4 @@
+import inspect
 import logging
 import json
 import base64
@@ -28,9 +29,8 @@ class DBProcessor(object):
 
     @staticmethod
     def populate_from_payload(entity, payload):
-        for name in payload:
-            if hasattr(payload, name):
-                entity[name] = payload[name]
+        for name, value in inspect.getmembers(payload):
+            setattr(entity, name, value)
 
 
 class EmployeeProcessor(DBProcessor):
