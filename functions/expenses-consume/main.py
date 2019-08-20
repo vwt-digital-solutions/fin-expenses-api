@@ -86,20 +86,20 @@ def topic_to_datastore(request):
         return 'Invalid request', 400
 
     # Verify that the push request originates from Cloud Pub/Sub.
-    try:
-        bearer_token = request.headers.get('Authorization')
-        token = bearer_token.split(' ')[1]
-
-        claim = id_token.verify_oauth2_token(token, request,
-                                             audience='vwt-digital')
-        if claim['iss'] not in [
-            'accounts.google.com',
-            'https://accounts.google.com'
-        ]:
-            raise ValueError('Wrong issuer.')
-    except Exception as e:
-        logging.error(e)
-        return 'Invalid token: {}\n'.format(e), 400
+    # try:
+    #     bearer_token = request.headers.get('Authorization')
+    #     token = bearer_token.split(' ')[1]
+    #
+    #     claim = id_token.verify_oauth2_token(token, request,
+    #                                          audience='vwt-digital')
+    #     if claim['iss'] not in [
+    #         'accounts.google.com',
+    #         'https://accounts.google.com'
+    #     ]:
+    #         raise ValueError('Wrong issuer.')
+    # except Exception as e:
+    #     logging.error(e)
+    #     return 'Invalid token: {}\n'.format(e), 400
 
     # Extract data from request
     envelope = json.loads(request.data.decode('utf-8'))
