@@ -356,7 +356,7 @@ paths:
       summary: Get all expenses belonging to a specific manager
       description: Retrieve all expenses for a given manager
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /manager/expenses/{expenses_id}:
+  /managers/expenses/{expenses_id}:
     put:
       summary: Update expense
       operationId: update_expenses_manager
