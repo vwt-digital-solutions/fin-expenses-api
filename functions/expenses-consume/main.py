@@ -29,7 +29,9 @@ class DBProcessor(object):
 
     @staticmethod
     def populate_from_payload(entity, payload):
-        for name, value in inspect.getmembers(payload):
+        for name in payload:
+            value = payload[name]
+            logging.warn(f'{name} = {value}')
             entity[name] = value
 
 
