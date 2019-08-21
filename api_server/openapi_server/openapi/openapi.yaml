@@ -120,7 +120,7 @@ paths:
           description: Expense Success
       security:
         - oauth2: [finance.expenses]
-      operationId: get_expenses
+      operationId: get_expenses_employee
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -278,7 +278,7 @@ paths:
         default:
           description: Status of an expense has been updated
       security:
-        - oauth2: [finance.expenses]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     get:
       parameters:
