@@ -132,26 +132,34 @@ class ClaimExpenses:
         ]
         return jsonify(results)
 
-    def get_expenses(self, expenses_id):
-        """Get expenses with expense_id"""
+    def get_expenses(self, expenses_id, permission):
+        """
+        Get single expense by expense id and check if permission is employee if expense is from employee
+        :param expenses_id:
+        :param permission:
+        :return:
+        """
+        self.get_employee_info()
 
-        expenses_info = self.ds_client.query(kind="Expenses")
-        expenses_key = self.ds_client.key("Expenses", expenses_id)
-        expenses_info.key_filter(expenses_key, "=")
-        expenses_data = expenses_info.fetch()
+        with self.ds_client.transaction():
+            exp_key = self.ds_client.key("Expenses", expenses_id)
+            expense = self.ds_client.get(exp_key)
 
-        if expenses_data:
-            results = [
-                {
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": ed["cost_type"],
-                }
-                for ed in expenses_data
-            ]
-            return jsonify(results)
-        else:
-            return make_response(jsonify(None), 204)
+            if expense:
+                if permission == "employee":
+                    if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+                        return make_response(jsonify(None), 403)
+
+                results = [
+                    {
+                        "amount": expense["amount"],
+                        "note": expense["note"],
+                        "cost_type": expense["cost_type"],
+                    }
+                ]
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
 
     def get_attachment(self, expenses_id):
         """Get attachments with expenses_id"""
@@ -299,33 +307,80 @@ class ClaimExpenses:
 
         return make_response(jsonify(entity.key.id_or_name), 201)
 
-    def update_expenses(self, expenses_id, data):
+    def update_expenses(self, expenses_id, data, permission):
         """
         Change the status and add note from expense
+        :param permission:
         :param expenses_id:
         :param data:
         :return:
         """
+        self.get_employee_info()
+
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-            fields = {
-                "status",
-                "creditor_note",
-                "manager_note",
-                "amount",
-                "date_of_transaction",
-                "note",
-                "rejectionNote",
-                "cost_type",
-            }
+            if permission == "employee":
+
+                # Check if expense is from employee
+                if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+                    return make_response(jsonify(None), 403)
+
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "note",
+                    "cost_type",
+                }
+                status = {
+                    "ready_for_manager",
+                    "ready_for_creditor",
+                    "cancelled",
+                }
+            elif permission == "creditor":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "rejection_note",
+                    "cost_type",
+                }
+                status = {
+                    "rejected_by_creditor",
+                    "approved",
+                }
+            elif permission == "manager":
+                fields = {
+                    "status",
+                    "amount",
+                    "date_of_transaction",
+                    "rejection_note",
+                    "cost_type",
+                }
+                status = {
+                    "ready_for_creditor",
+                    "rejected_by_manager",
+                }
+
             items_to_update = list(fields.intersection(set(data.keys())))
             for item in items_to_update:
                 if item == "status":
-                    expense["status"]["text"] = data[item]
-                elif item == "rejectionNote":
+                    if data[item] in status:
+                        if permission == "employee":
+                            pass
+                        else:
+                            expense["status"]["text"] = data[item]
+                elif item == "rejection_note":
                     expense["status"]["rejection_note"] = data[item]
+                elif item == "amount":
+                    # If amount is set when employee updates expense check what status it should be
+                    if permission == "employee":
+                        if data["amount"] < 50:
+                            expense["status"]["text"] = "ready_for_creditor"
+                        else:
+                            expense["status"]["text"] = "ready_for_manager"
                 else:
                     expense[item] = data[item]
 
@@ -824,14 +879,6 @@ def get_document_by_id():  # noqa: E501
     """
     return "do some magic!"
 
-
-def get_expenses(expenses_id):
-    """Get information from expenses by id
-    :rtype: Expenses
-    """
-    return expense_instance.get_expenses(expenses_id)
-
-
 def update_attachments_by_id():
     """Update attachment by attachment id"""
     return "do some magic!"
@@ -916,21 +963,6 @@ def create_document(document_type):
         return export_file
 
 
-def update_expenses(expenses_id):
-    """
-    Update status and possibly add note by expense id
-    :rtype: Expenses
-    """
-    try:
-        request = connexion.request
-
-        if request.is_json:
-            form_data = json.loads(request.get_data().decode())
-            return expense_instance.update_expenses(expenses_id, form_data)
-    except Exception as er:
-        return jsonify(er.args), 500
-
-
 def get_attachment(expenses_id):
     """
     Get attachment by expenses id
@@ -938,11 +970,7 @@ def get_attachment(expenses_id):
     :return:
     """
 
-    all_files = expense_instance.get_attachment(expenses_id)
-
-    return all_files
-
-    # return jsonify(expense_instance.get_attachment(expenses_id))
+    return jsonify(expense_instance.get_attachment(expenses_id))
 
 
 def get_department_expenses(department_id):
@@ -959,3 +987,63 @@ def get_employee_expenses(employee_id):
     :param employee_id:
     """
     return expense_instance.get_employee_expenses(employee_id)
+
+
+def update_expenses_finance(expenses_id):
+    """
+    Update expense by expense_id with creditor permissions
+    :rtype: Expenses
+    """
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "creditor")
+    except Exception as er:
+        return jsonify(er.args), 500
+
+
+def update_expenses_employee(expenses_id):
+    """
+    Update expense by expense_id with employee permissions
+    :param expenses_id:
+    :return:
+    """
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "employee")
+    except Exception as er:
+        return jsonify(er.args), 500
+
+
+def update_expenses_manager(expenses_id):
+    """
+    Update expense by expense_id with employee permissions
+    :param expenses_id:
+    :return:
+    """
+    try:
+        request = connexion.request
+
+        if request.is_json:
+            form_data = json.loads(request.get_data().decode())
+            return expense_instance.update_expenses(expenses_id, form_data, "manager")
+    except Exception as er:
+        return jsonify(er.args), 500
+
+def get_expenses_employee(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    return expense_instance.get_expenses(expenses_id, "employee")
+
+
+def get_expenses_finances(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    return expense_instance.get_expenses(expenses_id, "creditor")

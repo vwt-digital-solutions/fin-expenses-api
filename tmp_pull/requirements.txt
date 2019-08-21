@@ -1,3 +1,0 @@
-google-cloud-datastore
-google-cloud-pubsub
-Flask==1.0.2
