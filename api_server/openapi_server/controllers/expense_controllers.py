@@ -361,14 +361,18 @@ class ClaimExpenses:
                 if item == "status":
                     if data[item] in status:
                         if permission == "employee":
-                            if data["amount"] < 50:
-                                expense["status"]["text"] = "ready_for_creditor"
-                            else:
-                                expense["status"]["text"] = "ready_for_manager"
+                            pass
                         else:
                             expense["status"]["text"] = data[item]
                 elif item == "rejection_note":
                     expense["status"]["rejection_note"] = data[item]
+                elif item == "amount":
+                    # If amount is set when employee updates expense check what status should be
+                    if permission == "employee":
+                        if data["amount"] < 50:
+                            expense["status"]["text"] = "ready_for_creditor"
+                        else:
+                            expense["status"]["text"] = "ready_for_manager"
                 else:
                     expense[item] = data[item]
 
