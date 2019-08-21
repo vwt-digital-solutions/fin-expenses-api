@@ -133,7 +133,12 @@ class ClaimExpenses:
         return jsonify(results)
 
     def get_expenses(self, expenses_id, permission):
-        """Get expenses with expense_id"""
+        """
+        Get single expense by expense id and check if permission is employee if expense is from employee
+        :param expenses_id:
+        :param permission:
+        :return:
+        """
         self.get_employee_info()
 
         with self.ds_client.transaction():
