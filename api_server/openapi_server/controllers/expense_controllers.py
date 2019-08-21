@@ -132,26 +132,29 @@ class ClaimExpenses:
         ]
         return jsonify(results)
 
-    def get_expenses(self, expenses_id):
+    def get_expenses(self, expenses_id, permission):
         """Get expenses with expense_id"""
+        self.get_employee_info()
 
-        expenses_info = self.ds_client.query(kind="Expenses")
-        expenses_key = self.ds_client.key("Expenses", expenses_id)
-        expenses_info.key_filter(expenses_key, "=")
-        expenses_data = expenses_info.fetch()
+        with self.ds_client.transaction():
+            exp_key = self.ds_client.key("Expenses", expenses_id)
+            expense = self.ds_client.get(exp_key)
 
-        if expenses_data:
-            results = [
-                {
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": ed["cost_type"],
-                }
-                for ed in expenses_data
-            ]
-            return jsonify(results)
-        else:
-            return make_response(jsonify(None), 204)
+            if expense:
+                if permission == "employee":
+                    if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+                        return make_response(jsonify(None), 403)
+
+                results = [
+                    {
+                        "amount": expense["amount"],
+                        "note": expense["note"],
+                        "cost_type": expense["cost_type"],
+                    }
+                ]
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
 
     def get_attachment(self, expenses_id):
         """Get attachments with expenses_id"""
@@ -367,7 +370,7 @@ class ClaimExpenses:
                 elif item == "rejection_note":
                     expense["status"]["rejection_note"] = data[item]
                 elif item == "amount":
-                    # If amount is set when employee updates expense check what status should be
+                    # If amount is set when employee updates expense check what status it should be
                     if permission == "employee":
                         if data["amount"] < 50:
                             expense["status"]["text"] = "ready_for_creditor"
@@ -871,14 +874,6 @@ def get_document_by_id():  # noqa: E501
     """
     return "do some magic!"
 
-
-def get_expenses(expenses_id):
-    """Get information from expenses by id
-    :rtype: Expenses
-    """
-    return expense_instance.get_expenses(expenses_id)
-
-
 def update_attachments_by_id():
     """Update attachment by attachment id"""
     return "do some magic!"
@@ -1034,3 +1029,16 @@ def update_expenses_manager(expenses_id):
             return expense_instance.update_expenses(expenses_id, form_data, "manager")
     except Exception as er:
         return jsonify(er.args), 500
+
+def get_expenses_employee(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    return expense_instance.get_expenses(expenses_id, "employee")
+
+
+def get_expenses_finances(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    return expense_instance.get_expenses(expenses_id, "creditor")
