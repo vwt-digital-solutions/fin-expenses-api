@@ -115,7 +115,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
             blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
             blob.upload_from_string(
-                base64.b64decode(document.split(",")[1]),
+                document.split(",")[1],
                 content_type=mimetypes.guess_type(document)[0],
             )
 
@@ -172,7 +172,7 @@ class ClaimExpenses:
 
         results = [
             {
-                "url": f"https://storage.cloud.google.com/{self.bucket_name}/{urllib.parse.quote(blob.name)}"
+                "url": blob.generate_signed_url(datetime.datetime.now() + datetime.timedelta(minutes=5))
             }
             for blob in blobs
         ]
@@ -938,7 +938,11 @@ def get_attachment(expenses_id):
     :return:
     """
 
-    return jsonify(expense_instance.get_attachment(expenses_id))
+    all_files = expense_instance.get_attachment(expenses_id)
+
+    return all_files
+
+    # return jsonify(expense_instance.get_attachment(expenses_id))
 
 
 def get_department_expenses(department_id):
