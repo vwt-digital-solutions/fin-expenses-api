@@ -217,7 +217,7 @@ class ClaimExpenses:
             expenses_info.add_filter(
                 "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
             )
-            expenses_data = expenses_info.fetch(limit=10)
+            expenses_data = expenses_info.fetch()
         else:
             expenses_data = expenses_info.fetch()
 
