@@ -180,7 +180,7 @@ class ClaimExpenses:
 
         results = [
             {
-                "url": blob.generate_signed_url(datetime.datetime.now() + datetime.timedelta(minutes=5))
+                "url": blob.generate_signed_url(datetime.datetime.now() + datetime.timedelta(minutes=5), credentials=self.ds_client._credentials)
             }
             for blob in blobs
         ]
