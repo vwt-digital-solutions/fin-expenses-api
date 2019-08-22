@@ -325,6 +325,13 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
+            fields = {
+                "status",
+                "amount",
+                "date_of_transaction",
+                "cost_type",
+            }
+
             if permission == "employee":
 
                 # Check if expense is from employee
@@ -334,38 +341,20 @@ class ClaimExpenses:
                 if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
                     return make_response(jsonify(None), 403)
 
-                fields = {
-                    "status",
-                    "amount",
-                    "date_of_transaction",
-                    "note",
-                    "cost_type",
-                }
+                fields.add("note")
                 status = {
                     "ready_for_manager",
                     "ready_for_creditor",
                     "cancelled",
                 }
             elif permission == "creditor":
-                fields = {
-                    "status",
-                    "amount",
-                    "date_of_transaction",
-                    "rejection_note",
-                    "cost_type",
-                }
+                fields.add("rejection_note")
                 status = {
                     "rejected_by_creditor",
                     "approved",
                 }
             elif permission == "manager":
-                fields = {
-                    "status",
-                    "amount",
-                    "date_of_transaction",
-                    "rejection_note",
-                    "cost_type",
-                }
+                fields.add("rejection_note")
                 status = {
                     "ready_for_creditor",
                     "rejected_by_manager",
@@ -384,6 +373,7 @@ class ClaimExpenses:
                 elif item == "amount":
                     # If amount is set when employee updates expense check what status it should be
                     if permission == "employee":
+                        # If amount is less then 50 manager can be skipped
                         if data["amount"] < 50:
                             expense["status"]["text"] = "ready_for_creditor"
                         else:
