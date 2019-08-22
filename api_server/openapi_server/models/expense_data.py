@@ -23,6 +23,8 @@ class ExpenseData(Model):
         :type cost_type: str
         :param date_of_transaction: The date_of_transaction of this ExpenseData.  # noqa: E501
         :type date_of_transaction: str
+        :param attachment: The list of attachments of this ExpenseData.  # noqa: E501
+        :type attachment: string
         """
         self.openapi_types = {
             'amount': float,

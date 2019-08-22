@@ -13,40 +13,8 @@ info:
   x-audience: company-internal
   x-api-id: 1b66bb9e-5b02-49f1-8cf9-bc3f649d70a6
 servers:
-  -
-    url: /
+  - url: /
 paths:
-  /finances/expenses:
-    get:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
-              examples:
-                ExpenseDataArray:
-                  value:
-                    Expenses:
-                      -
-                        amount: ''
-                        note: some text
-                        cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
-                      -
-                        amount: ''
-                        note: some text
-                        cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
-          description: Succesfull response - returns all expenses
-        default:
-          description: Response Successfully Executed
-      security:
-        - oauth2: [manager.write]
-      operationId: get_all_expenses
-      summary: Get all expenses
-      description: Retrieve all expenses
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /employees/expenses:
     post:
       requestBody:
@@ -57,7 +25,7 @@ paths:
         default:
           description: Expense Made/Updated successfully!
       security:
-        - oauth2: [employee.write]
+        - oauth2: [finance.expenses]
       operationId: add_expense
       summary: Make expense
       description: Create an expense
@@ -80,10 +48,26 @@ paths:
         default:
           description: Cost Types retrieved successfully
       security:
-        - oauth2: [employee.write]
+        - oauth2: [finance.expenses]
       operationId: get_cost_types
       summary: Get all cost_types
       description: Retrieve all cost_types
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_employee
+      security:
+        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents':
     post:
@@ -94,20 +78,48 @@ paths:
               $ref: '#/components/schemas/Documents'
         required: true
       parameters:
-        -
-          $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
           description: Make new document
         default:
           description: A new document has been made
       security:
-        -
-          oauth2:
-            - employee.write
+        - oauth2: [finance.expenses]
       operationId: add_document
       summary: Make new document
       description: Add a document to an expense
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/{employee_id}/expenses:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+          description: Succesfull response - returns all expenses of a logged in employee
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_employee_expenses
+      summary: Get all expenses belonging to a specific logged in employee
+      description: Retrieve all expenses for a logged in employee
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}':
     get:
@@ -123,11 +135,29 @@ paths:
         default:
           description: Expense Success
       security:
-        - oauth2:
-            - employee.write
-      operationId: get_expenses
+        - oauth2: [finance.expenses]
+      operationId: get_expenses_employee
       summary: Get information from expenses by id
       description: Retrieve an expense
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    put:
+      summary: Update expense
+      operationId: update_expenses_employee
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Status'
+        required: true
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Updated expense
+        default:
+          description: Status of an expense has been updated
+      security:
+        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents/{documents_id}':
     get:
@@ -144,41 +174,37 @@ paths:
         default:
           description: Document successfully Retrieved
       security:
-        - oauth2: [employee.write]
+        - oauth2: [finance.expenses]
       operationId: get_document_by_id
       summary: Get document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     put:
       parameters:
-        -
-          $ref: '#/components/parameters/ExpensesId'
-        -
-          $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/DocumentId'
       responses:
         '200':
           description: Succesfully updated a document
         default:
           description: Expense successfully Updated
       security:
-        - oauth2: [employee.write]
+        - oauth2: [finance.expenses]
       operationId: update_attachments_by_id
       summary: Update document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     delete:
       parameters:
-        -
-          $ref: '#/components/parameters/ExpensesId'
-        -
-          $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/DocumentId'
       responses:
         '200':
           description: Succesfully deleted a document
         default:
           description: Delete Successfull OK
       security:
-        - oauth2: [employee.write]
+        - oauth2: [finance.expenses]
       operationId: delete_attachments_by_id
-      summary: Delete an document by document id
+      summary: Delete a document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{document_type}/files':
     get:
@@ -202,7 +228,7 @@ paths:
         default:
           description: List of files got Successfully OK
       security:
-        - oauth2: [manager.write]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
       operationId: create_document
@@ -222,7 +248,7 @@ paths:
         default:
           description: Booking file made Successfully OK
       security:
-        - oauth2: [manager.write]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/documents/{document_date}/kinds/{document_type}':
     get:
@@ -248,12 +274,12 @@ paths:
         default:
           description: Document file successfully retrieved
       security:
-        - oauth2: [manager.write]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{expenses_id}':
-    post:
-      summary: Update status of expense
-      operationId: update_expenses
+    put:
+      summary: Update expense
+      operationId: update_expenses_finance
       requestBody:
         content:
           'application/json':
@@ -261,34 +287,162 @@ paths:
               $ref: '#/components/schemas/Status'
         required: true
       parameters:
-        -
-          $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Updated expense status
+          description: Updated expense
         default:
           description: Status of an expense has been updated
       security:
-        -
-          oauth2:
-            - manager.write
-            - creditor.write
+        - oauth2: [creditor.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseData'
+          description: Successful response - returns information of expense
+        default:
+          description: Expense Success
+      security:
+        - oauth2: [creditor.write]
+      operationId: get_expenses_finances
+      summary: Get information from expenses by id
+      description: Retrieve an expense
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /finances/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_finances
+      security:
+        - oauth2: [manager.write]
+        - oauth2: [creditor.write]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /finances/expenses:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+          description: Succesfull response - returns all expenses
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [creditor.write]
+      operationId: get_all_expenses
+      summary: Get all expenses
+      description: Retrieve all expenses
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /finances/department/{department_id}/expenses:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 2019-07-16T13:26:00.000Z
+          description: Succesfull response - returns all expenses
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [manager.write]
+      operationId: get_department_expenses
+      summary: Get all expenses belonging to a specific manager
+      description: Retrieve all expenses for a given manager
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /managers/expenses/{expenses_id}:
+    put:
+      summary: Update expense
+      operationId: update_expenses_manager
+      requestBody:
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/Status'
+        required: true
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Updated expense
+        default:
+          description: Status of an expense has been updated
+      security:
+        - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 
 components:
   schemas:
+    Url:
+      properties:
+        url:
+          type: string
+      example:
+        url: 'https://gcp.com/img.png'
+    UrlArray:
+      title: Root Type for UrlArray
+      description: Array of urls of attachments
+      type: object
+      properties:
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Url'
     Status:
       description: Status for expense
       properties:
         status:
           type: string
-        note:
+        creditor_note:
+          type: string
+        manager_note:
           type: string
       required:
         - status
       example:
         status: 'cancelled_by_creditor'
-        note: 'Wrong amount'
+        finance_note: 'Wrong amount'
     Documents:
       description: Information for documents
       properties:
@@ -305,6 +459,7 @@ components:
         - note
         - cost_type
         - date_of_transaction
+        - attachment
       type: object
       properties:
         amount:
@@ -315,6 +470,8 @@ components:
         cost_type:
           type: string
         date_of_transaction:
+          type: integer
+        attachment:
           type: string
       example: |-
         {
@@ -336,8 +493,7 @@ components:
             $ref: '#/components/schemas/ExpenseData'
       example:
         Expenses:
-          -
-            note: |
+          - note: |
               This is a note
             id: |
               R1rt2345
@@ -346,8 +502,7 @@ components:
               This is a cost_type
             status: new
             date_of_transaction: 2019-07-16T13:26:00.000Z"
-          -
-            note: |
+          - note: |
               This is a notes
             id: |
               R1rt23f45
@@ -403,6 +558,22 @@ components:
         type: integer
       in: path
       required: true
+    EmployeeId:
+      style: simple
+      explode: false
+      name: employee_id
+      schema:
+        type: string
+      in: path
+      required: true
+    DepartmentId:
+      style: simple
+      explode: false
+      name: department_id
+      schema:
+        type: string
+      in: path
+      required: true
     DocumentId:
       style: simple
       explode: false
@@ -447,6 +618,6 @@ components:
           scopes:
             manager.write: Read all expenses and documents
             creditor.write: Write all expenses and documents
-            employee.write: Read expense and document information
+            finance.expenses: Read expense and document information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope

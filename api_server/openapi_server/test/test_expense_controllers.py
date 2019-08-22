@@ -47,9 +47,10 @@ class TestExpenseControllers(BaseTestCase):
             amount=6.4,
             cost_type='Kantoorbenodigdheden:412000',
             note='Scharen en potloden',
-            date_of_transaction="2019-07-11",
+            date_of_transaction=1564963200000,
             attachment="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/l"
-                       "K3Q6wAAAABJRU5ErkJggg=="
+                       "K3Q6wAAAABJRU5ErkJggg==.data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAD"
+                       "UlEQVR42mP8z/C/HgAGgwJ/lK3Q6wAAAABJRU5ErkJggg=="
         )
 
         response = self.client.open(
@@ -60,9 +61,9 @@ class TestExpenseControllers(BaseTestCase):
             content_type='application/json')
         self.assertEqual(response.status_code, 201)
 
-    def test_change_expense_status(self):
+    def test_update_expense(self):
         """
-        Test case for updating the expense status and adding a finance-note
+        Test case for updating the expense
         :return:
         """
         access_token = get_token()
@@ -72,14 +73,17 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         post_data = dict(
-            status="cancelled_by_creditor",
-            note="Wrong amount"
+            status="rejected",
+            rejection_note="Wrong amount",
+            amount=21,
+            cost_type="Software:415020",
+            date_of_transaction=1564963200000
         )
-        expenses_id = '5760325647335424'
+        expenses_id = '5713912150360064'
 
         response = self.client.open(
             f'/finances/expenses/{expenses_id}',
-            method='POST',
+            method='PUT',
             headers=headers,
             data=json.dumps(post_data),
             content_type='application/json')
@@ -113,7 +117,7 @@ class TestExpenseControllers(BaseTestCase):
         """
         access_token = get_token()
 
-        query_string = [('name', '7_31_13:39:17-31072019.csv')]
+        query_string = [('name', '8_19_11:22:31-19082019.csv')]
         document_type = 'payment_file'
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -123,6 +127,24 @@ class TestExpenseControllers(BaseTestCase):
             method='POST',
             headers=headers,
             query_string=query_string)
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_get_attachment(self):
+        """Test case for get_attachment
+
+        Get attachment
+        """
+        access_token = get_token()
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+        }
+
+        expenses_id = '5713912150360064'
+        response = self.client.open(
+            f'/finances/expenses/{expenses_id}/attachments',
+            method='GET',
+            headers=headers)
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
@@ -155,7 +177,7 @@ class TestExpenseControllers(BaseTestCase):
         }
 
         document_type = 'booking_file'
-        document_date = '8_1_07:52:41-1082019.csv'
+        document_date = '8_19_11:22:31-19082019.csv'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
@@ -176,7 +198,7 @@ class TestExpenseControllers(BaseTestCase):
 
         }
         document_type = 'payment_file'
-        document_date = '8_1_07:52:54-1082019'
+        document_date = '8_19_11:22:31-19082019'
         response = self.client.open(
             f'/finances/expenses/documents/{document_date}/kinds/{document_type}',
             method='GET',
