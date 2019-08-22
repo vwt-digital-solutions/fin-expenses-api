@@ -10,6 +10,7 @@ import tempfile
 import time
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
+from io import BytesIO
 from typing import Dict, Any
 
 import pytz
@@ -177,13 +178,16 @@ class ClaimExpenses:
         blobs = expenses_bucket.list_blobs(
             prefix=f"exports/attachments/{email_name}/{str(expenses_id)}"
         )
-
-        results = [
-            {
-                "url": blob.generate_signed_url(datetime.datetime.now() + datetime.timedelta(minutes=5), credentials=self.ds_client._credentials)
+        results = []
+        for blob in blobs:
+            content = blob.download_as_string()
+            stream = BytesIO(content)
+            stream_read = base64.b64encode(stream.read(len(content)))
+            content_result = {
+                "content_type": blob.content_type,
+                "content": (base64.b64decode(stream_read)).decode('utf-8')
             }
-            for blob in blobs
-        ]
+            results.append(content_result)
 
         return results
 
@@ -487,7 +491,7 @@ class ClaimExpenses:
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
-                                                        f"-{expense_detail['date_of_transaction']}",
+                            f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
@@ -658,8 +662,8 @@ class ClaimExpenses:
                 # Amount
                 amount = ET.SubElement(transfer, "Amt")
                 ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["data"][
-                    "Bedrag excl. BTW"
-                ])
+                                                                            "Bedrag excl. BTW"
+                                                                        ])
                 ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
@@ -969,8 +973,8 @@ def get_attachment(expenses_id):
     :param expenses_id:
     :return:
     """
-
-    return jsonify(expense_instance.get_attachment(expenses_id))
+    attachment_list = expense_instance.get_attachment(expenses_id)
+    return attachment_list
 
 
 def get_department_expenses(department_id):
