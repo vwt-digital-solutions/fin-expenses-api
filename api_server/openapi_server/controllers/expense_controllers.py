@@ -162,17 +162,21 @@ class ClaimExpenses:
             else:
                 return make_response(jsonify(None), 204)
 
-    def get_attachment(self, expenses_id):
+    def get_attachment(self, expenses_id, permission):
         """Get attachments with expenses_id"""
         email_name = ""
+        self.get_employee_info()
 
-        expenses_info = self.ds_client.query(kind="Expenses")
-        expenses_key = self.ds_client.key("Expenses", expenses_id)
-        expenses_info.key_filter(expenses_key, "=")
-        expenses_data = expenses_info.fetch()
+        with self.ds_client.transaction():
+            exp_key = self.ds_client.key("Expenses", expenses_id)
+            expense = self.ds_client.get(exp_key)
 
-        for expense in expenses_data:
-            email_name = expense["employee"]["email"].split("@")[0]
+        # Check if attachment is from employee if permission is employee
+        if permission == "employee":
+            if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+                return make_response(jsonify(None), 403)
+
+        email_name = expense["employee"]["email"].split("@")[0]
 
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
         blobs = expenses_bucket.list_blobs(
@@ -189,7 +193,7 @@ class ClaimExpenses:
             }
             results.append(content_result)
 
-        return results
+        return jsonify(results)
 
     def get_all_expenses(self, set_id=None, dep_or_emp=None):
         """Get JSON of all the expenses"""
@@ -1044,7 +1048,7 @@ def get_attachment_finances(expenses_id):
     :return:
     """
 
-    return jsonify(expense_instance.get_attachment(expenses_id))
+    return expense_instance.get_attachment(expenses_id, "creditor")
 
 
 def get_attachment_employee(expenses_id):
@@ -1054,5 +1058,5 @@ def get_attachment_employee(expenses_id):
     :return:
     """
 
-    return jsonify(expense_instance.get_attachment(expenses_id))
+    return expense_instance.get_attachment(expenses_id, "employee")
 
