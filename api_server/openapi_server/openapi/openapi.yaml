@@ -53,6 +53,22 @@ paths:
       summary: Get all cost_types
       description: Retrieve all cost_types
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_employee
+      security:
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}/documents':
     post:
       requestBody:
@@ -293,7 +309,7 @@ paths:
         default:
           description: Expense Success
       security:
-        - oauth2: [finance.expenses]
+        - oauth2: [creditor.write]
       operationId: get_expenses_finances
       summary: Get information from expenses by id
       description: Retrieve an expense
@@ -310,9 +326,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/UrlArray'
       summary: Get attachments by expense id
-      operationId: get_attachment
+      operationId: get_attachment_finances
       security:
-        - oauth2: [finance.expenses]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:

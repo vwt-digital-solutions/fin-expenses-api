@@ -883,6 +883,7 @@ def get_document_by_id():  # noqa: E501
     """
     return "do some magic!"
 
+
 def update_attachments_by_id():
     """Update attachment by attachment id"""
     return "do some magic!"
@@ -966,17 +967,6 @@ def create_document(document_type):
     else:
         return export_file
 
-
-def get_attachment(expenses_id):
-    """
-    Get attachment by expenses id
-    :param expenses_id:
-    :return:
-    """
-    attachment_list = expense_instance.get_attachment(expenses_id)
-    return attachment_list
-
-
 def get_department_expenses(department_id):
     """
     Get expenses corresponding to this manager
@@ -1039,6 +1029,7 @@ def update_expenses_manager(expenses_id):
     except Exception as er:
         return jsonify(er.args), 500
 
+
 def get_expenses_employee(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
@@ -1051,3 +1042,24 @@ def get_expenses_finances(expenses_id):
     :rtype: Expenses
     """
     return expense_instance.get_expenses(expenses_id, "creditor")
+
+
+def get_attachment_finances(expenses_id):
+    """
+    Get attachment by expenses id
+    :param expenses_id:
+    :return:
+    """
+
+    return jsonify(expense_instance.get_attachment(expenses_id))
+
+
+def get_attachment_employee(expenses_id):
+    """
+    Get attachment by expenses id
+    :param expenses_id:
+    :return:
+    """
+
+    return jsonify(expense_instance.get_attachment(expenses_id))
+
