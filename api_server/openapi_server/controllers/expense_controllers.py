@@ -964,6 +964,7 @@ def create_document(document_type):
     else:
         return export_file
 
+
 def get_department_expenses(department_id):
     """
     Get expenses corresponding to this manager
