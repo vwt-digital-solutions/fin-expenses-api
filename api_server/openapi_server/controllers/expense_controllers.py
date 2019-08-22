@@ -330,6 +330,9 @@ class ClaimExpenses:
                 # Check if expense is from employee
                 if not expense["employee"]["email"] == self.employee_info["unique_name"]:
                     return make_response(jsonify(None), 403)
+                # Check if status is either rejected_by_manager or rejected_by_creditor
+                if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+                    return make_response(jsonify(None), 403)
 
                 fields = {
                     "status",
