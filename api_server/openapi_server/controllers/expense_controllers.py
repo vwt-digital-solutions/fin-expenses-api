@@ -802,31 +802,6 @@ expense_instance = ClaimExpenses(
 )
 
 
-def add_attachment():  # noqa: E501
-    """Upload an attachment for your expenses
-    :type image: dict | bytes
-    :rtype: None
-    """
-    if connexion.request.is_json:
-        image = Image.from_dict(connexion.request.get_json())  # noqa: E501
-    return "do some magic!"
-
-
-def add_document():  # noqa: E501
-    """Make new document
-
-     # noqa: E501
-
-    :param documents:
-    :type documents: dict | bytes
-
-    :rtype: None
-    """
-    if connexion.request.is_json:
-        documents = Documents.from_dict(connexion.request.get_json())  # noqa: E501
-    return "do some magic!"
-
-
 def add_expense():
     """Make expense
     :param form_data:
@@ -843,17 +818,6 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def delete_attachments_by_id():  # noqa: E501
-    """Delete an attachment by attachment id
-
-     # noqa: E501
-
-
-    :rtype: None
-    """
-    return "do some magic!"
-
-
 def get_all_expenses():
     """
     Get all expenses
@@ -867,23 +831,6 @@ def get_cost_types():  # noqa: E501
     :rtype: None
     """
     return expense_instance.get_cost_types()
-
-
-def get_attachments_by_id():  # noqa: E501
-    """Get attachment by attachment id
-    """
-    return "do some magic!"
-
-
-def get_document_by_id():  # noqa: E501
-    """Get document by document id
-    """
-    return "do some magic!"
-
-
-def update_attachments_by_id():
-    """Update attachment by attachment id"""
-    return "do some magic!"
 
 
 def get_document(document_date, document_type):

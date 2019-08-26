@@ -69,27 +69,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/employees/expenses/{expenses_id}/documents':
-    post:
-      requestBody:
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/Documents'
-        required: true
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-      responses:
-        '200':
-          description: Make new document
-        default:
-          description: A new document has been made
-      security:
-        - oauth2: [finance.expenses]
-      operationId: add_document
-      summary: Make new document
-      description: Add a document to an expense
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /employees/{employee_id}/expenses:
     get:
       parameters:
@@ -158,53 +137,6 @@ paths:
           description: Status of an expense has been updated
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/employees/expenses/{expenses_id}/documents/{documents_id}':
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-        - $ref: '#/components/parameters/DocumentId'
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Documents'
-          description: Succesfull response - returns document
-        default:
-          description: Document successfully Retrieved
-      security:
-        - oauth2: [finance.expenses]
-      operationId: get_document_by_id
-      summary: Get document by document id
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    put:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-        - $ref: '#/components/parameters/DocumentId'
-      responses:
-        '200':
-          description: Succesfully updated a document
-        default:
-          description: Expense successfully Updated
-      security:
-        - oauth2: [finance.expenses]
-      operationId: update_attachments_by_id
-      summary: Update document by document id
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    delete:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-        - $ref: '#/components/parameters/DocumentId'
-      responses:
-        '200':
-          description: Succesfully deleted a document
-        default:
-          description: Delete Successfull OK
-      security:
-        - oauth2: [finance.expenses]
-      operationId: delete_attachments_by_id
-      summary: Delete a document by document id
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/expenses/{document_type}/files':
     get:
