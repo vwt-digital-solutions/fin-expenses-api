@@ -277,7 +277,6 @@ class ClaimExpenses:
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
-        date_of_claim = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         if data.amount >= 50:
             ready_text = "ready_for_manager"
         else:
@@ -299,7 +298,7 @@ class ClaimExpenses:
                 "note": data.note,
                 "cost_type": data.cost_type,
                 "date_of_transaction": int(data.date_of_transaction),
-                "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
+                "date_of_claim": int(time.time() * 1000),
                 "status": dict(date_exported="never", text=ready_text),
             }
         )
