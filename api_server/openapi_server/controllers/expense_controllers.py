@@ -352,13 +352,13 @@ class ClaimExpenses:
                     "cancelled",
                 }
             elif permission == "creditor":
-                fields.add("rejection_note")
+                fields.add("rnote")
                 status = {
                     "rejected_by_creditor",
                     "approved",
                 }
             elif permission == "manager":
-                fields.add("rejection_note")
+                fields.add("rnote")
                 status = {
                     "ready_for_creditor",
                     "rejected_by_manager",
@@ -372,13 +372,14 @@ class ClaimExpenses:
                             pass
                         else:
                             expense["status"]["text"] = data[item]
-                elif item == "rejection_note":
-                    expense["status"]["rejection_note"] = data[item]
+                elif item == "rnote":
+                    expense["status"]["rnote"] = data[item]
                 elif item == "amount":
                     expense[item] = data[item]
                     # If amount is set when employee updates expense check what status it should be
                     if permission == "employee":
                         # If amount is less then 50 manager can be skipped
+                        expense["amount"] = data["amount"]
                         if data["amount"] < 50:
                             expense["status"]["text"] = "ready_for_creditor"
                         else:
