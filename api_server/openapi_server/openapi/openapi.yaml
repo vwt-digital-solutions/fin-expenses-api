@@ -86,11 +86,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
           description: Succesfull response - returns all expenses of a logged in employee
         default:
           description: Response Successfully Executed
@@ -278,11 +278,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -309,11 +309,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 2019-07-16T13:26:00.000Z
+                        date_of_transaction: 1566892146383
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -343,7 +343,35 @@ paths:
       security:
         - oauth2: [manager.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-
+  /controllers/expenses:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 1566892146383
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 1566892146383
+          description: Succesfull response - returns all expenses
+        default:
+          description: Response Successfully Executed
+      security:
+       - oauth2: [controller.write]
+      operationId: get_controller_expenses
+      summary: Get all expenses
+      description: Get all expenses for controllers
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
 components:
   schemas:
     Url:
@@ -411,7 +439,7 @@ components:
             "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
-            "date_of_transaction": "2019-07-16T13:26:00.000Z"
+            "date_of_transaction": "1566892146383"
             "status": "new"
         }
     ExpenseDataArray:
@@ -433,7 +461,7 @@ components:
             cost_type: |
               This is a cost_type
             status: new
-            date_of_transaction: 2019-07-16T13:26:00.000Z"
+            date_of_transaction: 1566892146383"
           - note: |
               This is a notes
             id: |
@@ -442,7 +470,7 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
-            date_of_transaction: 2014-01-16T10:04:00.000X"
+            date_of_transaction: 1566892146383"
     CostTypes:
       title: costTypes
       description: CostType data
@@ -472,8 +500,8 @@ components:
           type: string
       example: |-
         {
-            "date_exported": "13:39:00-19072019"
-            "file_name": "13:39:00-19072019"
+            "date_exported": "1566892146383"
+            "file_name": "1566892146383"
         }
   parameters:
     DocumentDate:
@@ -551,5 +579,6 @@ components:
             manager.write: Read all expenses and documents
             creditor.write: Write all expenses and documents
             finance.expenses: Read expense and document information
+            controller.read: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope

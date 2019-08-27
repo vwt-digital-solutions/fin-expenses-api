@@ -226,6 +226,8 @@ class ClaimExpenses:
                 "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
             )
             expenses_data = expenses_info.fetch()
+        elif dep_or_emp == 'con':
+            expenses_data = expenses_info.fetch()
         else:
             expenses_data = expenses_info.fetch()
 
@@ -795,6 +797,10 @@ class ClaimExpenses:
         """ Get expenses belonging to a loggedin employee"""
         return self.get_all_expenses(employee_id, 'emp')
 
+    def get_controller_expenses(self):
+        """ Get all expenses"""
+        return self.get_all_expenses(None, 'con')
+
 
 expense_instance = ClaimExpenses(
     expected_audience=config.OAUTH_EXPECTED_AUDIENCE,
@@ -920,6 +926,13 @@ def get_department_expenses(department_id):
     """
     return expense_instance.get_department_expenses(department_id)
 
+
+def get_controller_expenses():
+    """
+    Get all expenses for controller
+    :return:
+    """
+    return expense_instance.get_controller_expenses()
 
 def get_employee_expenses(employee_id):
     """
