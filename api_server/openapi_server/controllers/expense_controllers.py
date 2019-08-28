@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["approved"]
-VWT_TIME_ZONE = pytz.timezone("Europe/Amsterdam")
+VWT_TIME_ZONE = "Europe/Amsterdam"
 FILTERED_OUT_ON_PROCESS = [
     "approved",
     "exported",
@@ -177,7 +177,6 @@ class ClaimExpenses:
 
     def get_attachment(self, expenses_id, permission):
         """Get attachments with expenses_id"""
-        email_name = ""
         self.get_employee_info()
 
         with self.ds_client.transaction():
@@ -186,7 +185,7 @@ class ClaimExpenses:
 
         # Check if attachment is from employee if permission is employee
         if permission == "employee":
-            if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+            if expense["employee"]["email"] != self.employee_info["unique_name"]:
                 return make_response(jsonify(None), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
@@ -250,10 +249,10 @@ class ClaimExpenses:
                         "note": ed["note"],
                         "cost_type": ed["cost_type"],
                         "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
-                            tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE).strftime('%d-%m-%Y %H:%M:%S'),
+                            tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y %H:%M:%S'),
                         "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
                                                                                ).replace(tzinfo=pytz.utc).astimezone
-                        (VWT_TIME_ZONE).strftime('%d %b %Y'),
+                        (pytz.timezone(VWT_TIME_ZONE)).strftime('%d %b %Y'),
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
                     }
