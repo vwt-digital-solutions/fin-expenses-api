@@ -237,10 +237,10 @@ class ClaimExpenses:
                         "note": ed["note"],
                         "cost_type": ed["cost_type"],
                         "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
-                            tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE),
+                            tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE).strftime('%d-%m-%Y %H:%M:%S'),
                         "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
                                                                                ).replace(tzinfo=pytz.utc).astimezone
-                        (VWT_TIME_ZONE),
+                        (VWT_TIME_ZONE).strftime('%d-%m-%Y %H:%M:%S'),
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
                     }
