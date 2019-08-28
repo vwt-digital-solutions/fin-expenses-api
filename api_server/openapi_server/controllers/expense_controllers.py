@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["approved"]
-VWT_TIME_ZONE = "Europe/Amsterdam"
+VWT_TIME_ZONE = pytz.timezone("Europe/Amsterdam")
 FILTERED_OUT_ON_PROCESS = [
     "approved",
     "exported",
@@ -257,7 +257,7 @@ class ClaimExpenses:
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
+                    "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE),
                     "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
