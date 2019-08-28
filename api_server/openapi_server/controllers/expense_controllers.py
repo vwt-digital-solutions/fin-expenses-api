@@ -240,7 +240,7 @@ class ClaimExpenses:
                             tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE).strftime('%d-%m-%Y %H:%M:%S'),
                         "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
                                                                                ).replace(tzinfo=pytz.utc).astimezone
-                        (VWT_TIME_ZONE).strftime('%d-%m-%Y %H:%M:%S'),
+                        (VWT_TIME_ZONE).strftime('%d %b %Y'),
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
                     }
