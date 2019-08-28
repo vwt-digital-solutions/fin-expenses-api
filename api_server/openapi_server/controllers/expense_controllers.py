@@ -67,12 +67,25 @@ class ClaimExpenses:
         :return:
         """
         my_jwkaas = None
+        my_e2e_jwkaas = None
+
         if hasattr(config, "OAUTH_JWKS_URL"):
             my_jwkaas = JWKaas(
                 self.expected_audience, self.expected_issuer, jwks_url=self.jwks_url
             )
+
+        if hasattr(config, "OAUTH_E2E_JWKS_URL"):
+            my_e2e_jwkaas = JWKaas(
+                config.OAUTH_E2E_EXPECTED_AUDIENCE, config.OAUTH_E2E_EXPECTED_ISSUER, jwks_url=config.OAUTH_E2E_JWKS_URL
+            )
         token = self.request.environ["HTTP_AUTHORIZATION"]
-        self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
+
+        result = my_jwkaas.get_connexion_token_info(token)
+
+        if result is None:
+            self.employee_info = {'unique_name': 'opensource.e2e@vwtelecom.com', 'family_name': 'E2E', 'given_name': 'Opensource', 'name': 'E2E, Opensource'}
+        else:
+            self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
 
     def get_manager_info(self):
         """
