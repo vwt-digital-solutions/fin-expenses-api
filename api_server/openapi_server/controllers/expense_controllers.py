@@ -228,6 +228,27 @@ class ClaimExpenses:
             expenses_data = expenses_info.fetch()
         elif dep_or_emp == 'con':
             expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = [
+                    {
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": ed["cost_type"],
+                        "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
+                            tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE),
+                        "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
+                                                                               ).replace(tzinfo=pytz.utc).astimezone
+                        (VWT_TIME_ZONE),
+                        "employee": ed["employee"]["full_name"],
+                        "status": ed["status"],
+                    }
+                    for ed in expenses_data
+                ]
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
         else:
             expenses_data = expenses_info.fetch()
 
@@ -257,7 +278,7 @@ class ClaimExpenses:
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(tzinfo=pytz.utc).astimezone(VWT_TIME_ZONE),
+                    "date_of_claim": ed["date_of_claim"],
                     "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
@@ -343,7 +364,8 @@ class ClaimExpenses:
                 if not expense["employee"]["email"] == self.employee_info["unique_name"]:
                     return make_response(jsonify(None), 403)
                 # Check if status is either rejected_by_manager or rejected_by_creditor
-                if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+                if expense["status"]["text"] != "rejected_by_manager" and expense["status"][
+                    "text"] != "rejected_by_creditor":
                     return make_response(jsonify(None), 403)
 
                 fields.add("note")
@@ -491,7 +513,7 @@ class ClaimExpenses:
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
-                            f"-{expense_detail['date_of_transaction']}",
+                                                        f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
@@ -934,6 +956,7 @@ def get_controller_expenses():
     """
     return expense_instance.get_controller_expenses()
 
+
 def get_employee_expenses(employee_id):
     """
     Get expenses corresponding to the logged in employee
@@ -1021,4 +1044,3 @@ def get_attachment_employee(expenses_id):
     """
 
     return expense_instance.get_attachment(expenses_id, "employee")
-
