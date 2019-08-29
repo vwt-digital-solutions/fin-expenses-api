@@ -80,12 +80,12 @@ class ClaimExpenses:
             )
         token = self.request.environ["HTTP_AUTHORIZATION"]
 
-        result = my_jwkaas.get_connexion_token_info(token)
-
-        if result is None:
-            self.employee_info = {'unique_name': 'opensource.e2e@vwtelecom.com', 'family_name': 'E2E', 'given_name': 'Opensource', 'name': 'E2E, Opensource'}
-        else:
+        try:
             self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
+        except Exception as e:
+            self.employee_info = {'unique_name': 'opensource.e2e@vwtelecom.com', 'family_name': 'E2E', 'given_name': 'Opensource', 'name': 'E2E, Opensource'}
+
+
 
     def get_manager_info(self):
         """
@@ -109,14 +109,17 @@ class ClaimExpenses:
         This link is made available through the HR-On boarding project
         :param unique_name: An email address
         """
-
-        employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
-        employee_afas_query = self.ds_client.get(employee_afas_key)
-        if employee_afas_query:
-            data = dict(employee_afas_query.items())
-            return data
+        # Fake AFAS data for E2E:
+        if unique_name == 'opensource.e2e@vwtelecom.com':
+            return config.e2e_afas_data
         else:
-            return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+            employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
+            employee_afas_query = self.ds_client.get(employee_afas_key)
+            if employee_afas_query:
+                data = dict(employee_afas_query.items())
+                return data
+            else:
+                return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
@@ -525,7 +528,7 @@ class ClaimExpenses:
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
-                                                        f"-{expense_detail['date_of_transaction']}",
+                            f"-{expense_detail['date_of_transaction']}",
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
