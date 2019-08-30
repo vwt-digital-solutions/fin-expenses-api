@@ -517,9 +517,12 @@ class ClaimExpenses:
             for exps in never_exported:
                 expense_detail = self.ds_client.get(exps)
                 if expense_detail["employee"].__len__() > 0:
-                    department_number_aka_afdeling_code = expense_detail["employee"][
-                        "afas_data"
-                    ]["Afdeling Code"]
+                    try:
+                        department_number_aka_afdeling_code = expense_detail["employee"][
+                            "afas_data"
+                        ]["Afdeling Code"]
+                    except Exception as e:
+                        department_number_aka_afdeling_code = 0000
                     company_number = self.ds_client.get(
                         self.ds_client.key(
                             "Departments", department_number_aka_afdeling_code
