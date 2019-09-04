@@ -67,12 +67,25 @@ class ClaimExpenses:
         :return:
         """
         my_jwkaas = None
+        my_e2e_jwkaas = None
+
         if hasattr(config, "OAUTH_JWKS_URL"):
             my_jwkaas = JWKaas(
                 self.expected_audience, self.expected_issuer, jwks_url=self.jwks_url
             )
+
+        if hasattr(config, "OAUTH_E2E_JWKS_URL"):
+            my_e2e_jwkaas = JWKaas(
+                config.OAUTH_E2E_EXPECTED_AUDIENCE, config.OAUTH_E2E_EXPECTED_ISSUER, jwks_url=config.OAUTH_E2E_JWKS_URL
+            )
         token = self.request.environ["HTTP_AUTHORIZATION"]
-        self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
+
+        try:
+            self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
+        except Exception as e:
+            self.employee_info = {'unique_name': 'opensource.e2e@vwtelecom.com', 'family_name': 'E2E', 'given_name': 'Opensource', 'name': 'E2E, Opensource'}
+
+
 
     def get_manager_info(self):
         """
@@ -96,14 +109,17 @@ class ClaimExpenses:
         This link is made available through the HR-On boarding project
         :param unique_name: An email address
         """
-
-        employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
-        employee_afas_query = self.ds_client.get(employee_afas_key)
-        if employee_afas_query:
-            data = dict(employee_afas_query.items())
-            return data
+        # Fake AFAS data for E2E:
+        if unique_name == 'opensource.e2e@vwtelecom.com':
+            return config.e2e_afas_data
         else:
-            return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+            employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
+            employee_afas_query = self.ds_client.get(employee_afas_key)
+            if employee_afas_query:
+                data = dict(employee_afas_query.items())
+                return data
+            else:
+                return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
@@ -164,7 +180,6 @@ class ClaimExpenses:
 
     def get_attachment(self, expenses_id, permission):
         """Get attachments with expenses_id"""
-        email_name = ""
         self.get_employee_info()
 
         with self.ds_client.transaction():
@@ -173,7 +188,7 @@ class ClaimExpenses:
 
         # Check if attachment is from employee if permission is employee
         if permission == "employee":
-            if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+            if expense["employee"]["email"] != self.employee_info["unique_name"]:
                 return make_response(jsonify(None), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
@@ -226,6 +241,29 @@ class ClaimExpenses:
                 "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
             )
             expenses_data = expenses_info.fetch()
+        elif dep_or_emp == 'con':
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = [
+                    {
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": ed["cost_type"],
+                        "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
+                            tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y %H:%M:%S'),
+                        "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
+                                                                               ).replace(tzinfo=pytz.utc).astimezone
+                        (pytz.timezone(VWT_TIME_ZONE)).strftime('%d %b %Y'),
+                        "employee": ed["employee"]["full_name"],
+                        "status": ed["status"],
+                    }
+                    for ed in expenses_data
+                ]
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
         else:
             expenses_data = expenses_info.fetch()
 
@@ -277,7 +315,6 @@ class ClaimExpenses:
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
-        date_of_claim = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         if data.amount >= 50:
             ready_text = "ready_for_manager"
         else:
@@ -299,7 +336,7 @@ class ClaimExpenses:
                 "note": data.note,
                 "cost_type": data.cost_type,
                 "date_of_transaction": int(data.date_of_transaction),
-                "date_of_claim": date_of_claim.isoformat(timespec="seconds"),
+                "date_of_claim": int(time.time() * 1000),
                 "status": dict(date_exported="never", text=ready_text),
             }
         )
@@ -342,7 +379,8 @@ class ClaimExpenses:
                 if not expense["employee"]["email"] == self.employee_info["unique_name"]:
                     return make_response(jsonify(None), 403)
                 # Check if status is either rejected_by_manager or rejected_by_creditor
-                if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+                if expense["status"]["text"] != "rejected_by_manager" and expense["status"][
+                    "text"] != "rejected_by_creditor":
                     return make_response(jsonify(None), 403)
 
                 fields.add("note")
@@ -352,13 +390,13 @@ class ClaimExpenses:
                     "cancelled",
                 }
             elif permission == "creditor":
-                fields.add("rejection_note")
+                fields.add("rnote")
                 status = {
                     "rejected_by_creditor",
                     "approved",
                 }
             elif permission == "manager":
-                fields.add("rejection_note")
+                fields.add("rnote")
                 status = {
                     "ready_for_creditor",
                     "rejected_by_manager",
@@ -372,12 +410,14 @@ class ClaimExpenses:
                             pass
                         else:
                             expense["status"]["text"] = data[item]
-                elif item == "rejection_note":
-                    expense["status"]["rejection_note"] = data[item]
+                elif item == "rnote":
+                    expense["status"]["rnote"] = data[item]
                 elif item == "amount":
+                    expense[item] = data[item]
                     # If amount is set when employee updates expense check what status it should be
                     if permission == "employee":
                         # If amount is less then 50 manager can be skipped
+                        expense["amount"] = data["amount"]
                         if data["amount"] < 50:
                             expense["status"]["text"] = "ready_for_creditor"
                         else:
@@ -477,9 +517,12 @@ class ClaimExpenses:
             for exps in never_exported:
                 expense_detail = self.ds_client.get(exps)
                 if expense_detail["employee"].__len__() > 0:
-                    department_number_aka_afdeling_code = expense_detail["employee"][
-                        "afas_data"
-                    ]["Afdeling Code"]
+                    try:
+                        department_number_aka_afdeling_code = expense_detail["employee"][
+                            "afas_data"
+                        ]["Afdeling Code"]
+                    except Exception as e:
+                        department_number_aka_afdeling_code = 0000
                     company_number = self.ds_client.get(
                         self.ds_client.key(
                             "Departments", department_number_aka_afdeling_code
@@ -794,37 +837,16 @@ class ClaimExpenses:
         """ Get expenses belonging to a loggedin employee"""
         return self.get_all_expenses(employee_id, 'emp')
 
+    def get_controller_expenses(self):
+        """ Get all expenses"""
+        return self.get_all_expenses(None, 'con')
+
 
 expense_instance = ClaimExpenses(
     expected_audience=config.OAUTH_EXPECTED_AUDIENCE,
     expected_issuer=config.OAUTH_EXPECTED_ISSUER,
     jwks_url=config.OAUTH_JWKS_URL,
 )
-
-
-def add_attachment():  # noqa: E501
-    """Upload an attachment for your expenses
-    :type image: dict | bytes
-    :rtype: None
-    """
-    if connexion.request.is_json:
-        image = Image.from_dict(connexion.request.get_json())  # noqa: E501
-    return "do some magic!"
-
-
-def add_document():  # noqa: E501
-    """Make new document
-
-     # noqa: E501
-
-    :param documents:
-    :type documents: dict | bytes
-
-    :rtype: None
-    """
-    if connexion.request.is_json:
-        documents = Documents.from_dict(connexion.request.get_json())  # noqa: E501
-    return "do some magic!"
 
 
 def add_expense():
@@ -843,17 +865,6 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def delete_attachments_by_id():  # noqa: E501
-    """Delete an attachment by attachment id
-
-     # noqa: E501
-
-
-    :rtype: None
-    """
-    return "do some magic!"
-
-
 def get_all_expenses():
     """
     Get all expenses
@@ -867,23 +878,6 @@ def get_cost_types():  # noqa: E501
     :rtype: None
     """
     return expense_instance.get_cost_types()
-
-
-def get_attachments_by_id():  # noqa: E501
-    """Get attachment by attachment id
-    """
-    return "do some magic!"
-
-
-def get_document_by_id():  # noqa: E501
-    """Get document by document id
-    """
-    return "do some magic!"
-
-
-def update_attachments_by_id():
-    """Update attachment by attachment id"""
-    return "do some magic!"
 
 
 def get_document(document_date, document_type):
@@ -973,6 +967,14 @@ def get_department_expenses(department_id):
     return expense_instance.get_department_expenses(department_id)
 
 
+def get_controller_expenses():
+    """
+    Get all expenses for controller
+    :return:
+    """
+    return expense_instance.get_controller_expenses()
+
+
 def get_employee_expenses(employee_id):
     """
     Get expenses corresponding to the logged in employee
@@ -1060,4 +1062,3 @@ def get_attachment_employee(expenses_id):
     """
 
     return expense_instance.get_attachment(expenses_id, "employee")
-
