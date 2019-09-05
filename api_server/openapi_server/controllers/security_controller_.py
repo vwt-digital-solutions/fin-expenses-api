@@ -40,6 +40,6 @@ def info_from_oAuth2(token):
             result = {'scopes': ['finance.expenses', 'creditor.write', 'controller.write', 'manager.write'], 'sub': 'e2e'}
 
     if result is not None:
-        g.user = result.get('upn', '')
+        g.user = result.get('upn', 'e2e-technical-user')
 
     return result
