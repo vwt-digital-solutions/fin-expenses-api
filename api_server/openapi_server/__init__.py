@@ -5,12 +5,12 @@ from flask_cors import CORS
 
 from openapi_server import encoder
 
-try:
-    import googleclouddebugger
-
-    googleclouddebugger.enable()
-except ImportError:
-    pass
+# try:
+#     import googleclouddebugger
+#
+#     googleclouddebugger.enable()
+# except ImportError:
+#     pass
 
 app = connexion.App(__name__, specification_dir='./openapi/')
 app.app.json_encoder = encoder.JSONEncoder
