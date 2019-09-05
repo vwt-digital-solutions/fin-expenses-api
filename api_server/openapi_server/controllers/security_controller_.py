@@ -18,13 +18,6 @@ if hasattr(config, 'OAUTH_E2E_JWKS_URL'):
                            jwks_url=config.OAUTH_E2E_JWKS_URL)
 
 
-def refine_token_info(token_info):
-    if token_info and 'scopes' in token_info:
-        if 'finance.expenses' in token_info['scopes']:
-            token_info['scopes'].append('finance.expenses')
-            token_info['scopes'].append('creditor.write')
-    return token_info
-
 
 def info_from_oAuth2(token):
     """
@@ -49,4 +42,4 @@ def info_from_oAuth2(token):
     if result is not None:
         g.user = result.get('upn', '')
 
-    return refine_token_info(result)
+    return result
