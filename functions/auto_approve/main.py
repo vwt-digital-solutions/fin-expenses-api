@@ -17,8 +17,7 @@ def process_approve(request):
         # query.add_filter('status.text', '>', 'approved')
         # query.add_filter('status.text', '<', 'approved')
         for expense in [exp for exp in list(query.fetch())
-                        if exp['status']['text'] != 'approve']:
-            logging.info(f'Auto approve {expense}')
+                        if exp['status']['text'] != 'approved']:
             expense['status']['text'] = 'approved'
             expense['date_of_transaction'] = int(datetime.datetime.now().timestamp()) * 1000
             logging.info(f'Auto approve {expense}')
