@@ -8,7 +8,9 @@ def process_approve(request):
     if request.args and 'pending' in request.args:
         client = datastore.Client()
         query = client.query(kind='Expenses')
-        boundary = int((datetime.datetime.now() - datetime.timedelta(days=int(request.args['pending'])))
+        pending = int(request.args['pending'])
+        logging.info(f'Auto-approve claims older than {pending} days')
+        boundary = int((datetime.datetime.now() - datetime.timedelta(days=pending))
                        .timestamp()) * 1000
         query.add_filter('date_of_claim', '<=', boundary)
         # only single une-quality criteria, must check programmatically after
