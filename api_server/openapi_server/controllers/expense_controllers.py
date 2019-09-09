@@ -10,6 +10,7 @@ import tempfile
 import time
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
+from abc import abstractmethod
 from io import BytesIO
 from typing import Dict, Any
 
@@ -52,9 +53,7 @@ class ClaimExpenses:
     def __init__(self):
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
-        self.request = connexion.request
         self.employee_info = g.token
-        self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
     def get_manager_info(self):
@@ -175,7 +174,7 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self, set_id=None, dep_or_emp=None):
+    def get_all_expenses(self):
         """Get JSON of all the expenses"""
 
         query_filter: Dict[Any, str] = dict(
@@ -184,85 +183,23 @@ class ClaimExpenses:
 
         expenses_info = self.ds_client.query(kind="Expenses")
 
-        if dep_or_emp == 'dep':
-            #  Add filter to fetch identifying field TODO: Refactoring needed to make this more abstract
-            self.get_manager_info()
-            manager = self.ds_client.get(self.ds_client.key("Manager", set_id))
-            expenses_info.add_filter(
-                "status.text",
-                "=",
-                query_filter["manager"] if set_id else query_filter["creditor"],
-            )
-            expenses_info.add_filter(
-                "employee.afas_data.Manager",
-                "=",
-                manager["manager_id"]
-            )
-            expenses_data = expenses_info.fetch(limit=10)
-        elif dep_or_emp == 'emp':
-            expenses_info.add_filter(
-                "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
-            )
-            expenses_data = expenses_info.fetch()
-        elif dep_or_emp == 'con':
-            expenses_data = expenses_info.fetch()
+        expenses_data = expenses_info.fetch()
 
-            if expenses_data:
-                results = [
-                    {
+        if expenses_data:
+            results = []
+            for ed in expenses_data:
+                if (query_filter["creditor"] == ed["status"]["text"] or
+                        query_filter["creditor2"] == ed["status"]["text"]):
+                    results.append({
                         "id": ed.id,
                         "amount": ed["amount"],
                         "note": ed["note"],
                         "cost_type": ed["cost_type"],
-                        "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
-                            tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y %H:%M:%S'),
-                        "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
-                                                                               ).replace(tzinfo=pytz.utc).astimezone
-                        (pytz.timezone(VWT_TIME_ZONE)).strftime('%d %b %Y'),
+                        "date_of_claim": ed["date_of_claim"],
+                        "date_of_transaction": ed["date_of_transaction"],
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
-                    }
-                    for ed in expenses_data
-                ]
-                return jsonify(results)
-            else:
-                return make_response(jsonify(None), 204)
-        else:
-            expenses_data = expenses_info.fetch()
-
-            if expenses_data:
-                results = []
-                for ed in expenses_data:
-                    if (query_filter["creditor"] == ed["status"]["text"] or
-                            query_filter["creditor2"] == ed["status"]["text"]):
-                        results.append({
-                            "id": ed.id,
-                            "amount": ed["amount"],
-                            "note": ed["note"],
-                            "cost_type": ed["cost_type"],
-                            "date_of_claim": ed["date_of_claim"],
-                            "date_of_transaction": ed["date_of_transaction"],
-                            "employee": ed["employee"]["full_name"],
-                            "status": ed["status"],
-                        })
-                return jsonify(results)
-            else:
-                return make_response(jsonify(None), 204)
-
-        if expenses_data:
-            results = [
-                {
-                    "id": ed.id,
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
-                    "date_of_transaction": ed["date_of_transaction"],
-                    "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
-                }
-                for ed in expenses_data
-            ]
+                    })
             return jsonify(results)
         else:
             return make_response(jsonify(None), 204)
@@ -314,10 +251,21 @@ class ClaimExpenses:
 
         return make_response(jsonify(entity.key.id_or_name), 201)
 
-    def update_expenses(self, expenses_id, data, permission):
+    @abstractmethod
+    def _process_status_text_update(self, item, expense):
+        pass
+
+    @abstractmethod
+    def _process_status_amount_update(self, amount, expense):
+        pass
+
+    @abstractmethod
+    def _prepare_context_update_expense(self, data, expense):
+        pass
+
+    def update_expenses(self, expenses_id, data):
         """
         Change the status and add note from expense
-        :param permission:
         :param expenses_id:
         :param data:
         :return:
@@ -325,67 +273,24 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
+            fields, status = self._prepare_context_update_expense(data, expense)
+            self._update_expenses(data, fields, status, expense)
 
-            fields = {
-                "status",
-                "amount",
-                "date_of_transaction",
-                "cost_type",
-            }
+    def _update_expenses(self, data, fields, status, expense):
+        items_to_update = list(fields.intersection(set(data.keys())))
+        for item in items_to_update:
+            if item == "status":
+                if data[item] in status:
+                    self._process_status_text_update(data[item], expense)
+            elif item == "rnote":
+                expense["status"]["rnote"] = data[item]
+            elif item == "amount":
+                expense[item] = data[item]
+                self._process_status_amount_update(data[item], expense)
+            else:
+                expense[item] = data[item]
 
-            if permission == "employee":
-
-                # Check if expense is from employee
-                if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-                    return make_response(jsonify(None), 403)
-                # Check if status is either rejected_by_manager or rejected_by_creditor
-                if expense["status"]["text"] != "rejected_by_manager" and expense["status"][
-                    "text"] != "rejected_by_creditor":
-                    return make_response(jsonify(None), 403)
-
-                fields.add("note")
-                status = {
-                    "ready_for_manager",
-                    "ready_for_creditor",
-                    "cancelled",
-                }
-            elif permission == "creditor":
-                fields.add("rnote")
-                status = {
-                    "rejected_by_creditor",
-                    "approved",
-                }
-            elif permission == "manager":
-                fields.add("rnote")
-                status = {
-                    "ready_for_creditor",
-                    "rejected_by_manager",
-                }
-
-            items_to_update = list(fields.intersection(set(data.keys())))
-            for item in items_to_update:
-                if item == "status":
-                    if data[item] in status:
-                        if permission == "employee":
-                            pass
-                        else:
-                            expense["status"]["text"] = data[item]
-                elif item == "rnote":
-                    expense["status"]["rnote"] = data[item]
-                elif item == "amount":
-                    expense[item] = data[item]
-                    # If amount is set when employee updates expense check what status it should be
-                    if permission == "employee":
-                        # If amount is less then 50 manager can be skipped
-                        expense["amount"] = data["amount"]
-                        if data["amount"] < 50:
-                            expense["status"]["text"] = "ready_for_creditor"
-                        else:
-                            expense["status"]["text"] = "ready_for_manager"
-                else:
-                    expense[item] = data[item]
-
-            self.ds_client.put(expense)
+        self.ds_client.put(expense)
 
     @staticmethod
     def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
@@ -789,17 +694,172 @@ class ClaimExpenses:
                     export_file.close()
                     return export_file
 
-    def get_department_expenses(self, department_id):
-        """ Get expenses belonging to a manager"""
-        return self.get_all_expenses(department_id, 'dep')
+    def _create_expenses_query(self):
+        return self.ds_client.query(kind="Expenses")
 
-    def get_employee_expenses(self, employee_id):
-        """ Get expenses belonging to a loggedin employee"""
-        return self.get_all_expenses(employee_id, 'emp')
+    @staticmethod
+    def _process_expenses_info(self, expenses_info):
+        expenses_data = expenses_info.fetch()
+        if expenses_data:
+            return jsonify([
+                {
+                    "id": ed.id,
+                    "amount": ed["amount"],
+                    "note": ed["note"],
+                    "cost_type": ed["cost_type"],
+                    "date_of_claim": ed["date_of_claim"],
+                    "date_of_transaction": ed["date_of_transaction"],
+                    "employee": ed["employee"]["full_name"],
+                    "status": ed["status"],
+                }
+                for ed in expenses_data
+            ])
+        else:
+            return make_response(jsonify(None), 204)
 
-    def get_controller_expenses(self):
-        """ Get all expenses"""
-        return self.get_all_expenses(None, 'con')
+
+class EmployeeExpenses(ClaimExpenses):
+    def __init__(self, employee_id):
+        super().__init__()
+        self.employee_id = employee_id
+
+    def get_all_expenses(self):
+        expenses_info = self._create_expenses_query()
+        expenses_info.add_filter(
+            "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
+        )
+        return self._process_expenses_info(expenses_info)
+
+    def _prepare_context_update_expense(self, data, expense):
+        # Check if expense is from employee
+        if not expense["employee"]["email"] == self.employee_info["unique_name"]:
+            return make_response(jsonify(None), 403)
+        # Check if status is either rejected_by_manager or rejected_by_creditor
+        if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+            return make_response(jsonify(None), 403)
+
+        fields = {
+            "status",
+            "amount",
+            "date_of_transaction",
+            "cost_type",
+            "note"
+        }
+
+        status = {
+            "ready_for_manager",
+            "ready_for_creditor",
+            "cancelled",
+        }
+        return fields, status
+
+    def _process_status_text_update(self, item, expense):
+        pass
+
+    def _process_status_amount_update(self, amount, expense):
+        pass
+
+
+class DepartmentExpenses(ClaimExpenses):
+    def __init__(self, department_id):
+        super().__init__()
+        self.department_id = department_id
+
+    def get_all_expenses(self):
+        expenses_info = self._create_expenses_query()
+        self.get_manager_info()
+        manager = self.ds_client.get(self.ds_client.key("Manager", self.department_id))
+        query_filter: Dict[Any, str] = dict(
+            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+        )
+        expenses_info.add_filter(
+            "status.text",
+            "=",
+            query_filter["manager"] if self.department_id else query_filter["creditor"],
+        )
+        expenses_info.add_filter(
+            "employee.afas_data.Manager",
+            "=",
+            manager["manager_id"]
+        )
+        # expenses_data = expenses_info.fetch(limit=10)
+        return self._process_expenses_info(expenses_info)
+
+    def _prepare_context_update_expense(self, data, expense):
+        fields = {
+            "status",
+            "amount",
+            "date_of_transaction",
+            "cost_type",
+            "rnote"
+        }
+        status = {
+            "ready_for_creditor",
+            "rejected_by_manager",
+        }
+        return fields, status
+
+    def _process_status_text_update(self, item, expense):
+        expense["status"]["text"] = item
+
+    def _process_status_amount_update(self, amount, expense):
+        # If amount is set when employee updates expense check what status it should be
+        # If amount is less then 50 manager can be skipped
+        if amount < 50:
+            expense["status"]["text"] = "ready_for_creditor"
+        else:
+            expense["status"]["text"] = "ready_for_manager"
+
+
+class ControllerExpenses(ClaimExpenses):
+    def __init__(self):
+        super().__init__()
+
+    def get_all_expenses(self):
+        expenses_info = self._create_expenses_query()
+        expenses_data = expenses_info.fetch()
+
+        if expenses_data:
+            results = [
+                {
+                    "id": ed.id,
+                    "amount": ed["amount"],
+                    "note": ed["note"],
+                    "cost_type": ed["cost_type"],
+                    "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
+                        tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y %H:%M:%S'),
+                    "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
+                                                                           ).replace(tzinfo=pytz.utc).astimezone
+                    (pytz.timezone(VWT_TIME_ZONE)).strftime('%d %b %Y'),
+                    "employee": ed["employee"]["full_name"],
+                    "status": ed["status"],
+                }
+                for ed in expenses_data
+            ]
+            return jsonify(results)
+        else:
+            return make_response(jsonify(None), 204)
+        pass
+
+    def _prepare_context_update_expense(self, data, expense):
+        fields = {
+            "status",
+            "amount",
+            "date_of_transaction",
+            "cost_type",
+            "rnote"
+        }
+        status = {
+            "rejected_by_creditor",
+            "approved",
+        }
+        return fields, status
+
+    def _process_status_text_update(self, item, expense):
+        expense["status"]["text"] = item
+
+    def _process_status_amount_update(self, amount, expense):
+        pass
 
 
 def add_expense():
@@ -926,8 +986,8 @@ def get_department_expenses(department_id):
     Get expenses corresponding to this manager
     :param department_id:
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_department_expenses(department_id)
+    expense_instance = DepartmentExpenses(department_id)
+    return expense_instance.get_all_expenses()
 
 
 def get_controller_expenses():
@@ -935,8 +995,8 @@ def get_controller_expenses():
     Get all expenses for controller
     :return:
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_controller_expenses()
+    expense_instance = ControllerExpenses()
+    return expense_instance.get_all_expenses()
 
 
 def get_employee_expenses(employee_id):
@@ -944,8 +1004,8 @@ def get_employee_expenses(employee_id):
     Get expenses corresponding to the logged in employee
     :param employee_id:
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_employee_expenses(employee_id)
+    expense_instance = EmployeeExpenses(employee_id)
+    return expense_instance.get_all_expenses()
 
 
 def update_expenses_finance(expenses_id):
@@ -955,9 +1015,9 @@ def update_expenses_finance(expenses_id):
     """
     try:
         if connexion.request.is_json:
-            expense_instance = ClaimExpenses()
             form_data = json.loads(connexion.request.get_data().decode())
-            return expense_instance.update_expenses(expenses_id, form_data, "creditor")
+            expense_instance = ControllerExpenses()
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
 
@@ -971,8 +1031,8 @@ def update_expenses_employee(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ClaimExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data, "employee")
+            expense_instance = EmployeeExpenses(None)
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
 
@@ -986,8 +1046,8 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ClaimExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data, "manager")
+            expense_instance = DepartmentExpenses(None)
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
 
