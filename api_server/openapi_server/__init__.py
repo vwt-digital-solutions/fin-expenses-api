@@ -24,6 +24,7 @@ CORS(app.app)
 def before_request():
     g.user = ''
     g.ip = ''
+    g.token = {}
 
 
 @app.app.after_request

@@ -22,7 +22,7 @@ import logging
 import pandas as pd
 
 import connexion
-from flask import make_response, jsonify, Response, request
+from flask import make_response, jsonify, Response, g
 from google.cloud import datastore, storage
 
 from openapi_server.models.booking_file import BookingFile
@@ -49,50 +49,19 @@ class ClaimExpenses:
     Class based function to house all Expenses functionality
 
     """
-
-    def __init__(self, expected_audience, expected_issuer, jwks_url):
+    def __init__(self):
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
         self.request = connexion.request
-        self.employee_info = dict()
-        self.expected_audience = expected_audience
-        self.expected_issuer = expected_issuer
-        self.jwks_url = jwks_url
+        self.employee_info = g.token
         self.hashed_email = ""
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
-
-    def get_employee_info(self):
-        """
-        Get all available information about the employee
-        :return:
-        """
-        my_jwkaas = None
-        my_e2e_jwkaas = None
-
-        if hasattr(config, "OAUTH_JWKS_URL"):
-            my_jwkaas = JWKaas(
-                self.expected_audience, self.expected_issuer, jwks_url=self.jwks_url
-            )
-
-        if hasattr(config, "OAUTH_E2E_JWKS_URL"):
-            my_e2e_jwkaas = JWKaas(
-                config.OAUTH_E2E_EXPECTED_AUDIENCE, config.OAUTH_E2E_EXPECTED_ISSUER, jwks_url=config.OAUTH_E2E_JWKS_URL
-            )
-        token = self.request.environ["HTTP_AUTHORIZATION"]
-
-        try:
-            self.employee_info = {**my_jwkaas.get_connexion_token_info(token.split(" ")[1])}
-        except Exception as e:
-            self.employee_info = {'unique_name': 'opensource.e2e@vwtelecom.com', 'family_name': 'E2E', 'given_name': 'Opensource', 'name': 'E2E, Opensource'}
-
-
 
     def get_manager_info(self):
         """
             Create a store for OID, SUBS to anonymously identify managers
 
         """
-        self.get_employee_info()
         emp = self.employee_info
         key = self.ds_client.key("Manager", emp["oid"])
         if not self.ds_client.get(key):
@@ -156,8 +125,6 @@ class ClaimExpenses:
         :param permission:
         :return:
         """
-        self.get_employee_info()
-
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -180,8 +147,6 @@ class ClaimExpenses:
 
     def get_attachment(self, expenses_id, permission):
         """Get attachments with expenses_id"""
-        self.get_employee_info()
-
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -235,8 +200,6 @@ class ClaimExpenses:
             )
             expenses_data = expenses_info.fetch(limit=10)
         elif dep_or_emp == 'emp':
-            self.get_employee_info()
-
             expenses_info.add_filter(
                 "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
             )
@@ -311,7 +274,6 @@ class ClaimExpenses:
         Status Life Cycle:
         *** ready_for{role} => { rejected } <= approved => exported
         """
-        self.get_employee_info()
         self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
         key = self.ds_client.key("Expenses")
         entity = datastore.Entity(key=key)
@@ -360,8 +322,6 @@ class ClaimExpenses:
         :param data:
         :return:
         """
-        self.get_employee_info()
-
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -842,13 +802,6 @@ class ClaimExpenses:
         return self.get_all_expenses(None, 'con')
 
 
-expense_instance = ClaimExpenses(
-    expected_audience=config.OAUTH_EXPECTED_AUDIENCE,
-    expected_issuer=config.OAUTH_EXPECTED_ISSUER,
-    jwks_url=config.OAUTH_JWKS_URL,
-)
-
-
 def add_expense():
     """Make expense
     :param form_data:
@@ -857,6 +810,7 @@ def add_expense():
     """
     try:
         if connexion.request.is_json:
+            expense_instance = ClaimExpenses()
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
@@ -870,6 +824,7 @@ def get_all_expenses():
     Get all expenses
     :rtype: None
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -877,6 +832,7 @@ def get_cost_types():  # noqa: E501
     """Get all cost_type
     :rtype: None
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_cost_types()
 
 
@@ -889,6 +845,7 @@ def get_document(document_date, document_type):
     :rtype: None
     :return"""
 
+    expense_instance = ClaimExpenses()
     export_file = expense_instance.get_document_files_or_list(
         document_id=document_date, document_type=document_type
     )
@@ -908,11 +865,12 @@ def get_document(document_date, document_type):
         },
     }
 
+    mime_type = content_response[document_type]
     return Response(
         content_response[document_type]["file"],
         headers={
-            "Content-Type": f"{content_response[document_type]['content_type']}",
-            "Content-Disposition": f"attachment; filename={document_date}.{content_response[document_type]['content_type'].split('/')[1]}",
+            "Content-Type": f"{mime_type['content_type']}",
+            "Content-Disposition": f"attachment; filename={document_date}.{mime_type['content_type'].split('/')[1]}",
             "Authorization": "",
         },
     )
@@ -924,6 +882,7 @@ def get_document_list(document_type):
     :rtype: None
     :return"""
 
+    expense_instance = ClaimExpenses()
     all_exports = expense_instance.get_document_files_or_list(
         all_exports=True, document_type=document_type
     )
@@ -937,6 +896,7 @@ def create_document(document_type):
     """
     document_name = connexion.request.args.get("name")
 
+    expense_instance = ClaimExpenses()
     expenses, export_id, export_file, location = (
         expense_instance.create_booking_file(document_type)
         if document_type == "booking_file"
@@ -947,10 +907,12 @@ def create_document(document_type):
     content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
 
     if expenses:
+        mime_type = content_type[document_type]
         response = make_response(export_file, 200)
         response.headers = {
-            "Content-Type": f"{content_type[document_type]}",
-            "Content-Disposition": f"attachment; filename={export_id}.{content_type[document_type].split('/')[1]}; file_location={location}",
+            "Content-Type": f"{mime_type}",
+            "Content-Disposition":
+                f"attachment; filename={export_id}.{mime_type.split('/')[1]}; file_location={location}",
             "Authorization": "",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
@@ -964,6 +926,7 @@ def get_department_expenses(department_id):
     Get expenses corresponding to this manager
     :param department_id:
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_department_expenses(department_id)
 
 
@@ -972,6 +935,7 @@ def get_controller_expenses():
     Get all expenses for controller
     :return:
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_controller_expenses()
 
 
@@ -980,6 +944,7 @@ def get_employee_expenses(employee_id):
     Get expenses corresponding to the logged in employee
     :param employee_id:
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_employee_expenses(employee_id)
 
 
@@ -989,10 +954,9 @@ def update_expenses_finance(expenses_id):
     :rtype: Expenses
     """
     try:
-        request = connexion.request
-
-        if request.is_json:
-            form_data = json.loads(request.get_data().decode())
+        if connexion.request.is_json:
+            expense_instance = ClaimExpenses()
+            form_data = json.loads(connexion.request.get_data().decode())
             return expense_instance.update_expenses(expenses_id, form_data, "creditor")
     except Exception as er:
         return jsonify(er.args), 500
@@ -1005,10 +969,9 @@ def update_expenses_employee(expenses_id):
     :return:
     """
     try:
-        request = connexion.request
-
-        if request.is_json:
-            form_data = json.loads(request.get_data().decode())
+        if connexion.request.is_json:
+            form_data = json.loads(connexion.request.get_data().decode())
+            expense_instance = ClaimExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, "employee")
     except Exception as er:
         return jsonify(er.args), 500
@@ -1021,10 +984,9 @@ def update_expenses_manager(expenses_id):
     :return:
     """
     try:
-        request = connexion.request
-
-        if request.is_json:
-            form_data = json.loads(request.get_data().decode())
+        if connexion.request.is_json:
+            form_data = json.loads(connexion.request.get_data().decode())
+            expense_instance = ClaimExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, "manager")
     except Exception as er:
         return jsonify(er.args), 500
@@ -1034,6 +996,7 @@ def get_expenses_employee(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_expenses(expenses_id, "employee")
 
 
@@ -1041,6 +1004,7 @@ def get_expenses_finances(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
     """
+    expense_instance = ClaimExpenses()
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
@@ -1050,7 +1014,7 @@ def get_attachment_finances(expenses_id):
     :param expenses_id:
     :return:
     """
-
+    expense_instance = ClaimExpenses()
     return expense_instance.get_attachment(expenses_id, "creditor")
 
 
@@ -1060,5 +1024,5 @@ def get_attachment_employee(expenses_id):
     :param expenses_id:
     :return:
     """
-
+    expense_instance = ClaimExpenses()
     return expense_instance.get_attachment(expenses_id, "employee")
