@@ -51,7 +51,7 @@ def make_no_cache_header():
         resp.headers.add('Cache-Control', 'no-cache')
         return resp
 
-        return handle_hon_cache_header
+    return handle_hon_cache_header
 
 
 app.app.after_request(make_no_cache_header())
