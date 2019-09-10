@@ -767,20 +767,22 @@ class DepartmentExpenses(ClaimExpenses):
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
-        self.get_manager_info()
-        manager = self.ds_client.get(self.ds_client.key("Manager", self.department_id))
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        )
+        # self.get_manager_info()
+        # manager = self.ds_client.get(self.ds_client.key("Manager", self.department_id))
+        # query_filter: Dict[Any, str] = dict(
+        #     creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+        # )
         expenses_info.add_filter(
             "status.text",
             "=",
-            query_filter["manager"] if self.department_id else query_filter["creditor"],
+            "ready_for_manager"
         )
+        manager_name = self.employee_info['name']
+        manager_name = (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
         expenses_info.add_filter(
             "employee.afas_data.Manager",
             "=",
-            manager["manager_id"]
+            manager_name
         )
         # expenses_data = expenses_info.fetch(limit=10)
         return self._process_expenses_info(expenses_info)
