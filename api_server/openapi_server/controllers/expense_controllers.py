@@ -698,7 +698,7 @@ class ClaimExpenses:
         return self.ds_client.query(kind="Expenses")
 
     @staticmethod
-    def _process_expenses_info(self, expenses_info):
+    def _process_expenses_info(expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
             return jsonify([
