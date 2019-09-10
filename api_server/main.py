@@ -18,7 +18,7 @@ def after_request_callback(response):
         g.ip = request.headers.get('x-appengine-user-ip')
 
     # enforce log level
-    logging.basicConfig(level=logging.info)
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('auditlog')
     auditlog_list = list(filter(None, [
         f"Request Url: {request.url}",
