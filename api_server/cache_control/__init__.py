@@ -15,7 +15,7 @@ class CacheControl(object):
         def make_no_cache_header(resources):
             def handle_no_cache_header(resp):
                 if resp.headers is not None and resp.headers.get('Cache-Control'):
-                    logging.info('Cache control headers already applied')
+                    logging.info('CacheControl headers already applied')
                     return resp
 
                 from werkzeug.datastructures import Headers, MultiDict
@@ -25,11 +25,11 @@ class CacheControl(object):
 
                 # cache results for 5 minutes
                 # resp.headers.add('Cache-Control', 'max-age=300')
-                for res_regex, res_options in resources:
+                for res in resources:
                     logging.debug("Try match: Request to '%s' matches CacheControl resource '%s'. Using options: %s",
-                                  request.path, get_regexp_pattern(res_regex), res_options)
-                    if try_match(request.path, res_regex):
-                        resp.headers.add('Cache-Control', res_options)
+                                  request.path, get_regexp_pattern(res['pattern']), res['action'])
+                    if try_match(request.path, res['pattern']):
+                        resp.headers.add('Cache-Control', res['action'])
                         break
                 else:
                     logging.debug('No CacheControl rule matches')
