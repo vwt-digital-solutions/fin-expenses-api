@@ -26,9 +26,10 @@ class CacheControl(object):
                 # cache results for 5 minutes
                 # resp.headers.add('Cache-Control', 'max-age=300')
                 for res in resources:
-                    logging.debug("Try match: Request to '%s' matches CacheControl resource '%s'. Using options: %s",
-                                  request.path, get_regexp_pattern(res['pattern']), res['action'])
                     if try_match(request.path, res['pattern']):
+                        logging.debug(
+                            "Request to '%s' matches CacheControl resource '%s'. Using options: %s",
+                            request.path, get_regexp_pattern(res['pattern']), res['action'])
                         resp.headers.add('Cache-Control', res['action'])
                         break
                 else:
@@ -37,6 +38,6 @@ class CacheControl(object):
 
             return handle_no_cache_header
 
-        logging.basicConfig(level=logging.DEBUG)
+        # logging.basicConfig(level=logging.DEBUG)
         # self._resources = parse_resources(self._options)
         app.app.after_request(make_no_cache_header(self._options['resources']))
