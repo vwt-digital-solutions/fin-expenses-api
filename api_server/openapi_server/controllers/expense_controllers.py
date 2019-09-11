@@ -766,7 +766,12 @@ class EmployeeExpenses(ClaimExpenses):
         pass
 
     def _process_status_amount_update(self, amount, expense):
-        pass
+        # If amount is set when employee updates expense check what status it should be
+        # If amount is less then 50 manager can be skipped
+        if amount < 50:
+            expense["status"]["text"] = "ready_for_creditor"
+        else:
+            expense["status"]["text"] = "ready_for_manager"
 
 
 class DepartmentExpenses(ClaimExpenses):
@@ -814,12 +819,7 @@ class DepartmentExpenses(ClaimExpenses):
         expense["status"]["text"] = item
 
     def _process_status_amount_update(self, amount, expense):
-        # If amount is set when employee updates expense check what status it should be
-        # If amount is less then 50 manager can be skipped
-        if amount < 50:
-            expense["status"]["text"] = "ready_for_creditor"
-        else:
-            expense["status"]["text"] = "ready_for_manager"
+        pass
 
 
 class ControllerExpenses(ClaimExpenses):
