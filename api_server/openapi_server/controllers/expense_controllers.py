@@ -733,6 +733,8 @@ class EmployeeExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return False
+        else:
+            return True
 
     def __init__(self, employee_id):
         super().__init__()
