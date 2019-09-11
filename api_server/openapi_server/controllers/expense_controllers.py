@@ -68,18 +68,29 @@ class ClaimExpenses:
             entity.update({"manager_id": f"{emp['given_name']} {emp['family_name']}"})
             self.ds_client.put(entity)
 
-    def get_employee_afas_data(self, unique_name):
+    def get_employee_afas_data(self, unique_name, employee_number=None):
         """
         Data Access Link to the AFAS environment to retrieve employee information
         - Bank Account
         - Company Code
         - Any other detail we will be needing to complete the payment
         This link is made available through the HR-On boarding project
+        :param employee_number: Employee number. Used when no unique name available
         :param unique_name: An email address
         """
         # Fake AFAS data for E2E:
         if unique_name == 'opensource.e2e@vwtelecom.com':
             return config.e2e_afas_data
+        elif employee_number:
+            employee_afas_query = self.ds_client.query(kind="AFAS_HRM")
+            employee_afas_query.add_filter(
+                "Personeelsnummer", "=", employee_number
+            )
+            result = list(employee_afas_query.fetch())
+            if result[0]:
+                return dict(result[0])
+            else:
+                return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
         else:
             employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
             employee_afas_query = self.ds_client.get(employee_afas_key)
@@ -395,8 +406,8 @@ class ClaimExpenses:
                     )
                     booking_file_data.append(
                         {
-                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['email'].split('@')[0]}-{expense_detail['employee']['family_name']}"
-                            f"-{expense_detail['date_of_transaction']}",
+                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
+                                                        f" {datetime.datetime.fromtimestamp(int(expense_detail['date_of_transaction'] / 1000)).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')}",
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
@@ -678,10 +689,8 @@ class ClaimExpenses:
                     file.close()
                     reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
                     for piece in reader:
-                        employee_detail = self.get_employee_afas_data(
-                            piece["BoekingsomschrijvingBron"].split("-")[0].strip()
-                            + "@vwtelecom.com"
-                        )
+                        employee_detail = self.get_employee_afas_data(None,
+                                                                      piece["BoekingsomschrijvingBron"].split(" ")[0])
                         payment_data.append(
                             dict(data=piece, iban=employee_detail["IBAN"])
                         )
