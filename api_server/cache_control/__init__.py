@@ -26,9 +26,9 @@ class CacheControl(object):
                 # cache results for 5 minutes
                 # resp.headers.add('Cache-Control', 'max-age=300')
                 for res_regex, res_options in resources:
+                    logging.debug("Try match: Request to '%s' matches CacheControl resource '%s'. Using options: %s",
+                                  request.path, get_regexp_pattern(res_regex), res_options)
                     if try_match(request.path, res_regex):
-                        logging.debug("Request to '%s' matches CacheControl resource '%s'. Using options: %s",
-                                      request.path, get_regexp_pattern(res_regex), res_options)
                         resp.headers.add('Cache-Control', res_options)
                         break
                 else:
