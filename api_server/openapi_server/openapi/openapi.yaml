@@ -260,8 +260,8 @@ paths:
       summary: Get attachments by expense id
       operationId: get_attachment_finances
       security:
-        - oauth2: [creditor.write]
         - oauth2: [manager.write]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:
