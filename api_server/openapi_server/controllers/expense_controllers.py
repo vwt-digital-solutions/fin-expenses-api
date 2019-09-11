@@ -155,16 +155,18 @@ class ClaimExpenses:
             else:
                 return make_response(jsonify(None), 204)
 
-    def get_attachment(self, expenses_id, permission):
+    @abstractmethod
+    def _check_attachment_permission(self, expense):
+        pass
+
+    def get_attachment(self, expenses_id):
         """Get attachments with expenses_id"""
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-        # Check if attachment is from employee if permission is employee
-        if permission == "employee":
-            if expense["employee"]["email"] != self.employee_info["unique_name"]:
-                return make_response(jsonify(None), 403)
+        if not self._check_attachment_permission(expense):
+            return make_response(jsonify(None), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
 
@@ -728,6 +730,10 @@ class ClaimExpenses:
 
 
 class EmployeeExpenses(ClaimExpenses):
+    def _check_attachment_permission(self, expense):
+        if expense["employee"]["email"] != self.employee_info["unique_name"]:
+            return False
+
     def __init__(self, employee_id):
         super().__init__()
         self.employee_id = employee_id
@@ -775,6 +781,9 @@ class EmployeeExpenses(ClaimExpenses):
 
 
 class DepartmentExpenses(ClaimExpenses):
+    def _check_attachment_permission(self, expense):
+        return True
+
     def __init__(self, department_id):
         super().__init__()
         self.department_id = department_id
@@ -823,6 +832,9 @@ class DepartmentExpenses(ClaimExpenses):
 
 
 class ControllerExpenses(ClaimExpenses):
+    def _check_attachment_permission(self, expense):
+        return True
+
     def __init__(self):
         super().__init__()
 
@@ -1079,14 +1091,24 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances(expenses_id):
+def get_attachment_finances_manager(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_attachment(expenses_id, "creditor")
+    expense_instance = DepartmentExpenses(None)
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_finances_creditor(expenses_id):
+    """
+    Get attachment by expenses id
+    :param expenses_id:
+    :return:
+    """
+    expense_instance = ControllerExpenses()
+    return expense_instance.get_attachment(expenses_id)
 
 
 def get_attachment_employee(expenses_id):
@@ -1095,5 +1117,5 @@ def get_attachment_employee(expenses_id):
     :param expenses_id:
     :return:
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_attachment(expenses_id, "employee")
+    expense_instance = EmployeeExpenses(None)
+    return expense_instance.get_attachment(expenses_id)
