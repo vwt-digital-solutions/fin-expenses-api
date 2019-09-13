@@ -901,6 +901,7 @@ def add_expense():
             )  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
