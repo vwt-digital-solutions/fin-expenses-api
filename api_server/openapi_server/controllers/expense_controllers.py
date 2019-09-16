@@ -86,11 +86,12 @@ class ClaimExpenses:
             employee_afas_query.add_filter(
                 "Personeelsnummer", "=", employee_number
             )
-            result = list(employee_afas_query.fetch())
+            result = list(employee_afas_query.fetch(limit=1))
             if result[0]:
                 return dict(result[0])
             else:
-                return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+                logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
+                return None
         else:
             employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
             employee_afas_query = self.ds_client.get(employee_afas_key)
@@ -98,7 +99,8 @@ class ClaimExpenses:
                 data = dict(employee_afas_query.items())
                 return data
             else:
-                return {"Info": f"No detail of {unique_name} found in HRM -AFAS"}
+                logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
+                return None
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
@@ -224,23 +226,21 @@ class ClaimExpenses:
         Status Life Cycle:
         *** ready_for{role} => { rejected } <= approved => exported
         """
-        self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
-        key = self.ds_client.key("Expenses")
-        entity = datastore.Entity(key=key)
+        self.get_or_create_cloudstore_bucket()
         if data.amount >= 50:
             ready_text = "ready_for_manager"
         else:
             ready_text = "ready_for_creditor"
-
-        if 'Info' in self.get_employee_afas_data(self.employee_info["unique_name"]):
-            return make_response(jsonify({'NoAllow': 'User has no AFAS Data'}), 403)
-        else:
+        afas_data = self.get_employee_afas_data(
+            self.employee_info["unique_name"]
+        )
+        if afas_data:
+            key = self.ds_client.key("Expenses")
+            entity = datastore.Entity(key=key, exclude_from_indexes=('employee', 'status'))
             entity.update(
                 {
                     "employee": dict(
-                        afas_data=self.get_employee_afas_data(
-                            self.employee_info["unique_name"]
-                        ),
+                        afas_data=afas_data,
                         email=self.employee_info["unique_name"],
                         family_name=self.employee_info["family_name"],
                         given_name=self.employee_info["given_name"],
@@ -267,6 +267,8 @@ class ClaimExpenses:
             )
 
             return make_response(jsonify(entity.key.id_or_name), 201)
+        else:
+            return make_response(jsonify('Employee not found'), 404)
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
