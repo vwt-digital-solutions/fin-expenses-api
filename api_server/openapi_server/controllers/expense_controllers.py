@@ -313,13 +313,11 @@ class ClaimExpenses:
 
         self.ds_client.put(expense)
 
-    @staticmethod
-    def get_or_create_cloudstore_bucket(bucket_name, bucket_date):
+    def get_or_create_cloudstore_bucket(self):
         """Creates a new bucket."""
-        storage_client = storage.Client()
-        if not storage_client.bucket(config.GOOGLE_STORAGE_BUCKET).exists():
-            bucket = storage_client.create_bucket(bucket_name)
-            logger.info(f"Bucket {bucket} created on {bucket_date}")
+        if not self.cs_client.bucket(config.GOOGLE_STORAGE_BUCKET).exists():
+            bucket = self.cs_client.create_bucket(self.bucket_name)
+            logger.info(f"Bucket {bucket} created on {datetime.datetime.now()}")
 
     def update_exported_expenses(self, expenses_exported, document_date, document_type):
         """
