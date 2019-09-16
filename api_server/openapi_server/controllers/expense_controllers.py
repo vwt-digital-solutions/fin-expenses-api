@@ -239,7 +239,9 @@ class ClaimExpenses:
         logging.warning(f'add_expense: afas data found [{afas_data}]')
         if afas_data:
             key = self.ds_client.key("Expenses")
-            entity = datastore.Entity(key=key, exclude_from_indexes=('employee', 'status'))
+            entity = datastore.Entity(key=key
+                                      # , exclude_from_indexes=('employee', 'status')
+                                      )
             entity.update(
                 {
                     "employee": dict(
