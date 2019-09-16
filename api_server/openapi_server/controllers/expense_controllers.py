@@ -50,6 +50,7 @@ class ClaimExpenses:
     Class based function to house all Expenses functionality
 
     """
+
     def __init__(self):
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
@@ -203,8 +204,9 @@ class ClaimExpenses:
         if expenses_data:
             results = []
             for ed in expenses_data:
-                if (query_filter["creditor"] == ed["status"]["text"] or
-                        query_filter["creditor2"] == ed["status"]["text"]):
+                logging.info(f'get_all_expenses: [{ed}]')
+                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                       query_filter["creditor2"] == ed["status"]["text"]):
                     results.append({
                         "id": ed.id,
                         "amount": ed["amount"],
