@@ -256,7 +256,7 @@ class ClaimExpenses:
                     "status": dict(date_exported="never", text=ready_text),
                 }
             )
-            self.ds_client.put(entity)  # ERROR HERE
+            self.ds_client.put(entity)
 
             self.create_attachment(
                 data.attachment,
