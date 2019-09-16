@@ -236,11 +236,12 @@ class ClaimExpenses:
         afas_data = self.get_employee_afas_data(
             self.employee_info["unique_name"]
         )
-        logging.warning(f'add_expense: afas data found [{afas_data}]')
         if afas_data:
             key = self.ds_client.key("Expenses")
             entity = datastore.Entity(key=key
-                                      # , exclude_from_indexes=('employee', 'status')
+                                      # , exclude_from_indexes=('employee',
+                                      #                         # 'status'
+                                      #                         )
                                       )
             entity.update(
                 {
@@ -262,7 +263,6 @@ class ClaimExpenses:
                 }
             )
             self.ds_client.put(entity)
-            logging.warning(f'add_expense: expense entity created [{entity}]')
 
             self.create_attachment(
                 data.attachment,
