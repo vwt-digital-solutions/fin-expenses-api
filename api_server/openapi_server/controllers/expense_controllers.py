@@ -12,11 +12,14 @@ import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import pytz
 
 import urllib.parse
+
+from google.cloud.datastore import Entity
+
 import config
 from jwkaas import JWKaas
 import logging
@@ -430,12 +433,11 @@ class ClaimExpenses:
                             "Bron Produkt": "000",
                             "Bron EC": "000",
                             "Bron VP": "00",
-                            "Doel-bedrijfs-nummer": company_number[
-                                "Administratief Bedrijf"
-                            ].split("_")[0],
-                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[
-                                1
-                            ],
+                            "Doel-bedrijfs-nummer": company_number["Administratief Bedrijf"].split("_")[0]
+                            if (company_number is not None
+                                and ("Administratief Bedrijf" in company_number))
+                            else "",
+                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[1],
                             "Doel Org code": department_number_aka_afdeling_code,
                             "Doel Proces": "000",
                             "Doel Produkt": "000",
