@@ -361,7 +361,7 @@ class ClaimExpenses:
         :return:
         """
         # Check bucket exists
-        self.get_or_create_cloudstore_bucket(self.bucket_name, datetime.datetime.now())
+        self.get_or_create_cloudstore_bucket()
 
         now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
