@@ -231,38 +231,42 @@ class ClaimExpenses:
             ready_text = "ready_for_manager"
         else:
             ready_text = "ready_for_creditor"
-        entity.update(
-            {
-                "employee": dict(
-                    afas_data=self.get_employee_afas_data(
-                        self.employee_info["unique_name"]
-                    ),
-                    email=self.employee_info["unique_name"],
-                    family_name=self.employee_info["family_name"],
-                    given_name=self.employee_info["given_name"],
-                    full_name=self.employee_info["name"],
-                )
+
+        if 'Info' in self.get_employee_afas_data(self.employee_info["unique_name"]):
+            return make_response(jsonify({'NoAllow': 'User has no AFAS Data'}), 403)
+        else:
+            entity.update(
+                {
+                    "employee": dict(
+                        afas_data=self.get_employee_afas_data(
+                            self.employee_info["unique_name"]
+                        ),
+                        email=self.employee_info["unique_name"],
+                        family_name=self.employee_info["family_name"],
+                        given_name=self.employee_info["given_name"],
+                        full_name=self.employee_info["name"],
+                    )
+                    if "unique_name" in self.employee_info.keys()
+                    else "",
+                    "amount": data.amount,
+                    "note": data.note,
+                    "cost_type": data.cost_type,
+                    "date_of_transaction": int(data.date_of_transaction),
+                    "date_of_claim": int(time.time() * 1000),
+                    "status": dict(date_exported="never", text=ready_text),
+                }
+            )
+            self.ds_client.put(entity)  # ERROR HERE
+
+            self.create_attachment(
+                data.attachment,
+                entity.key.id_or_name,
+                self.employee_info["unique_name"]
                 if "unique_name" in self.employee_info.keys()
                 else "",
-                "amount": data.amount,
-                "note": data.note,
-                "cost_type": data.cost_type,
-                "date_of_transaction": int(data.date_of_transaction),
-                "date_of_claim": int(time.time() * 1000),
-                "status": dict(date_exported="never", text=ready_text),
-            }
-        )
-        self.ds_client.put(entity)
+            )
 
-        self.create_attachment(
-            data.attachment,
-            entity.key.id_or_name,
-            self.employee_info["unique_name"]
-            if "unique_name" in self.employee_info.keys()
-            else "",
-        )
-
-        return make_response(jsonify(entity.key.id_or_name), 201)
+            return make_response(jsonify(entity.key.id_or_name), 201)
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
@@ -901,6 +905,7 @@ def add_expense():
             )  # noqa: E501
             return expense_instance.add_expenses(form_data)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
