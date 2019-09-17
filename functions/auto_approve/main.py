@@ -1,7 +1,10 @@
-
 from google.cloud import datastore
 import logging
 import datetime
+
+from utils import shift_to_business_days
+
+logging.basicConfig(level=logging.INFO)
 
 
 def process_approve(request):
@@ -9,8 +12,9 @@ def process_approve(request):
         client = datastore.Client()
         query = client.query(kind='Expenses')
         pending = int(request.args['pending'])
-        logging.info(f'Auto-approve claims older than {pending} days')
-        boundary = int((datetime.datetime.now() - datetime.timedelta(days=pending))
+        logging.info(f'Auto-approve claims older than {pending} business days')
+        business_pending = shift_to_business_days(pending)
+        boundary = int((datetime.datetime.now() - datetime.timedelta(days=business_pending))
                        .timestamp()) * 1000
         query.add_filter('date_of_claim', '<=', boundary)
         # only single une-quality criteria, must check programmatically after
@@ -30,3 +34,14 @@ def process_approve(request):
         response.headers['Content-Type'] = 'application/problem+json',
         return response
 
+
+if __name__ == '__main__':
+    class R:
+        def __init__(self):
+            self.args = {'pending': 3}
+
+
+    r = R()
+    logging.warning(r.args)
+    # r.args = {'pending': 3}
+    process_approve(r)
