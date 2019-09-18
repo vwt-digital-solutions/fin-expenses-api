@@ -316,7 +316,7 @@ class ClaimExpenses:
                 expense[item] = data[item]
                 self._process_status_amount_update(data[item], expense)
             elif item == "date_of_transaction":
-                logger.info(f'Date of transaction: [{data["item"]}]')
+                logger.info(f'Date of transaction: [{data[item]}]')
             else:
                 expense[item] = data[item]
 
