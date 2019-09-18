@@ -827,8 +827,6 @@ class DepartmentExpenses(ClaimExpenses):
     def _prepare_context_update_expense(self, data, expense):
         fields = {
             "status",
-            "amount",
-            "date_of_transaction",
             "cost_type",
             "rnote"
         }
