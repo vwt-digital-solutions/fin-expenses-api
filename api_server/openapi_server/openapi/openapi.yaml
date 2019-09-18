@@ -69,6 +69,19 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /employees/expenses/{expenses_id}/attachments/{attachment_name}:
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: '#/components/parameters/AttachmentName'
+      responses:
+        '200':
+          description: Succesfully deleted attachment for expense
+      summary: Delete attachment by expense id and attachment name
+      operationId: delete_attachment
+      security:
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /employees/{employee_id}/expenses:
     get:
       parameters:
@@ -531,6 +544,13 @@ components:
       name: expenses_id
       schema:
         type: integer
+      in: path
+      required: true
+    AttachmentName:
+      style: simple
+      name: attachment_name
+      schema:
+        type: string
       in: path
       required: true
     EmployeeId:

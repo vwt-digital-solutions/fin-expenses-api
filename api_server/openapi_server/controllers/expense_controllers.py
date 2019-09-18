@@ -1135,3 +1135,13 @@ def get_attachment_employee(expenses_id):
     """
     expense_instance = EmployeeExpenses(None)
     return expense_instance.get_attachment(expenses_id)
+
+
+def delete_attachment(expenses_id, attachment_name):
+    """
+    Delete attachment by expense id and attachment name
+    :param expenses_id:
+    :param attachment_name:
+    :return:
+    """
+    return "magic"
