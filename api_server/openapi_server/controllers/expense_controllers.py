@@ -207,7 +207,7 @@ class ClaimExpenses:
         if expenses_data:
             results = []
             for ed in expenses_data:
-                logging.info(f'get_all_expenses: [{ed}]')
+                logging.debug(f'get_all_expenses: [{ed}]')
                 if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
                                        query_filter["creditor2"] == ed["status"]["text"]):
                     results.append({
