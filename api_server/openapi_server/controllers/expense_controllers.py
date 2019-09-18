@@ -117,7 +117,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
             blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
             blob.upload_from_string(
-                document.split(",")[1],
+                base64.b64decode(document.split(",")[1]),
                 content_type=mimetypes.guess_type(document)[0],
             )
 
@@ -187,7 +187,7 @@ class ClaimExpenses:
             stream_read = base64.b64encode(stream.read(len(content)))
             content_result = {
                 "content_type": blob.content_type,
-                "content": (base64.b64decode(stream_read)).decode('utf-8')
+                "content": stream_read.decode('utf-8')
             }
             results.append(content_result)
 
