@@ -207,7 +207,7 @@ class ClaimExpenses:
         if expenses_data:
             results = []
             for ed in expenses_data:
-                logging.info(f'get_all_expenses: [{ed}]')
+                logging.debug(f'get_all_expenses: [{ed}]')
                 if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
                                        query_filter["creditor2"] == ed["status"]["text"]):
                     results.append({
@@ -315,6 +315,8 @@ class ClaimExpenses:
             elif item == "amount":
                 expense[item] = data[item]
                 self._process_status_amount_update(data[item], expense)
+            elif item == "date_of_transaction":
+                logger.info(f'Date of transaction: [{data[item]}]')
             else:
                 expense[item] = data[item]
 
