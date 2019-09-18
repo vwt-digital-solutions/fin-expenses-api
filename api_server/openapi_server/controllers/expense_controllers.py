@@ -744,15 +744,15 @@ class ClaimExpenses:
 
 
 class EmployeeExpenses(ClaimExpenses):
+    def __init__(self, employee_id):
+        super().__init__()
+        self.employee_id = employee_id
+
     def _check_attachment_permission(self, expense):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return False
         else:
             return True
-
-    def __init__(self, employee_id):
-        super().__init__()
-        self.employee_id = employee_id
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -785,7 +785,10 @@ class EmployeeExpenses(ClaimExpenses):
         return fields, status
 
     def _process_status_text_update(self, item, expense):
-        pass
+        if item == 'cancelled':
+            expense["status"]["text"] = item
+        else:
+            pass
 
     def _process_status_amount_update(self, amount, expense):
         # If amount is set when employee updates expense check what status it should be
