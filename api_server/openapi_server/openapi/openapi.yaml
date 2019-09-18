@@ -69,7 +69,7 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /employees/expenses/{expenses_id}/attachments/{attachment_name}:
+  /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
         - $ref: '#/components/parameters/ExpensesId'
@@ -548,7 +548,7 @@ components:
       required: true
     AttachmentName:
       style: simple
-      name: attachment_name
+      name: attachments_name
       schema:
         type: string
       in: path

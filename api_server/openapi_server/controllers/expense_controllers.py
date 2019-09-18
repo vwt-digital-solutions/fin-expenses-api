@@ -121,6 +121,25 @@ class ClaimExpenses:
                 content_type=mimetypes.guess_type(document)[0],
             )
 
+    def delete_attachment(self, expenses_id, attachments_name):
+        """
+        Deletes attachment based on expense id and attachment name
+        :param expenses_id:
+        :param attachments_name:
+        """
+        email_name = self.employee_info["unique_name"].split("@")[0]
+
+        exp_key = self.ds_client.key("Expenses", expenses_id)
+        expense = self.ds_client.get(exp_key)
+
+        if expense["employee"]["email"] != self.employee_info["unique_name"]:
+            return make_response(jsonify(None), 403)
+
+        bucket = self.cs_client.get_bucket(self.bucket_name)
+        blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
+
+        blob.delete()
+
     def get_cost_types(self):
         """
         Get cost types from a CSV file
@@ -1137,11 +1156,12 @@ def get_attachment_employee(expenses_id):
     return expense_instance.get_attachment(expenses_id)
 
 
-def delete_attachment(expenses_id, attachment_name):
+def delete_attachment(expenses_id, attachments_name):
     """
     Delete attachment by expense id and attachment name
     :param expenses_id:
     :param attachment_name:
     :return:
     """
-    return "magic"
+    expense_instance = ClaimExpenses()
+    return expense_instance.delete_attachment(expenses_id, attachments_name)
