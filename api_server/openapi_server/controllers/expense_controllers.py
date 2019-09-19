@@ -788,20 +788,12 @@ class EmployeeExpenses(ClaimExpenses):
         if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
             return make_response(jsonify(None), 403)
 
-        fields = {
-            "status",
-            "amount",
-            "date_of_transaction",
-            "cost_type",
-            "note"
-        }
-
         status = {
             "ready_for_manager",
             "ready_for_creditor",
             "cancelled",
         }
-        return fields, status
+        return None, status
 
     def _process_status_text_update(self, item, expense):
         if item == 'cancelled':
