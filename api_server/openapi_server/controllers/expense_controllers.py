@@ -875,30 +875,29 @@ class ControllerExpenses(ClaimExpenses):
         super().__init__()
 
     def get_all_expenses(self):
-        expenses_info = self._create_expenses_query()
+        """Get JSON of all the expenses"""
+
+        expenses_info = self.ds_client.query(kind="Expenses")
+
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
-            results = [
-                {
+            results = []
+            for ed in expenses_data:
+                logging.debug(f'get_all_expenses: [{ed}]')
+                results.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": datetime.datetime.fromtimestamp(int(ed["date_of_claim"] / 1000)).replace(
-                        tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y %H:%M:%S'),
-                    "date_of_transaction": datetime.datetime.fromtimestamp(int(ed["date_of_transaction"] / 1000)
-                                                                           ).replace(tzinfo=pytz.utc).astimezone
-                    (pytz.timezone(VWT_TIME_ZONE)).strftime('%d %b %Y'),
+                    "date_of_claim": ed["date_of_claim"],
+                    "date_of_transaction": ed["date_of_transaction"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
-                }
-                for ed in expenses_data
-            ]
+                })
             return jsonify(results)
         else:
             return make_response(jsonify(None), 204)
-        pass
 
     def _prepare_context_update_expense(self, data, expense):
         fields = {
