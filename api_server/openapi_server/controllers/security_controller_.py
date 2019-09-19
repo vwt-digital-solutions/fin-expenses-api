@@ -37,7 +37,7 @@ def info_from_oAuth2(token):
         token_info = my_e2e_jwkaas.get_connexion_token_info(token)
         if token_info is not None and 'appid' in token_info and token_info['appid'] == config.OAUTH_E2E_APPID:
             logging.warning('Approved e2e access token for appid [%s]', token_info['appid'])
-            result = config.E2E_AFAS_DATA
+            result = config.e2e_key_data
 
     if result is not None:
         g.user = result.get('upn', 'e2e-technical-user')
