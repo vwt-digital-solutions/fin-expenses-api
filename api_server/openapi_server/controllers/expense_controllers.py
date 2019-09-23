@@ -260,11 +260,7 @@ class ClaimExpenses:
         )
         if afas_data:
             key = self.ds_client.key("Expenses")
-            entity = datastore.Entity(key=key
-                                      # , exclude_from_indexes=('employee',
-                                      #                         # 'status'
-                                      #                         )
-                                      )
+            entity = datastore.Entity(key=key)
             entity.update(
                 {
                     "employee": dict(
@@ -296,7 +292,7 @@ class ClaimExpenses:
 
             return make_response(jsonify(entity.key.id_or_name), 201)
         else:
-            return make_response(jsonify('Employee not found'), 404)
+            return make_response(jsonify('Employee not found'), 403)
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
@@ -1151,7 +1147,7 @@ def delete_attachment(expenses_id, attachments_name):
     """
     Delete attachment by expense id and attachment name
     :param expenses_id:
-    :param attachment_name:
+    :param attachments_name:
     :return:
     """
     expense_instance = ClaimExpenses()
