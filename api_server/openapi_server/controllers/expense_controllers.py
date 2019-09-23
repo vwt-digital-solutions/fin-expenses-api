@@ -250,7 +250,6 @@ class ClaimExpenses:
         Status Life Cycle:
         *** ready_for{role} => { rejected } <= approved => exported
         """
-        self.get_or_create_cloudstore_bucket()
         if data.amount >= 50:
             ready_text = "ready_for_manager"
         else:
@@ -337,12 +336,6 @@ class ClaimExpenses:
 
         self.ds_client.put(expense)
 
-    def get_or_create_cloudstore_bucket(self):
-        """Creates a new bucket."""
-        if not self.cs_client.bucket(config.GOOGLE_STORAGE_BUCKET).exists():
-            bucket = self.cs_client.create_bucket(self.bucket_name)
-            logger.info(f"Bucket {bucket} created on {datetime.datetime.now()}")
-
     def update_exported_expenses(self, expenses_exported, document_date, document_type):
         """
         Do some sanity changed to keep data updated.
@@ -384,8 +377,6 @@ class ClaimExpenses:
         Query the expenses to return desired values
         :return:
         """
-        # Check bucket exists
-        self.get_or_create_cloudstore_bucket()
 
         now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
