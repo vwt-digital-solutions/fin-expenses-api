@@ -432,9 +432,10 @@ class ClaimExpenses:
                         )
                     )
                     boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
+                    logger.warning(f" date of transaction [{expense_detail['date_of_transaction']}]")
                     transtime = datetime.datetime.fromtimestamp(
-                            int(expense_detail['date_of_transaction']
-                                if isinstance(expense_detail['date_of_transaction'], int) else 0 / 1000))\
+                            int((expense_detail['date_of_transaction']
+                                 if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000))\
                         .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
 
                     boekingsomschrijving_bron += f" {transtime}"
