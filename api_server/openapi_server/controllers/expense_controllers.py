@@ -431,10 +431,13 @@ class ClaimExpenses:
                             "Departments", department_number_aka_afdeling_code
                         )
                     )
+                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
+                    transtime = datetime.datetime.fromtimestamp(int(expense_detail['date_of_transaction'] / 1000))\
+                        .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
+                    boekingsomschrijving_bron += f" {transtime}"
                     booking_file_data.append(
                         {
-                            "BoekingsomschrijvingBron": f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
-                                                        f" {datetime.datetime.fromtimestamp(int(expense_detail['date_of_transaction'] / 1000)).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')}",
+                            "boekingsomschrijving_bron": boekingsomschrijving_bron,
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
