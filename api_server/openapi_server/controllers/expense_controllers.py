@@ -323,6 +323,7 @@ class ClaimExpenses:
         need_to_save = False
         for item in items_to_update:
             if item == "status":
+                logger.warning(f"Eployee status to update [{data[item]}] old [{expense['status']['text']}], legal transition [{status}]")
                 if data[item] in status:
                     need_to_save = True
                     self._process_status_text_update(data[item], expense)
@@ -790,6 +791,7 @@ class EmployeeExpenses(ClaimExpenses):
             "status",
             "cost_type",
             "rnote",
+            "note",
             "amount"
         }
         status = {
