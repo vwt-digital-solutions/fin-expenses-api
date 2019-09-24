@@ -780,7 +780,7 @@ class EmployeeExpenses(ClaimExpenses):
             "ready_for_creditor",
             "cancelled",
         }
-        return None, status
+        return {"status"}, status
 
     def _process_status_text_update(self, item, expense):
         if item == 'cancelled':
