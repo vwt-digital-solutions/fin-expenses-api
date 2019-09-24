@@ -805,6 +805,9 @@ class EmployeeExpenses(ClaimExpenses):
         if item == 'cancelled':
             expense["status"]["text"] = item
         else:
+            if expense['status']['text'] in ['rejected_by_creditor', 'rejected_by_manager']\
+                    and item == 'ready_for_manager':
+                self._process_status_amount_update(expense['amount'], expense)
             pass
 
     def _process_status_amount_update(self, amount, expense):
