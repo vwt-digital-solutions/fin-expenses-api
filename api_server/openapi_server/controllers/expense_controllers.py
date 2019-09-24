@@ -334,6 +334,7 @@ class ClaimExpenses:
                 expense[item] = data[item]
                 self._process_status_amount_update(data[item], expense)
             elif expense[item] != data[item]:
+                need_to_save = True
                 expense[item] = data[item]
 
         if need_to_save:
