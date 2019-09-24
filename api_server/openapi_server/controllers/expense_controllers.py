@@ -441,7 +441,7 @@ class ClaimExpenses:
                     boekingsomschrijving_bron += f" {transtime}"
                     booking_file_data.append(
                         {
-                            "boekingsomschrijving_bron": boekingsomschrijving_bron,
+                            "boekingsomschrijvingBron": boekingsomschrijving_bron,
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
