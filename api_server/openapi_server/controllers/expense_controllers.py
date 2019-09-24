@@ -320,21 +320,24 @@ class ClaimExpenses:
 
     def _update_expenses(self, data, fields, status, expense):
         items_to_update = list(fields.intersection(set(data.keys())))
+        need_to_save = False
         for item in items_to_update:
             if item == "status":
                 if data[item] in status:
+                    need_to_save = True
                     self._process_status_text_update(data[item], expense)
             elif item == "rnote":
+                need_to_save = True
                 expense["status"]["rnote"] = data[item]
-            elif item == "amount":
+            elif item == "amount" and expense[item] != data[item]:
+                need_to_save = True
                 expense[item] = data[item]
                 self._process_status_amount_update(data[item], expense)
-            elif item == "date_of_transaction":
-                logger.info(f'Date of transaction: [{data[item]}]')
-            else:
+            elif expense[item] != data[item]:
                 expense[item] = data[item]
 
-        self.ds_client.put(expense)
+        if need_to_save:
+            self.ds_client.put(expense)
 
     def update_exported_expenses(self, expenses_exported, document_date, document_type):
         """
@@ -775,12 +778,18 @@ class EmployeeExpenses(ClaimExpenses):
         if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
             return make_response(jsonify(None), 403)
 
+        fields = {
+            "status",
+            "cost_type",
+            "rnote",
+            "amount"
+        }
         status = {
             "ready_for_manager",
             "ready_for_creditor",
             "cancelled",
         }
-        return {"status"}, status
+        return fields, status
 
     def _process_status_text_update(self, item, expense):
         if item == 'cancelled':
