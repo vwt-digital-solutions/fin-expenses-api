@@ -443,7 +443,7 @@ class ClaimExpenses:
                     boekingsomschrijving_bron += f" {transtime}"
                     booking_file_data.append(
                         {
-                            "boekingsomschrijvingBron": boekingsomschrijving_bron,
+                            "BoekingsomschrijvingBron": boekingsomschrijving_bron,
                             "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                             "Boekings-jaar": today.year,
                             "Periode": today.month,
@@ -712,6 +712,10 @@ class ClaimExpenses:
             reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
             for piece in reader:
                 if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
+                    personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
+                    employee_detail = self.get_employee_afas_data(None, personal_no)
+                    payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
+                elif 'boekingsomschrijvingBron' in piece and piece["boekingsomschrijvingBron"].find(' ') != -1:
                     personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
                     employee_detail = self.get_employee_afas_data(None, personal_no)
                     payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
