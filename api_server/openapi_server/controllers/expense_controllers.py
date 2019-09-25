@@ -88,7 +88,7 @@ class ClaimExpenses:
         elif employee_number:
             employee_afas_query = self.ds_client.query(kind="AFAS_HRM")
             employee_afas_query.add_filter(
-                "Personeelsnummer", "=", employee_number
+                "Personeelsnummer", "=", int(employee_number)
             )
             result = list(employee_afas_query.fetch(limit=1))
             if result[0]:
@@ -113,7 +113,8 @@ class ClaimExpenses:
         email_name = email.split("@")[0]
         list_object = attachment.split(".")
         for document in list_object:
-            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}-{list_object.index(document)}"
+            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
+                       f"-{list_object.index(document)}"
             bucket = self.cs_client.get_bucket(self.bucket_name)
             blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
             blob.upload_from_string(
@@ -250,48 +251,45 @@ class ClaimExpenses:
         Status Life Cycle:
         *** ready_for{role} => { rejected } <= approved => exported
         """
-        if data.amount >= 50:
-            ready_text = "ready_for_manager"
-        else:
-            ready_text = "ready_for_creditor"
-        afas_data = self.get_employee_afas_data(
-            self.employee_info["unique_name"]
-        )
-        if afas_data:
-            key = self.ds_client.key("Expenses")
-            entity = datastore.Entity(key=key)
-            entity.update(
-                {
-                    "employee": dict(
-                        afas_data=afas_data,
-                        email=self.employee_info["unique_name"],
-                        family_name=self.employee_info["family_name"],
-                        given_name=self.employee_info["given_name"],
-                        full_name=self.employee_info["name"],
-                    )
-                    if "unique_name" in self.employee_info.keys()
-                    else "",
-                    "amount": data.amount,
-                    "note": data.note,
-                    "cost_type": data.cost_type,
-                    "date_of_transaction": int(data.date_of_transaction),
-                    "date_of_claim": int(time.time() * 1000),
-                    "status": dict(date_exported="never", text=ready_text),
-                }
-            )
-            self.ds_client.put(entity)
+        if "unique_name" in self.employee_info.keys():
+            if data.amount >= 50:
+                ready_text = "ready_for_manager"
+            else:
+                ready_text = "ready_for_creditor"
+            afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
+            if afas_data:
+                key = self.ds_client.key("Expenses")
+                entity = datastore.Entity(key=key)
+                entity.update(
+                    {
+                        "employee": dict(
+                            afas_data=afas_data,
+                            email=self.employee_info["unique_name"],
+                            family_name=self.employee_info["family_name"],
+                            given_name=self.employee_info["given_name"],
+                            full_name=self.employee_info["name"],
+                        ),
+                        "amount": data.amount,
+                        "note": data.note,
+                        "cost_type": data.cost_type,
+                        "date_of_transaction": int(data.date_of_transaction),
+                        "date_of_claim": int(time.time() * 1000),
+                        "status": dict(date_exported="never", text=ready_text),
+                    }
+                )
+                self.ds_client.put(entity)
 
-            self.create_attachment(
-                data.attachment,
-                entity.key.id_or_name,
-                self.employee_info["unique_name"]
-                if "unique_name" in self.employee_info.keys()
-                else "",
-            )
+                self.create_attachment(
+                    data.attachment,
+                    entity.key.id_or_name,
+                    self.employee_info["unique_name"]
+                )
 
-            return make_response(jsonify(entity.key.id_or_name), 201)
+                return make_response(jsonify(entity.key.id_or_name), 201)
+            else:
+                return make_response(jsonify('Employee not found'), 403)
         else:
-            return make_response(jsonify('Employee not found'), 403)
+            return make_response(jsonify('Employee not unique'), 403)
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
