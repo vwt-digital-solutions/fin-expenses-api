@@ -323,7 +323,8 @@ class ClaimExpenses:
         need_to_save = False
         for item in items_to_update:
             if item == "status":
-                logger.debug(f"Employee status to update [{data[item]}] old [{expense['status']['text']}], legal transition [{status}]")
+                logger.debug(f"Employee status to update [{data[item]}] old [{expense['status']['text']}], legal "
+                             f"transition [{status}]")
                 if data[item] in status:
                     need_to_save = True
                     self._process_status_text_update(data[item], expense)
@@ -433,7 +434,7 @@ class ClaimExpenses:
                         )
                     )
                     boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
-                    logger.warning(f" date of transaction [{expense_detail['date_of_transaction']}]")
+                    logger.debug(f" date of transaction [{expense_detail['date_of_transaction']}]")
                     transtime = datetime.datetime.fromtimestamp(
                             int((expense_detail['date_of_transaction']
                                  if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000))\
@@ -729,9 +730,11 @@ class ClaimExpenses:
                             payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
                         else:
                             logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-                                           f"missing or invalid!")
+                                           f"missing or invalid! [{piece}]")
+                    file.delete()
                 return payment_data
             else:
+                # TODO: memory leak - export_file left on disk.
                 with tempfile.NamedTemporaryFile(delete=False) as export_file:
                     expenses_bucket.blob(
                         f"exports/{document_type}/{today.year}/{month}/{day}/{file_name}"
