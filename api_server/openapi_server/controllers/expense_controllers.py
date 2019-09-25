@@ -722,7 +722,7 @@ class ClaimExpenses:
                 else:
                     logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
                                    f"missing or invalid! [{piece}]")
-            file.delete()
+            # file.delete() # type of 'file' is bool here?????
         return payment_data
 
     def get_single_document_reference(self, document_id, document_type):
@@ -982,7 +982,7 @@ def get_document(document_date, document_type):
         logger.error(f'Invalid document type requested [{document_type}]')
         return make_response(f'Invalid document type requested [{document_type}]', 400)
 
-    export_file.delete()
+    # export_file.delete() # 'export_file' is bool here?????
     mime_type = content_response['content_type']
     return Response(
         content_response["file"],
