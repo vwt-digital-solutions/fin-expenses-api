@@ -436,8 +436,8 @@ class ClaimExpenses:
                     boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
                     logger.debug(f" date of transaction [{expense_detail['date_of_transaction']}]")
                     transtime = datetime.datetime.fromtimestamp(
-                            int((expense_detail['date_of_transaction']
-                                 if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000))\
+                        int((expense_detail['date_of_transaction']
+                             if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000)) \
                         .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
 
                     boekingsomschrijving_bron += f" {transtime}"
@@ -536,9 +536,7 @@ class ClaimExpenses:
         )
         str_num_unique = string.ascii_letters[:8] + string.digits
         if exported:
-            booking_file_detail = self.get_document_files_or_list(
-                document_type=document_type, document_id=document_name, raw=True
-            )
+            booking_file_detail = self.get_single_document_content(document_id=document_name)
             message_id = f"{200}/{self.generate_random_msgid()}"
             payment_info_id = (
                 f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
@@ -678,69 +676,62 @@ class ClaimExpenses:
                 None,
             )
 
-    def get_document_files_or_list(
-            self, document_type, document_id=None, all_exports=False, raw=None
-    ):
-        """
-        1 => Gets a booking file or a list of them that has been exported before. If the query string param is all
-        then a json file of all exports will be shown for the pre-current year
-
-        2 => Gets a payment file or a list of them  that has been exported created. Just like the booking file these are
-        based on once exported claim expenses
-        A claim status MUST have => 'exported'
-        :param raw: If calling a file to be made into a payment file
-        :param document_type:
-        :param document_id:
-        :param all_exports:
-        :return:
-        """
+    def get_all_documents_list(self, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
-        if all_exports:
-            all_exports_files = []
-            blobs = expenses_bucket.list_blobs(
-                prefix=f"exports/{document_type}/{today.year}"
-            )
 
-            for blob in blobs:
-                blob_name = blob.name
-                all_exports_files.append(
-                    {"date_exported": blob_name.split("/")[5], "file_name": blob.name}
-                )
-            return all_exports_files
-        else:
-            month, day, file_name = document_id.split("_")
-            if raw:
-                ###########################################################################
-                # Raw is being called by the payment file creation to reuse this logic to #
-                # collect all data needed to create a payment file from the booking file  #
-                ###########################################################################
-                payment_data = []
-                content = expenses_bucket.blob(
-                    f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
-                ).download_as_string()
-                with tempfile.NamedTemporaryFile(delete=False) as file:
-                    file.write(content)
-                    file.close()
-                    reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
-                    for piece in reader:
-                        if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
-                            personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-                            employee_detail = self.get_employee_afas_data(None, personal_no)
-                            payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-                        else:
-                            logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-                                           f"missing or invalid! [{piece}]")
-                    file.delete()
-                return payment_data
-            else:
-                # TODO: memory leak - export_file left on disk.
-                with tempfile.NamedTemporaryFile(delete=False) as export_file:
-                    expenses_bucket.blob(
-                        f"exports/{document_type}/{today.year}/{month}/{day}/{file_name}"
-                    ).download_to_file(export_file)
-                    export_file.close()
-                    return export_file
+        all_exports_files = []
+        blobs = expenses_bucket.list_blobs(
+            prefix=f"exports/{document_type}/{today.year}"
+        )
+
+        for blob in blobs:
+            blob_name = blob.name
+            all_exports_files.append({
+                "date_exported": blob_name.split("/")[5],
+                "file_name": blob.name
+            })
+        return all_exports_files
+
+    def get_single_document_content(self, document_id):
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+
+        month, day, file_name = document_id.split("_")
+        ###########################################################################
+        # Raw is being called by the payment file creation to reuse this logic to #
+        # collect all data needed to create a payment file from the booking file  #
+        ###########################################################################
+        payment_data = []
+        content = expenses_bucket.blob(
+            f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
+        ).download_as_string()
+        with tempfile.NamedTemporaryFile(delete=False) as file:
+            file.write(content)
+            file.close()
+            reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
+            for piece in reader:
+                if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
+                    personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
+                    employee_detail = self.get_employee_afas_data(None, personal_no)
+                    payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
+                else:
+                    logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
+                                   f"missing or invalid! [{piece}]")
+            file.delete()
+        return payment_data
+
+    def get_single_document_reference(self, document_id, document_type):
+        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+
+        month, day, file_name = document_id.split("_")
+        with tempfile.NamedTemporaryFile(delete=False) as export_file:
+            expenses_bucket.blob(
+                f"exports/{document_type}/{today.year}/{month}/{day}/{file_name}"
+            ).download_to_file(export_file)
+            export_file.close()
+            return export_file
 
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses")
@@ -810,7 +801,7 @@ class EmployeeExpenses(ClaimExpenses):
         if item == 'cancelled':
             expense["status"]["text"] = item
         else:
-            if expense['status']['text'] in ['rejected_by_creditor', 'rejected_by_manager']\
+            if expense['status']['text'] in ['rejected_by_creditor', 'rejected_by_manager'] \
                     and item == 'ready_for_manager':
                 self._process_status_amount_update(expense['amount'], expense)
             pass
@@ -969,31 +960,31 @@ def get_document(document_date, document_type):
     :return"""
 
     expense_instance = ClaimExpenses()
-    export_file = expense_instance.get_document_files_or_list(
-        document_id=document_date, document_type=document_type
-    )
+    export_file = expense_instance.get_single_document_reference(document_id=document_date, document_type=document_type)
     # Separate Content
-    content_response = {
-        "payment_file": {
+    if document_type == 'payment_file':
+        content_response = {
             "content_type": "application/xml",
             "file": MD.parse(export_file.name).toprettyxml(encoding="utf-8").decode()
-            if document_type == "payment_file"
-            else "",
-        },
-        "booking_file": {
-            "content_type": "text/csv",
-            "file": open(export_file.name, "r")
-            if document_type == "booking_file"
-            else "",
-        },
-    }
+        }
+    elif document_type == 'booking_file':
+        with open(export_file.name, "r") as file_in:
+            content_response = {
+                "content_type": "text/csv",
+                "file": file_in.read()
+            }
+            file_in.close()
+    else:
+        logger.error(f'Invalid document type requested [{document_type}]')
+        return make_response(f'Invalid document type requested [{document_type}]', 400)
 
-    mime_type = content_response[document_type]
+    export_file.delete()
+    mime_type = content_response['content_type']
     return Response(
-        content_response[document_type]["file"],
+        content_response["file"],
         headers={
-            "Content-Type": f"{mime_type['content_type']}",
-            "Content-Disposition": f"attachment; filename={document_date}.{mime_type['content_type'].split('/')[1]}",
+            "Content-Type": f"{mime_type}",
+            "Content-Disposition": f"attachment; filename={document_date}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
     )
@@ -1006,9 +997,7 @@ def get_document_list(document_type):
     :return"""
 
     expense_instance = ClaimExpenses()
-    all_exports = expense_instance.get_document_files_or_list(
-        all_exports=True, document_type=document_type
-    )
+    all_exports = expense_instance.get_all_documents_list(document_type=document_type)
     return jsonify(all_exports)
 
 
