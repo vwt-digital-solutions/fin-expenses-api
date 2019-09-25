@@ -713,10 +713,6 @@ class ClaimExpenses:
                     personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
                     employee_detail = self.get_employee_afas_data(None, personal_no)
                     payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-                elif 'boekingsomschrijvingBron' in piece and piece["boekingsomschrijvingBron"].find(' ') != -1:
-                    personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-                    employee_detail = self.get_employee_afas_data(None, personal_no)
-                    payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
                 else:
                     logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
                                    f"missing or invalid! [{piece}]")
