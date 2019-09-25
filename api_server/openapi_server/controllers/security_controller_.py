@@ -18,13 +18,6 @@ if hasattr(config, 'OAUTH_E2E_JWKS_URL'):
                            jwks_url=config.OAUTH_E2E_JWKS_URL)
 
 
-def refine_token_info(token_info):
-    if token_info and 'scopes' in token_info:
-        if 'finance.expenses' in token_info['scopes']:
-            token_info['scopes'].append('finance.expenses')
-            token_info['scopes'].append('creditor.write')
-    return token_info
-
 
 def info_from_oAuth2(token):
     """
@@ -44,9 +37,10 @@ def info_from_oAuth2(token):
         token_info = my_e2e_jwkaas.get_connexion_token_info(token)
         if token_info is not None and 'appid' in token_info and token_info['appid'] == config.OAUTH_E2E_APPID:
             logging.warning('Approved e2e access token for appid [%s]', token_info['appid'])
-            result = {'scopes': ['finance.expenses', 'creditor.write', 'controller.write', 'manager.write'], 'sub': 'e2e'}
+            result = config.e2e_key_data
 
     if result is not None:
-        g.user = result.get('upn', '')
+        g.user = result.get('upn', 'e2e-technical-user')
+        g.token = result
 
-    return refine_token_info(result)
+    return result

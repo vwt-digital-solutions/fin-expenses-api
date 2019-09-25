@@ -1,0 +1,4 @@
+google-cloud-datastore==1.8.0
+google-python-cloud-debugger
+jwkaas==0.3
+python-dateutil==2.6.0
