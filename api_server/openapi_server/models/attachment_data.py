@@ -12,24 +12,21 @@ class AttachmentData(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, name=None, mime_type=None, content=None):  # noqa: E501
+    def __init__(self, name=None, content=None):  # noqa: E501
         """ExpenseData - a model defined in OpenAPI
 
         """
         self.openapi_types = {
             'name': str,
-            'mime_type': str,
             'content': str
         }
 
         self.attribute_map = {
             'name': 'name',
-            'mime_type': 'mime_type',
             'content': 'content'
         }
 
         self._name = name
-        self._mime_type = mime_type
         self._content = content
 
     @classmethod
@@ -65,29 +62,6 @@ class AttachmentData(Model):
             raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
         self._name = name
-
-    @property
-    def mime_type(self):
-        """Gets the mime_type of this ExpenseData.
-
-
-        :return: The mime_type of this ExpenseData.
-        :rtype: str
-        """
-        return self._mime_type
-
-    @mime_type.setter
-    def mime_type(self, mime_type):
-        """Sets the mime_type of this ExpenseData.
-
-
-        :param mime_type: The mime_type of this ExpenseData.
-        :type mime_type: str
-        """
-        if mime_type is None:
-            raise ValueError("Invalid value for `mime_type`, must not be `None`")  # noqa: E501
-
-        self._mime_type = mime_type
 
     @property
     def content(self):

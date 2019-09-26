@@ -294,11 +294,12 @@ class ClaimExpenses:
                 )
                 self.ds_client.put(entity)
 
-                self.create_attachments(
-                    data.attachment,
-                    entity.key.id_or_name,
-                    self.employee_info["unique_name"]
-                )
+                # if data.attachment:
+                #     self.create_attachments(
+                #         data.attachment,
+                #         entity.key.id_or_name,
+                #         self.employee_info["unique_name"]
+                #     )
 
                 return make_response(jsonify(entity.key.id_or_name), 201)
             else:
