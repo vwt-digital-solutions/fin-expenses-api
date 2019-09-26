@@ -1192,7 +1192,7 @@ def delete_attachment(expenses_id, attachments_name):
 def add_attachment_employee(expenses_id):
     try:
         if connexion.request.is_json:
-            expense_instance = EmployeeExpenses()
+            expense_instance = EmployeeExpenses(None)
             form_data = AttachmentData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
