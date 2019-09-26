@@ -478,7 +478,6 @@ components:
         - note
         - cost_type
         - date_of_transaction
-        - attachment
       type: object
       properties:
         amount:
@@ -490,8 +489,6 @@ components:
           type: string
         date_of_transaction:
           type: integer
-        attachment:
-          type: string
       example: |-
         {
             "note": "This is a note",

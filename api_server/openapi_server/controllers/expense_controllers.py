@@ -107,22 +107,6 @@ class ClaimExpenses:
                 logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
                 return None
 
-    def create_attachments(self, attachment, expenses_id, email):
-        """Creates an attachment"""
-
-        today = pytz.UTC.localize(datetime.datetime.now())
-        email_name = email.split("@")[0]
-        list_object = attachment.split(".")
-        for document in list_object:
-            filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
-                       f"-{list_object.index(document)}"
-            bucket = self.cs_client.get_bucket(self.bucket_name)
-            blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
-            blob.upload_from_string(
-                base64.b64decode(document.split(",")[1]),
-                content_type=mimetypes.guess_type(document)[0],
-            )
-
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
@@ -293,14 +277,6 @@ class ClaimExpenses:
                     }
                 )
                 self.ds_client.put(entity)
-
-                # if data.attachment:
-                #     self.create_attachments(
-                #         data.attachment,
-                #         entity.key.id_or_name,
-                #         self.employee_info["unique_name"]
-                #     )
-
                 return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
