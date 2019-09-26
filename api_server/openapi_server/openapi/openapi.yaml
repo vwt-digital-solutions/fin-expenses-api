@@ -70,10 +70,10 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
+      requestBody:
+        $ref: '#/components/requestBodies/formData'
       parameters:
         - $ref: '#/components/parameters/ExpensesId'
-      requestBody:
-        $ref: '#/components/requestBodies/attachmentData'
       responses:
         '200':
           description: Succesfully received all attachments for expense
@@ -458,19 +458,21 @@ components:
         document: ''
     AttachmentData:
       title: attachmentData
-      descriptition: form data for single attachment
-      required:
-        - name
-        - mime_type
-        - content
+      description: form data for single attachment
       type: object
       properties:
         name:
           type: string
         mime_type:
           type: string
-        content:
-          type string
+        b64_content:
+          type: string
+      example: |-
+        {
+          "name": "somename",
+          "mime_type": "image/png",
+          "b64_content": "b64 string"
+        }
     ExpenseData:
       title: expenseData
       description: Form data to an expense
