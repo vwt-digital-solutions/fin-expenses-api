@@ -133,7 +133,7 @@ class ClaimExpenses:
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
         blob.upload_from_string(
-            base64.b64decode(attachment.content),
+            base64.b64decode(attachment.content.split(",")[1]),
             content_type=mimetypes.guess_type(attachment.content)[0],
         )
 
