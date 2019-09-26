@@ -134,7 +134,7 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
         blob.upload_from_string(
             base64.b64decode(attachment.content),
-            content_type=attachment.mime_type,
+            content_type=mimetypes.guess_type(attachment.content)[0],
         )
 
     def delete_attachment(self, expenses_id, attachments_name):
