@@ -69,6 +69,23 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    post:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      requestBody:
+        $ref: '#/components/requestBodies/attachmentData'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: add_attachment_employee
+      security:
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
@@ -439,6 +456,21 @@ components:
           type: string
       example:
         document: ''
+    AttachmentData:
+      title: attachmentData
+      descriptition: form data for single attachment
+      required:
+        - name
+        - mime_type
+        - content
+      type: object
+      properties:
+        name:
+          type: string
+        mime_type:
+          type: string
+        content:
+          type string
     ExpenseData:
       title: expenseData
       description: Form data to an expense
@@ -600,6 +632,11 @@ components:
           schema:
             $ref: '#/components/schemas/ExpenseData'
       required: true
+    attachmentData:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AttachmentData'
   securitySchemes:
     oauth2:
       type: oauth2

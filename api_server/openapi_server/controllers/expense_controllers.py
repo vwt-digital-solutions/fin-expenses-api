@@ -29,6 +29,7 @@ import connexion
 from flask import make_response, jsonify, Response, g
 from google.cloud import datastore, storage
 
+from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.booking_file import BookingFile
 from openapi_server.models.cost_types import CostTypes
 from openapi_server.models.documents import Documents
@@ -106,7 +107,7 @@ class ClaimExpenses:
                 logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
                 return None
 
-    def create_attachment(self, attachment, expenses_id, email):
+    def create_attachments(self, attachment, expenses_id, email):
         """Creates an attachment"""
 
         today = pytz.UTC.localize(datetime.datetime.now())
@@ -121,6 +122,20 @@ class ClaimExpenses:
                 base64.b64decode(document.split(",")[1]),
                 content_type=mimetypes.guess_type(document)[0],
             )
+
+    def create_attachment(self, attachment, expenses_id, email):
+        """Creates an attachment"""
+
+        today = pytz.UTC.localize(datetime.datetime.now())
+        email_name = email.split("@")[0]
+        filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
+                   f"-{attachment.name}"
+        bucket = self.cs_client.get_bucket(self.bucket_name)
+        blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
+        blob.upload_from_string(
+            base64.b64decode(attachment.content),
+            content_type=attachment.mime_type,
+        )
 
     def delete_attachment(self, expenses_id, attachments_name):
         """
@@ -279,7 +294,7 @@ class ClaimExpenses:
                 )
                 self.ds_client.put(entity)
 
-                self.create_attachment(
+                self.create_attachments(
                     data.attachment,
                     entity.key.id_or_name,
                     self.employee_info["unique_name"]
@@ -812,6 +827,20 @@ class EmployeeExpenses(ClaimExpenses):
         else:
             expense["status"]["text"] = "ready_for_manager"
 
+    def add_attachment(self, expense_id, data):
+        expense_key = self.ds_client.key("Expenses", expense_id)
+        expense = self.ds_client.get(expense_key)
+        if not expense:
+            return make_response(jsonify('Attempt to add attachment to undefined expense claim', 400))
+
+        self.create_attachment(
+            data,
+            expense.key.id_or_name,
+            self.employee_info["unique_name"]
+        )
+
+        pass
+
 
 class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
@@ -1157,3 +1186,17 @@ def delete_attachment(expenses_id, attachments_name):
     """
     expense_instance = ClaimExpenses()
     return expense_instance.delete_attachment(expenses_id, attachments_name)
+
+
+def add_attachment_employee(expense_id):
+    try:
+        if connexion.request.is_json:
+            expense_instance = EmployeeExpenses()
+            form_data = AttachmentData.from_dict(
+                connexion.request.get_json()
+            )  # noqa: E501
+            return expense_instance.add_attachment(expense_id, form_data)
+    except Exception as er:
+        logging.exception('Exception on add_expense')
+        return jsonify(er.args), 500
+
