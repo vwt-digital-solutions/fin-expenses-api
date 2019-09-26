@@ -1189,14 +1189,14 @@ def delete_attachment(expenses_id, attachments_name):
     return expense_instance.delete_attachment(expenses_id, attachments_name)
 
 
-def add_attachment_employee(expense_id):
+def add_attachment_employee(expenses_id):
     try:
         if connexion.request.is_json:
             expense_instance = EmployeeExpenses()
             form_data = AttachmentData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            return expense_instance.add_attachment(expense_id, form_data)
+            return expense_instance.add_attachment(expenses_id, form_data)
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
