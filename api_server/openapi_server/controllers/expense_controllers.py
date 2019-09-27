@@ -207,7 +207,7 @@ class ClaimExpenses:
             content_result = {
                 "content_type": blob.content_type,
                 "content": stream_read.decode('utf-8'),
-                "name": blob.name.split('/'[-1])
+                "name": blob.name.split('/')[-1]
             }
             results.append(content_result)
 
