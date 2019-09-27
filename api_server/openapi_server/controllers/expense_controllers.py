@@ -206,7 +206,8 @@ class ClaimExpenses:
             stream_read = base64.b64encode(stream.read(len(content)))
             content_result = {
                 "content_type": blob.content_type,
-                "content": stream_read.decode('utf-8')
+                "content": stream_read.decode('utf-8'),
+                "name": blob.name
             }
             results.append(content_result)
 
