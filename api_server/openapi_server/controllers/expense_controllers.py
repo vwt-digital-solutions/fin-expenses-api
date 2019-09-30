@@ -639,7 +639,7 @@ class ClaimExpenses:
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
             payment_file_name = f"/tmp/{document_type}_{document_name[:-4].split('_')[2]}"
-            open(payment_file_name, "w").write(payment_file_string)
+            open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
             
 
             # Save File to CloudStorage
