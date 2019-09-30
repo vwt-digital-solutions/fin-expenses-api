@@ -638,7 +638,7 @@ class ClaimExpenses:
                 ]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"{document_type}_{document_name[:-4].split('_')[2]}"
+            payment_file_name = f"/tmp/{document_type}_{document_name[:-4].split('_')[2]}"
             open(payment_file_name, "w").write(payment_file_string)
             
 
@@ -676,11 +676,11 @@ class ClaimExpenses:
             # Write un-encrypted key to file (for requests library)
             pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
 
-            key_file_path = "key.pem"
+            key_file_path = "/tmp/key.pem"
             open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
 
             # Create the HTTP POST request
-            cert_file_path = "cert.pem"
+            cert_file_path = "/tmp/cert.pem"
             cert = (cert_file_path, key_file_path)
 
             xml_file = payment_file_name
