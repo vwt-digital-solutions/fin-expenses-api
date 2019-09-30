@@ -12,7 +12,7 @@ class ExpenseData(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, amount=None, note=None, cost_type=None, date_of_transaction=None, attachment=None):  # noqa: E501
+    def __init__(self, amount=None, note=None, cost_type=None, date_of_transaction=None):  # noqa: E501
         """ExpenseData - a model defined in OpenAPI
 
         :param amount: The amount of this ExpenseData.  # noqa: E501
@@ -23,13 +23,10 @@ class ExpenseData(Model):
         :type cost_type: str
         :param date_of_transaction: The date_of_transaction of this ExpenseData.  # noqa: E501
         :type date_of_transaction: str
-        :param attachment: The list of attachments of this ExpenseData.  # noqa: E501
-        :type attachment: string
         """
         self.openapi_types = {
             'amount': float,
             'note': str,
-            'attachment': str,
             'cost_type': str,
             'date_of_transaction': str
         }
@@ -37,14 +34,12 @@ class ExpenseData(Model):
         self.attribute_map = {
             'amount': 'amount',
             'note': 'note',
-            'attachment': 'attachment',
             'cost_type': 'cost_type',
             'date_of_transaction': 'date_of_transaction'
         }
 
         self._amount = amount
         self._note = note
-        self._attachment = attachment
         self._cost_type = cost_type
         self._date_of_transaction = date_of_transaction
 
@@ -104,24 +99,6 @@ class ExpenseData(Model):
             raise ValueError("Invalid value for `note`, must not be `None`")  # noqa: E501
 
         self._note = note
-
-    @property
-    def attachment(self):
-        """Gets the attachment of this ExpenseData
-
-
-        :param attachment: The attachment of this ExpenseData.
-        :type attachment: str"""
-        return self._attachment
-
-    @attachment.setter
-    def attachment(self, attachment):
-        """Sets the attachment of this ExpenseData"""
-
-        if attachment is None:
-            raise ValueError("Invalid value for `attachment`, must not be `None`")  # noqa: E501
-
-        self._attachment = attachment
 
     @property
     def cost_type(self):
