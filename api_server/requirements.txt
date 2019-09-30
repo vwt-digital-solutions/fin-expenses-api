@@ -5,7 +5,9 @@ Flask==1.0.2
 Flask-Cors==3.0.8
 google-cloud-storage==1.16.1
 google-cloud-datastore==1.8.0
+google-cloud-kms==1.2.1
 google-python-cloud-debugger
+pyopenssl==19.0.0
 gunicorn==19.9.0
 jwkaas==0.3
 MarkupSafe==1.1.1
@@ -14,4 +16,5 @@ PyYAML==5.1.1
 swagger-ui-bundle==0.0.2
 setuptools >= 21.0.0
 pandas==0.25.0
+
 
