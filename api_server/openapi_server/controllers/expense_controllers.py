@@ -3,6 +3,7 @@ import csv
 import json
 import secrets
 import string
+import os
 
 import datetime
 import mimetypes
@@ -27,7 +28,7 @@ import pandas as pd
 
 import connexion
 from flask import make_response, jsonify, Response, g
-from google.cloud import datastore, storage
+from google.cloud import datastore, storage, kms_v1
 
 from openapi_server.models.booking_file import BookingFile
 from openapi_server.models.cost_types import CostTypes
@@ -35,6 +36,8 @@ from openapi_server.models.documents import Documents
 from openapi_server.models.status import Status
 from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.expense_data_array import ExpenseDataArray
+
+from OpenSSL import crypto
 
 logger = logging.getLogger(__name__)
 
@@ -645,6 +648,9 @@ class ClaimExpenses:
                 ]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
+            payment_file_name = f"{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4].split('_')[2]}"
+            file.open(payment_file_name, "w").write(payment_file_string)
+            
 
             # Save File to CloudStorage
             bucket = self.cs_client.get_bucket(self.bucket_name)
@@ -662,6 +668,38 @@ class ClaimExpenses:
             payment_file = MD.parseString(payment_file_string).toprettyxml(
                 encoding="utf-8"
             )
+
+            ## Upload file to Power2Pay
+            client = kms_v1.KeyManagementServiceClient()
+
+            # Get the passphrase for the private key
+            pk_passphrase = client.crypto_key_path_path(os.environ['PROJECT_ID'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key-pass')
+            response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
+
+            passphrase = response.plaintext.decode("utf-8").replace('\n', '')
+
+            # Get the private key and decode using passphrase
+            pk_enc = client.crypto_key_path_path(os.environ['PROJECT_ID'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key')
+            response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
+
+
+            # Write un-encrypted key to file (for requests library)
+            pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
+
+            key_file_path = "key.pem"
+            open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+
+            # Create the HTTP POST request
+            cert_file_path = "cert.pem"
+            cert = (cert_file_path, key_file_path)
+
+            xml_file = payment_file_name
+            headers = {'Content-Type':'text/xml'}
+            url = "https://b2b-test.vwtelecom.com:8443/Power2Pay"
+
+            with open(xml_file) as xml:
+                r = requests.post(url, data=xml, cert=cert, verify=True)
+
 
             ############################
             #  KEEP AS LAST TO HAPPEN  #
