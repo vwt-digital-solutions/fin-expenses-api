@@ -638,7 +638,7 @@ class ClaimExpenses:
                 ]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4].split('_')[2]}"
+            payment_file_name = f"{document_type}_{document_name[:-4].split('_')[2]}"
             open(payment_file_name, "w").write(payment_file_string)
             
 
