@@ -681,7 +681,7 @@ class ClaimExpenses:
             open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
 
             # Create the HTTP POST request
-            cert_file_path = "cert.pem"
+            cert_file_path = "power2pay-cert.pem"
             cert = (cert_file_path, key_file_path)
 
             xml_file = payment_file_name
