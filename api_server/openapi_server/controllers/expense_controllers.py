@@ -326,23 +326,19 @@ class ClaimExpenses:
         if need_to_save:
             self.ds_client.put(expense)
 
-    def update_exported_expenses(self, expenses_exported, document_date, document_type):
+    def update_exported_expenses(self, expenses_exported, document_date):
         """
         Do some sanity changed to keep data updated.
         :param document_type: A Payment or a booking file
         :param expenses_exported: Expense <Entity Keys>
         :param document_date: Date when it was exported
         """
-        status = {
-            "payment_file": "exported",
-            "booking_file": "exported",
-        }
 
         for exp in expenses_exported:
             with self.ds_client.transaction():
-                expense = self.ds_client.get(exp)
+                expense = self.ds_client.get(self.ds_client.key("Expenses", exp.id))
                 expense["status"]["date_exported"] = document_date
-                expense["status"]["text"] = status[document_type]
+                expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
 
     @staticmethod
@@ -362,50 +358,49 @@ class ClaimExpenses:
                 "NOTPROVIDED"
             )  # ABN-AMRO will determine the BIC based on the Debtor Account
 
-    def filter_expenses(self, document_type):
+    def filter_expenses_to_export(self):
         """
         Query the expenses to return desired values
         :return:
         """
+
+        never_exported = []
+        expenses_query = self.ds_client.query(kind="Expenses")
+        for entity in expenses_query.fetch():
+            if entity["status"]["text"] in EXPORTABLE_STATUSES:
+                never_exported.append(entity)
+
+        return never_exported
+
+    def create_booking_and_payment_file(self):
 
         now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
         document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
             document_date
         )
+        document_time = now.isoformat(timespec="seconds")
 
-        status = {
-            "booking_file": EXPORTABLE_STATUSES,
-            "payment_file": ["exported"],
-        }
+        expense_claims_to_export = self.filter_expenses_to_export()
 
-        never_exported = []
-        expenses_query = self.ds_client.query(kind="Expenses")
-        for entity in expenses_query.fetch():
-            if entity["status"]["text"] in status[document_type]:
-                never_exported.append(self.ds_client.key("Expenses", entity.id))
-        return (
-            never_exported,
-            document_export_date,
-            document_date,
-            now.isoformat(timespec="seconds"),
-        )
+        result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
+        self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date)
 
-    def create_booking_file(self, document_type):
+        return result
+
+    def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
         """
         Create a booking file
-        :param document_type:
         :return:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        never_exported, document_export_date, document_date, document_time = self.filter_expenses(
-            document_type
-        )
-        if never_exported:
+        document_type = "booking_file"
+
+        if expense_claims_to_export:
             booking_file_data = []
-            for exps in never_exported:
-                expense_detail = self.ds_client.get(exps)
-                if expense_detail["employee"].__len__() > 0:
+            for expense_detail in expense_claims_to_export:
+                if expense_detail["employee"]:
                     try:
                         department_number_aka_afdeling_code = expense_detail["employee"][
                             "afas_data"
@@ -417,14 +412,15 @@ class ClaimExpenses:
                             "Departments", department_number_aka_afdeling_code
                         )
                     )
-                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
                     logger.debug(f" date of transaction [{expense_detail['date_of_transaction']}]")
                     transtime = datetime.datetime.fromtimestamp(
                         int((expense_detail['date_of_transaction']
                              if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000)) \
                         .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
 
-                    boekingsomschrijving_bron += f" {transtime}"
+                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {transtime}"
+                    expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
+
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": boekingsomschrijving_bron,
@@ -474,9 +470,6 @@ class ClaimExpenses:
             )
 
             blob.upload_from_string(booking_file, content_type="text/csv")
-            self.update_exported_expenses(
-                never_exported, document_export_date, document_type
-            )
             has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
             return has_expenses, document_export_date, booking_file, location
@@ -484,43 +477,18 @@ class ClaimExpenses:
             has_expenses = False
             return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
-    @staticmethod
-    def generate_random_msgid():
-        """
-        A message ID that will be read in the XML should be unique. This has
-        a minimal random collision disadvantage
-        :return:
-        """
-        alphabet = string.ascii_letters + string.digits
-        while True:
-            random_id = "".join(secrets.choice(alphabet) for i in range(9))
-            if (
-                    any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3
-            ):
-                break
-        return "/".join(
-            random_id[i: i + 3] for i in range(0, len(random_id), 3)
-        ).upper()
-
-    def create_payment_file(self, document_type, document_name):
+    def create_payment_file(self, expense_claims_to_export, document_export_date, document_time):
 
         """
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
         ==> status -- 'booking-file-created'
-        :param document_name:
-        :type document_type: object
         """
         has_expenses = True  # Initialise
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        exported, document_export_date, document_date, document_time = self.filter_expenses(
-            document_type
-        )
+        document_type = "payment_file"
         str_num_unique = string.ascii_letters[:8] + string.digits
-        if exported:
-            booking_file_detail = self.get_single_document_content(document_id=document_name)
+        if expense_claims_to_export:
             message_id = f"{200}/{self.generate_random_msgid()}"
             payment_info_id = (
                 f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
@@ -542,7 +510,7 @@ class ClaimExpenses:
             ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
             ET.SubElement(header, "NbOfTxs").text = str(
-                booking_file_detail.__len__()  # Number Of Transactions in the batch
+                len(expense_claims_to_export)  # Number Of Transactions in the batch
             )
             initiating_party = ET.SubElement(header, "InitgPty")
             ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
@@ -552,7 +520,7 @@ class ClaimExpenses:
             ET.SubElement(payment_info, "PmtInfId").text = message_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(
-                booking_file_detail.__len__()  # Number Of Transactions in the batch
+                len(expense_claims_to_export)  # Number Of Transactions in the batch
             )
 
             # Payment Type Information
@@ -583,20 +551,16 @@ class ClaimExpenses:
                 "bic"
             ]
 
-            for expense in booking_file_detail:
+            for expense in expense_claims_to_export:
                 # Transaction Transfer Information
                 transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
                 transfer_payment_id = ET.SubElement(transfer, "PmtId")
                 ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
-                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ]
+                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["boekingsomschrijving_bron"]
 
                 # Amount
                 amount = ET.SubElement(transfer, "Amt")
-                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["data"][
-                                                                            "Bedrag excl. BTW"
-                                                                        ])
+                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["amount"])
                 ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
@@ -604,31 +568,26 @@ class ClaimExpenses:
                 payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
                 ET.SubElement(
                     payment_creditor_agent_id, "BIC"
-                ).text = self.get_iban_details(expense["iban"])
+                ).text = self.get_iban_details(expense["employee"]["afas_data"]["IBAN"])
 
                 # Creditor name
                 creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ].split("-")[1]
+                ET.SubElement(creditor_name, "Nm").text = expense["boekingsomschrijving_bron"].split("-")[1]
 
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
                 creditor_account_id = ET.SubElement(creditor_account, "Id")
-                ET.SubElement(creditor_account_id, "IBAN").text = expense[
-                    "iban"
-                ].replace(
-                    " ", ""
-                )  # <ValidationPass> on whitespaces
+
+                # <ValidationPass> on whitespaces
+                ET.SubElement(creditor_account_id, "IBAN").text = \
+                    expense["employee"]["afas_data"]["IBAN"].replace(" ", "")
 
                 # Remittance Information
                 remittance_info = ET.SubElement(transfer, "RmtInf")
-                ET.SubElement(remittance_info, "Ustrd").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ]
+                ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"/tmp/{document_type}_{document_name[:-4].split('_')[2]}"
+            payment_file_name = f"/tmp/{document_type}_{document_export_date}"
             open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
             
 
@@ -636,7 +595,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4].split('_')[2]}"
+                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}"
             )
 
             # Upload file to Blob Storage
@@ -680,11 +639,6 @@ class ClaimExpenses:
             with open(xml_file) as xml:
                 r = requests.post(url, data=xml, cert=cert, verify=True)
 
-
-            ############################
-            #  KEEP AS LAST TO HAPPEN  #
-            ############################
-            self.update_exported_expenses(exported, document_export_date, document_type)
             return has_expenses, document_export_date, payment_file, location
         else:
             has_expenses = False
@@ -694,6 +648,27 @@ class ClaimExpenses:
                 jsonify({"Info": "No Exports needed to create Payment Available"}),
                 None,
             )
+
+    @staticmethod
+    def generate_random_msgid():
+        """
+        A message ID that will be read in the XML should be unique. This has
+        a minimal random collision disadvantage
+        :return:
+        """
+        alphabet = string.ascii_letters + string.digits
+        while True:
+            random_id = "".join(secrets.choice(alphabet) for i in range(9))
+            if (
+                    any(c.islower() for c in random_id)
+                    and any(c.isupper() for c in random_id)
+                    and sum(c.isdigit() for c in random_id) >= 3
+            ):
+                break
+        return "/".join(
+            random_id[i: i + 3] for i in range(0, len(random_id), 3)
+        ).upper()
+
 
     def get_all_documents_list(self):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
@@ -712,33 +687,33 @@ class ClaimExpenses:
             })
         return all_exports_files
 
-    def get_single_document_content(self, document_id):
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
-
-        month, day, file_name = document_id.split("_")
-        ###########################################################################
-        # Raw is being called by the payment file creation to reuse this logic to #
-        # collect all data needed to create a payment file from the booking file  #
-        ###########################################################################
-        payment_data = []
-        content = expenses_bucket.blob(
-            f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
-        ).download_as_string()
-        with tempfile.NamedTemporaryFile(delete=False) as file:
-            file.write(content)
-            file.close()
-            reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
-            for piece in reader:
-                if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
-                    personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-                    employee_detail = self.get_employee_afas_data(None, personal_no)
-                    payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-                else:
-                    logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-                                   f"missing or invalid! [{piece}]")
-            # file.delete() # type of 'file' is bool here?????
-        return payment_data
+    # def get_single_document_content(self, document_id):
+    #     today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+    #     expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+    #
+    #     month, day, file_name = document_id.split("_")
+    #     ###########################################################################
+    #     # Raw is being called by the payment file creation to reuse this logic to #
+    #     # collect all data needed to create a payment file from the booking file  #
+    #     ###########################################################################
+    #     payment_data = []
+    #     content = expenses_bucket.blob(
+    #         f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
+    #     ).download_as_string()
+    #     with tempfile.NamedTemporaryFile(delete=False) as file:
+    #         file.write(content)
+    #         file.close()
+    #         reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
+    #         for piece in reader:
+    #             if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
+    #                 personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
+    #                 employee_detail = self.get_employee_afas_data(None, personal_no)
+    #                 payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
+    #             else:
+    #                 logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
+    #                                f"missing or invalid! [{piece}]")
+    #         # file.delete() # type of 'file' is bool here?????
+    #     return payment_data
 
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
@@ -1054,12 +1029,10 @@ def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
     has_expenses, export_id, export_file, location = (
-        expense_instance.create_booking_file("booking_file")
+        expense_instance.create_booking_and_payment_file()
     )
 
     if has_expenses:
-        expense_instance.create_payment_file("payment_file", location)
-
         response = make_response(export_file, 200)
         response.headers = {
             "Content-Type": "text/csv",
