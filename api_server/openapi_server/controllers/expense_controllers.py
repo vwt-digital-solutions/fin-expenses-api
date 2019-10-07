@@ -1053,13 +1053,13 @@ def create_document_deprecated(document_type):
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    expenses, export_id, export_file, location = (
+    has_expenses, export_id, export_file, location = (
         expense_instance.create_booking_file("booking_file")
     )
 
-    expense_instance.create_payment_file("payment_file", export_file)
+    if has_expenses:
+        expense_instance.create_payment_file("payment_file", location)
 
-    if expenses:
         response = make_response(export_file, 200)
         response.headers = {
             "Content-Type": "text/csv",
@@ -1070,7 +1070,7 @@ def create_booking_and_payment_file():
         }
         return response
     else:
-        return make_response({"Info": "No Exports Available"}, 200)
+        return {"Info": "No Exports Available"}
 
 
 def get_department_expenses(department_id):
