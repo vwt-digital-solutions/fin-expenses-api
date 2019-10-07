@@ -999,10 +999,6 @@ def get_document(document_date, document_type):
     )
 
 
-def get_deprecated_document_list(document_type):
-    return get_document_list()
-
-
 def get_document_list():
     """
     Get a list of all documents ever created
@@ -1012,17 +1008,6 @@ def get_document_list():
     expense_instance = ClaimExpenses()
     all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
-
-
-def create_document_deprecated(document_type):
-    """
-    Make a booking file based of expenses id. Looks up all objects with
-    status: exported => False. Gives the object a new status and does a few sanity checks
-    """
-    if document_type != "payment_file":
-        return 204
-
-    return create_booking_and_payment_file()
 
 
 def create_booking_and_payment_file():
