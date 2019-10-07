@@ -315,38 +315,6 @@ paths:
       summary: Get all expenses
       description: Retrieve all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /finances/department/{department_id}/expenses:
-    get:
-      parameters:
-        - $ref: '#/components/parameters/DepartmentId'
-      deprecated: true
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
-              examples:
-                ExpenseDataArray:
-                  value:
-                    Expenses:
-                      - amount: ''
-                        note: some text
-                        cost_type: some text
-                        date_of_transaction: 1566892146383
-                      - amount: ''
-                        note: some text
-                        cost_type: some text
-                        date_of_transaction: 1566892146383
-          description: Succesfull response - returns all expenses
-        default:
-          description: Response Successfully Executed
-      security:
-        - oauth2: [manager.write]
-      operationId: get_department_expenses_deprecated
-      summary: Get all expenses belonging to a specific manager
-      description: Retrieve all expenses for a given manager
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses:
     get:
       responses:
@@ -670,7 +638,6 @@ components:
           authorizationUrl: >-
             https://azuread.url/2.0/authorize
           scopes:
-            manager.write: Read all expenses and documents
             creditor.write: Write all expenses and documents
             finance.expenses: Read expense and document information
             controller.write: Read all expense information

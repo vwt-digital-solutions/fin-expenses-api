@@ -803,7 +803,7 @@ class EmployeeExpenses(ClaimExpenses):
 
 class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        return True
+        return expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value()
 
     def __init__(self):
         super().__init__()
@@ -1016,15 +1016,6 @@ def create_booking_and_payment_file():
         return {"Info": "No Exports Available"}
 
 
-def get_department_expenses_deprecated(department_id):
-    """
-    Get expenses corresponding to this manager
-    :param department_id:
-    """
-    expense_instance = DepartmentExpenses()
-    return expense_instance.get_all_expenses()
-
-
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
     return expense_instance.get_all_expenses()
@@ -1119,7 +1110,8 @@ def get_attachment_finances_creditor(expenses_id):
 
 
 def get_attachment_finances_manager(expenses_id):
-    return "not yet implemented"
+    expense_instance = DepartmentExpenses()
+    return expense_instance.get_attachment(expenses_id)
 
 
 def get_attachment_controllers(expenses_id):
