@@ -168,51 +168,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/finances/expenses/{document_type}/files':
-    get:
-      operationId: get_deprecated_document_list
-      summary: Get a list of all booking or payment files
-      deprecated: true
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
-      responses:
-        '200':
-          description: Download Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BookingFile'
-        '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
-        '400':
-          description: A missing parameter or, unsupported parameter value.
-        '403':
-          description: The Access token does not have the required scope
-        default:
-          description: List of files got Successfully OK
-      security:
-        - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    post:
-      operationId: create_document_deprecated
-      summary: Creates a single booking and payment document
-      deprecated: true
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
-      responses:
-        '200':
-          description: Download Success
-        '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
-        '400':
-          description: A missing parameter or, unsupported parameter value.
-        '403':
-          description: The Access token does not have the required scope
-        default:
-          description: Booking file made Successfully OK
-      security:
-        - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/finances/documents':
     get:
       operationId: get_document_list
