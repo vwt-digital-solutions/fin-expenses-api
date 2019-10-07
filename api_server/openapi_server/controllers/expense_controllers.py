@@ -266,7 +266,9 @@ class ClaimExpenses:
                         "note": data.note,
                         "cost_type": data.cost_type,
                         "date_of_transaction": int(data.date_of_transaction),
+                        "transaction_date": data.transaction_date,
                         "date_of_claim": int(time.time() * 1000),
+                        "claim_date": datetime.datetime.utcnow().isoformat(),
                         "status": dict(date_exported="never", text=ready_text),
                     }
                 )
