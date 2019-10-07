@@ -302,7 +302,10 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             fields, status = self._prepare_context_update_expense(data, expense)
-            self._update_expenses(data, fields, status, expense)
+            if fields and status:
+                self._update_expenses(data, fields, status, expense)
+            else:
+                return make_response(jsonify(None), 403)
 
     def _update_expenses(self, data, fields, status, expense):
         items_to_update = list(fields.intersection(set(data.keys())))
@@ -802,9 +805,12 @@ class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         return True
 
-    def __init__(self, department_id):
+    def __init__(self):
         super().__init__()
-        self.department_id = department_id
+
+    def get_manager_identifying_value(self):
+        manager_name = self.employee_info['name']
+        return (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -818,8 +824,7 @@ class DepartmentExpenses(ClaimExpenses):
             "=",
             "ready_for_manager"
         )
-        manager_name = self.employee_info['name']
-        manager_name = (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
+        manager_name = self.get_manager_identifying_value()
         expenses_info.add_filter(
             "employee.afas_data.Manager",
             "=",
@@ -829,15 +834,21 @@ class DepartmentExpenses(ClaimExpenses):
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
-        fields = {
-            "status",
-            "cost_type",
-            "rnote"
-        }
-        status = {
-            "ready_for_creditor",
-            "rejected_by_manager",
-        }
+        # Check if requesting manager is manager of this employee
+        if expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value():
+            fields = {
+                "status",
+                "cost_type",
+                "rnote"
+            }
+            status = {
+                "ready_for_creditor",
+                "rejected_by_manager",
+            }
+        else:
+            fields = {}
+            status = {}
+
         return fields, status
 
     def _process_status_text_update(self, item, expense):
@@ -1010,12 +1021,13 @@ def get_department_expenses_deprecated(department_id):
     Get expenses corresponding to this manager
     :param department_id:
     """
-    expense_instance = DepartmentExpenses(department_id)
+    expense_instance = DepartmentExpenses()
     return expense_instance.get_all_expenses()
 
 
 def get_managers_expenses():
-    return "Not yet implemented"
+    expense_instance = DepartmentExpenses()
+    return expense_instance.get_all_expenses()
 
 
 def get_controller_expenses():
@@ -1074,7 +1086,7 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses(None)
+            expense_instance = DepartmentExpenses()
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500

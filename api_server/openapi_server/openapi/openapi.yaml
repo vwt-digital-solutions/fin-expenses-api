@@ -349,8 +349,6 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses:
     get:
-      parameters:
-        - $ref: '#/components/parameters/DepartmentId'
       responses:
         '200':
           content:
