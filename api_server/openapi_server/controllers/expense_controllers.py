@@ -1,5 +1,4 @@
 import base64
-import csv
 import json
 import secrets
 import string
@@ -14,16 +13,11 @@ import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
-from typing import Dict, Any, Union
+from typing import Dict, Any
 
 import pytz
 
-import urllib.parse
-
-from google.cloud.datastore import Entity
-
 import config
-from jwkaas import JWKaas
 import logging
 import pandas as pd
 
@@ -32,12 +26,7 @@ from flask import make_response, jsonify, Response, g
 from google.cloud import datastore, storage, kms_v1
 
 from openapi_server.models.attachment_data import AttachmentData
-from openapi_server.models.booking_file import BookingFile
-from openapi_server.models.cost_types import CostTypes
-from openapi_server.models.documents import Documents
-from openapi_server.models.status import Status
 from openapi_server.models.expense_data import ExpenseData
-from openapi_server.models.expense_data_array import ExpenseDataArray
 
 from OpenSSL import crypto
 
@@ -465,9 +454,9 @@ class ClaimExpenses:
                         }
                     )
                 else:
-                    no_expenses = False
+                    has_expenses = False
                     return (
-                        no_expenses,
+                        has_expenses,
                         None,
                         jsonify({"Info": "No Exports Available"}),
                         None,
@@ -488,12 +477,12 @@ class ClaimExpenses:
             self.update_exported_expenses(
                 never_exported, document_export_date, document_type
             )
-            no_expenses = True
+            has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
-            return no_expenses, document_export_date, booking_file, location
+            return has_expenses, document_export_date, booking_file, location
         else:
-            no_expenses = False
-            return no_expenses, None, jsonify({"Info": "No Exports Available"}), None
+            has_expenses = False
+            return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
     @staticmethod
     def generate_random_msgid():
@@ -523,7 +512,7 @@ class ClaimExpenses:
         :param document_name:
         :type document_type: object
         """
-        no_expenses = True  # Initialise
+        has_expenses = True  # Initialise
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
         exported, document_export_date, document_date, document_time = self.filter_expenses(
@@ -696,29 +685,29 @@ class ClaimExpenses:
             #  KEEP AS LAST TO HAPPEN  #
             ############################
             self.update_exported_expenses(exported, document_export_date, document_type)
-            return no_expenses, document_export_date, payment_file, location
+            return has_expenses, document_export_date, payment_file, location
         else:
-            no_expenses = False
+            has_expenses = False
             return (
-                no_expenses,
+                has_expenses,
                 None,
                 jsonify({"Info": "No Exports needed to create Payment Available"}),
                 None,
             )
 
-    def get_all_documents_list(self, document_type):
+    def get_all_documents_list(self):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
         all_exports_files = []
         blobs = expenses_bucket.list_blobs(
-            prefix=f"exports/{document_type}/{today.year}"
+            prefix=f"exports/booking_file"
         )
 
         for blob in blobs:
             blob_name = blob.name
             all_exports_files.append({
-                "date_exported": blob_name.split("/")[5],
+                "date_exported": os.path.basename(blob_name),
                 "file_name": blob.name
             })
         return all_exports_files
@@ -765,6 +754,7 @@ class ClaimExpenses:
 
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses")
+        #return self.ds_client.query(kind="Expenses", order=["date_of_claim"])
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -1034,47 +1024,53 @@ def get_document(document_date, document_type):
     )
 
 
-def get_document_list(document_type):
+def get_deprecated_document_list(document_type):
+    return get_document_list()
+
+
+def get_document_list():
     """
     Get a list of all documents ever created
     :rtype: None
     :return"""
 
     expense_instance = ClaimExpenses()
-    all_exports = expense_instance.get_all_documents_list(document_type=document_type)
+    all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
 
 
-def create_document(document_type):
+def create_document_deprecated(document_type):
     """
     Make a booking file based of expenses id. Looks up all objects with
     status: exported => False. Gives the object a new status and does a few sanity checks
     """
-    document_name = connexion.request.args.get("name")
+    if document_type != "payment_file":
+        return 204
+
+    return create_booking_and_payment_file()
+
+
+def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
     expenses, export_id, export_file, location = (
-        expense_instance.create_booking_file(document_type)
-        if document_type == "booking_file"
-        else expense_instance.create_payment_file(document_type, document_name)
+        expense_instance.create_booking_file("booking_file")
     )
 
-    # Separate Content
-    content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
+    expense_instance.create_payment_file("payment_file", export_file)
 
     if expenses:
-        mime_type = content_type[document_type]
         response = make_response(export_file, 200)
         response.headers = {
-            "Content-Type": f"{mime_type}",
+            "Content-Type": "text/csv",
             "Content-Disposition":
-                f"attachment; filename={export_id}.{mime_type.split('/')[1]}; file_location={location}",
+                f"attachment; filename={export_id}.csv; file_location={location}",
             "Authorization": "",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
         return response
     else:
-        return export_file
+        return make_response({"Info": "No Exports Available"}, 200)
 
 
 def get_department_expenses(department_id):
