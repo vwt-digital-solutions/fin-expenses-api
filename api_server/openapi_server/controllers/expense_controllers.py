@@ -687,34 +687,6 @@ class ClaimExpenses:
             })
         return all_exports_files
 
-    # def get_single_document_content(self, document_id):
-    #     today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-    #     expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
-    #
-    #     month, day, file_name = document_id.split("_")
-    #     ###########################################################################
-    #     # Raw is being called by the payment file creation to reuse this logic to #
-    #     # collect all data needed to create a payment file from the booking file  #
-    #     ###########################################################################
-    #     payment_data = []
-    #     content = expenses_bucket.blob(
-    #         f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
-    #     ).download_as_string()
-    #     with tempfile.NamedTemporaryFile(delete=False) as file:
-    #         file.write(content)
-    #         file.close()
-    #         reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
-    #         for piece in reader:
-    #             if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
-    #                 personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-    #                 employee_detail = self.get_employee_afas_data(None, personal_no)
-    #                 payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-    #             else:
-    #                 logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-    #                                f"missing or invalid! [{piece}]")
-    #         # file.delete() # type of 'file' is bool here?????
-    #     return payment_data
-
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
@@ -1031,13 +1003,17 @@ def create_booking_and_payment_file():
         return {"Info": "No Exports Available"}
 
 
-def get_department_expenses(department_id):
+def get_department_expenses_deprecated(department_id):
     """
     Get expenses corresponding to this manager
     :param department_id:
     """
     expense_instance = DepartmentExpenses(department_id)
     return expense_instance.get_all_expenses()
+
+
+def get_managers_expenses():
+    return "Not yet implemented"
 
 
 def get_controller_expenses():
@@ -1118,22 +1094,21 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances_manager(expenses_id):
-    """
-    Get attachment by expenses id
-    :param expenses_id:
-    :return:
-    """
-    expense_instance = DepartmentExpenses(None)
-    return expense_instance.get_attachment(expenses_id)
-
-
 def get_attachment_finances_creditor(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
+    expense_instance = ControllerExpenses()
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_finances_manager(expenses_id):
+    return "not yet implemented"
+
+
+def get_attachment_controllers(expenses_id):
     expense_instance = ControllerExpenses()
     return expense_instance.get_attachment(expenses_id)
 

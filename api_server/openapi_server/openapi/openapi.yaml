@@ -270,22 +270,6 @@ paths:
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /managers/expenses/{expenses_id}/attachments:
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-      responses:
-        '200':
-          description: Succesfully received all attachments for expense
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UrlArray'
-      summary: Get attachments by expense id
-      operationId: get_attachment_finances_manager
-      security:
-        - oauth2: [manager.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -335,6 +319,7 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/DepartmentId'
+      deprecated: true
       responses:
         '200':
           content:
@@ -358,8 +343,39 @@ paths:
           description: Response Successfully Executed
       security:
         - oauth2: [manager.write]
-      operationId: get_department_expenses
+      operationId: get_department_expenses_deprecated
       summary: Get all expenses belonging to a specific manager
+      description: Retrieve all expenses for a given manager
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /managers/expenses:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseDataArray'
+              examples:
+                ExpenseDataArray:
+                  value:
+                    Expenses:
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 1566892146383
+                      - amount: ''
+                        note: some text
+                        cost_type: some text
+                        date_of_transaction: 1566892146383
+          description: Succesfull response - returns all expenses
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_managers_expenses
+      summary: Get all expenses for approval of a specific manager
       description: Retrieve all expenses for a given manager
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses/{expenses_id}:
@@ -380,7 +396,23 @@ paths:
         default:
           description: Status of an expense has been updated
       security:
-        - oauth2: [manager.write]
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /managers/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_finances_manager
+      security:
+        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /controllers/expenses:
     get:
@@ -410,6 +442,22 @@ paths:
       operationId: get_controller_expenses
       summary: Get all expenses
       description: Get all expenses for controllers
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /controllers/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_controllers
+      security:
+        - oauth2: [controller.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 components:
   schemas:
@@ -623,7 +671,7 @@ components:
             manager.write: Read all expenses and documents
             creditor.write: Write all expenses and documents
             finance.expenses: Read expense and document information
-            controller.read: Read all expense information
+            controller.write: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope
       
