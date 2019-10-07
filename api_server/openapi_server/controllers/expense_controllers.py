@@ -304,6 +304,7 @@ class ClaimExpenses:
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
+                return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
 
@@ -750,10 +751,10 @@ class EmployeeExpenses(ClaimExpenses):
     def _prepare_context_update_expense(self, data, expense):
         # Check if expense is from employee
         if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-            return make_response(jsonify(None), 403)
+            return {}, {}
         # Check if status is either rejected_by_manager or rejected_by_creditor
         if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
-            return make_response(jsonify(None), 403)
+            return {}, {}
 
         fields = {
             "status",
@@ -1065,6 +1066,7 @@ def update_expenses_employee(expenses_id):
             expense_instance = EmployeeExpenses(None)
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
+        logging.exception("Update exp")
         return jsonify(er.args), 500
 
 
