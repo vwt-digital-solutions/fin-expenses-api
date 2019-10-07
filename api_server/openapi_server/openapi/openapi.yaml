@@ -217,8 +217,6 @@ paths:
     get:
       operationId: get_document_list
       summary: Get a list of all booking and payment files
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
       responses:
         '200':
           description: Download Success
@@ -240,8 +238,6 @@ paths:
     post:
       operationId: create_booking_and_payment_file
       summary: Creates a single booking and payment document containing all expenses ready for payment.
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
       responses:
         '200':
           description: Download Success
@@ -675,3 +671,4 @@ components:
             controller.read: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope
+      
