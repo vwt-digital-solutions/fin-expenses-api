@@ -1,6 +1,9 @@
 # coding: utf-8
 
 from __future__ import absolute_import
+from datetime import date, datetime  # noqa: F401
+
+from typing import List, Dict  # noqa: F401
 
 from openapi_server.models.base_model_ import Model
 from openapi_server import util
@@ -12,7 +15,7 @@ class ExpenseData(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, amount=None, note=None, cost_type=None, date_of_transaction=None):  # noqa: E501
+    def __init__(self, amount=None, note=None, cost_type=None, date_of_transaction=None, transaction_date=None):  # noqa: E501
         """ExpenseData - a model defined in OpenAPI
 
         :param amount: The amount of this ExpenseData.  # noqa: E501
@@ -22,26 +25,31 @@ class ExpenseData(Model):
         :param cost_type: The cost_type of this ExpenseData.  # noqa: E501
         :type cost_type: str
         :param date_of_transaction: The date_of_transaction of this ExpenseData.  # noqa: E501
-        :type date_of_transaction: str
+        :type date_of_transaction: int
+        :param transaction_date: The transaction_date of this ExpenseData.  # noqa: E501
+        :type transaction_date: str
         """
         self.openapi_types = {
             'amount': float,
             'note': str,
             'cost_type': str,
-            'date_of_transaction': str
+            'date_of_transaction': int,
+            'transaction_date': str
         }
 
         self.attribute_map = {
             'amount': 'amount',
             'note': 'note',
             'cost_type': 'cost_type',
-            'date_of_transaction': 'date_of_transaction'
+            'date_of_transaction': 'date_of_transaction',
+            'transaction_date': 'transaction_date'
         }
 
         self._amount = amount
         self._note = note
         self._cost_type = cost_type
         self._date_of_transaction = date_of_transaction
+        self._transaction_date = transaction_date
 
     @classmethod
     def from_dict(cls, dikt) -> 'ExpenseData':
@@ -129,7 +137,7 @@ class ExpenseData(Model):
 
 
         :return: The date_of_transaction of this ExpenseData.
-        :rtype: str
+        :rtype: int
         """
         return self._date_of_transaction
 
@@ -139,9 +147,32 @@ class ExpenseData(Model):
 
 
         :param date_of_transaction: The date_of_transaction of this ExpenseData.
-        :type date_of_transaction: str
+        :type date_of_transaction: int
         """
         if date_of_transaction is None:
             raise ValueError("Invalid value for `date_of_transaction`, must not be `None`")  # noqa: E501
 
         self._date_of_transaction = date_of_transaction
+
+    @property
+    def transaction_date(self):
+        """Gets the transaction_date of this ExpenseData.
+
+
+        :return: The transaction_date of this ExpenseData.
+        :rtype: str
+        """
+        return self._transaction_date
+
+    @transaction_date.setter
+    def transaction_date(self, transaction_date):
+        """Sets the transaction_date of this ExpenseData.
+
+
+        :param transaction_date: The transaction_date of this ExpenseData.
+        :type transaction_date: str
+        """
+        if transaction_date is None:
+            raise ValueError("Invalid value for `transaction_date`, must not be `None`")  # noqa: E501
+
+        self._transaction_date = transaction_date

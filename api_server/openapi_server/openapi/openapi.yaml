@@ -509,6 +509,7 @@ components:
         - note
         - cost_type
         - date_of_transaction
+        - transaction_date
       type: object
       properties:
         amount:
@@ -520,6 +521,8 @@ components:
           type: string
         date_of_transaction:
           type: integer
+        transaction_date:
+          type: string
       example: |-
         {
             "note": "This is a note",
@@ -527,6 +530,7 @@ components:
             "amount": 45.56,
             "cost_type": "Office Utilities",
             "date_of_transaction": "1566892146383"
+            "transaction_date": "2017-07-21T17:32:28Z"
             "status": "new"
         }
     ExpenseDataArray:

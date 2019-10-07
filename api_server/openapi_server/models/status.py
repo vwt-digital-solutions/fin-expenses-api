@@ -1,6 +1,9 @@
 # coding: utf-8
 
 from __future__ import absolute_import
+from datetime import date, datetime  # noqa: F401
+
+from typing import List, Dict  # noqa: F401
 
 from openapi_server.models.base_model_ import Model
 from openapi_server import util
@@ -12,26 +15,31 @@ class Status(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, status=None, note=None):  # noqa: E501
+    def __init__(self, status=None, creditor_note=None, manager_note=None):  # noqa: E501
         """Status - a model defined in OpenAPI
 
         :param status: The status of this Status.  # noqa: E501
         :type status: str
-        :param note: The note of this Status.  # noqa: E501
-        :type note: str
+        :param creditor_note: The creditor_note of this Status.  # noqa: E501
+        :type creditor_note: str
+        :param manager_note: The manager_note of this Status.  # noqa: E501
+        :type manager_note: str
         """
         self.openapi_types = {
             'status': str,
-            'note': str,
+            'creditor_note': str,
+            'manager_note': str
         }
 
         self.attribute_map = {
             'status': 'status',
-            'note': 'note',
+            'creditor_note': 'creditor_note',
+            'manager_note': 'manager_note'
         }
 
         self._status = status
-        self._note = note
+        self._creditor_note = creditor_note
+        self._manager_note = manager_note
 
     @classmethod
     def from_dict(cls, dikt) -> 'Status':
@@ -63,26 +71,48 @@ class Status(Model):
         :type status: str
         """
         if status is None:
-            raise ValueError("Invalid value for `amount`, must not be `None`")  # noqa: E501
+            raise ValueError("Invalid value for `status`, must not be `None`")  # noqa: E501
 
         self._status = status
 
     @property
-    def note(self):
-        """Gets the note of this Status.
+    def creditor_note(self):
+        """Gets the creditor_note of this Status.
 
 
-        :return: The note of this Status.
+        :return: The creditor_note of this Status.
         :rtype: str
         """
-        return self._note
+        return self._creditor_note
 
-    @note.setter
-    def note(self, note):
-        """Sets the note of this Status.
+    @creditor_note.setter
+    def creditor_note(self, creditor_note):
+        """Sets the creditor_note of this Status.
 
 
-        :param note: The note of this Status.
-        :type note: str
+        :param creditor_note: The creditor_note of this Status.
+        :type creditor_note: str
         """
-        self._note = note
+
+        self._creditor_note = creditor_note
+
+    @property
+    def manager_note(self):
+        """Gets the manager_note of this Status.
+
+
+        :return: The manager_note of this Status.
+        :rtype: str
+        """
+        return self._manager_note
+
+    @manager_note.setter
+    def manager_note(self, manager_note):
+        """Sets the manager_note of this Status.
+
+
+        :param manager_note: The manager_note of this Status.
+        :type manager_note: str
+        """
+
+        self._manager_note = manager_note
