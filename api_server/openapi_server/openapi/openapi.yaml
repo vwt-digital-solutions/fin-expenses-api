@@ -117,10 +117,12 @@ paths:
                         note: some text
                         cost_type: some text
                         date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
                         date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
           description: Succesfull response - returns all expenses of a logged in employee
         default:
           description: Response Successfully Executed
@@ -486,7 +488,6 @@ components:
             "cost_type": "Office Utilities",
             "date_of_transaction": "1566892146383"
             "transaction_date": "2017-07-21T17:32:28Z"
-            "status": "new"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
@@ -507,7 +508,8 @@ components:
             cost_type: |
               This is a cost_type
             status: new
-            date_of_transaction: 1566892146383"
+            date_of_transaction: 1566892146383
+            transaction_date: 2017-07-21T17:32:28Z
           - note: |
               This is a notes
             id: |
@@ -516,7 +518,8 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
-            date_of_transaction: 1566892146383"
+            date_of_transaction: 1566892146383
+            transaction_date: 2017-07-21T17:32:28Z
     CostTypes:
       title: costTypes
       description: CostType data
