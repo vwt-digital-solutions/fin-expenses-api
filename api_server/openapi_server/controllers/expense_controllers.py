@@ -614,15 +614,14 @@ class ClaimExpenses:
             client = kms_v1.KeyManagementServiceClient()
 
             # Get the passphrase for the private key
-            pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key-pass')
+            pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', 'power2pay-ems-key-pass')
             response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
 
             passphrase = response.plaintext.decode("utf-8").replace('\n', '')
 
             # Get the private key and decode using passphrase
-            pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key')
+            pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', 'power2pay-ems-key')
             response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
-
 
             # Write un-encrypted key to file (for requests library)
             pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
@@ -636,10 +635,9 @@ class ClaimExpenses:
 
             xml_file = payment_file_name
             headers = {'Content-Type':'text/xml'}
-            url = "https://b2b-test.vwtelecom.com:8443/Power2Pay"
 
             with open(xml_file) as xml:
-                r = requests.post(url, data=xml, cert=cert, verify=True)
+                r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
 
             return has_expenses, document_export_date, payment_file, location
         else:
