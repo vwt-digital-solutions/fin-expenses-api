@@ -708,7 +708,9 @@ class ClaimExpenses:
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
                     "date_of_claim": ed["date_of_claim"],
+                    "claim_date": ed["claim_date"],
                     "date_of_transaction": ed["date_of_transaction"],
+                    "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 }
