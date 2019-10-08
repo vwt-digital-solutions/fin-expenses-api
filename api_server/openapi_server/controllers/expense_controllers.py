@@ -220,6 +220,8 @@ class ClaimExpenses:
                         "cost_type": ed["cost_type"],
                         "date_of_claim": ed["date_of_claim"],
                         "date_of_transaction": ed["date_of_transaction"],
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
                     })
@@ -665,7 +667,7 @@ class ClaimExpenses:
 
 
     def get_all_documents_list(self):
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        #today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
         all_exports_files = []
@@ -870,7 +872,9 @@ class ControllerExpenses(ClaimExpenses):
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
                     "date_of_claim": ed["date_of_claim"],
+                    "claim_date": ed["claim_date"],
                     "date_of_transaction": ed["date_of_transaction"],
+                    "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 })
