@@ -54,18 +54,6 @@ class ClaimExpenses:
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
-    def get_manager_info(self):
-        """
-            Create a store for OID, SUBS to anonymously identify managers
-
-        """
-        emp = self.employee_info
-        key = self.ds_client.key("Manager", emp["oid"])
-        if not self.ds_client.get(key):
-            entity = datastore.Entity(key=key)
-            entity.update({"manager_id": f"{emp['given_name']} {emp['family_name']}"})
-            self.ds_client.put(entity)
-
     def get_employee_afas_data(self, unique_name, employee_number=None):
         """
         Data Access Link to the AFAS environment to retrieve employee information
@@ -132,6 +120,8 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
 
         blob.delete()
+
+        return '', 204
 
     def get_cost_types(self):
         """
@@ -790,6 +780,8 @@ class EmployeeExpenses(ClaimExpenses):
         expense = self.ds_client.get(expense_key)
         if not expense:
             return make_response(jsonify('Attempt to add attachment to undefined expense claim', 400))
+        if expense["employee"]["email"] != self.employee_info["unique_name"]:
+            return make_response(jsonify('Unauthorized'), 403)
 
         self.create_attachment(
             data,
@@ -797,7 +789,7 @@ class EmployeeExpenses(ClaimExpenses):
             self.employee_info["unique_name"]
         )
 
-        pass
+        return '', 204
 
 
 class DepartmentExpenses(ClaimExpenses):
@@ -813,11 +805,6 @@ class DepartmentExpenses(ClaimExpenses):
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
-        # self.get_manager_info()
-        # manager = self.ds_client.get(self.ds_client.key("Manager", self.department_id))
-        # query_filter: Dict[Any, str] = dict(
-        #     creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        # )
         expenses_info.add_filter(
             "status.text",
             "=",
@@ -1049,6 +1036,7 @@ def update_expenses_finance(expenses_id):
             expense_instance = ControllerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
