@@ -302,7 +302,11 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             fields, status = self._prepare_context_update_expense(data, expense)
-            self._update_expenses(data, fields, status, expense)
+            if fields and status:
+                self._update_expenses(data, fields, status, expense)
+                return make_response(jsonify(None), 200)
+            else:
+                return make_response(jsonify(None), 403)
 
     def _update_expenses(self, data, fields, status, expense):
         items_to_update = list(fields.intersection(set(data.keys())))
@@ -687,34 +691,6 @@ class ClaimExpenses:
             })
         return all_exports_files
 
-    # def get_single_document_content(self, document_id):
-    #     today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-    #     expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
-    #
-    #     month, day, file_name = document_id.split("_")
-    #     ###########################################################################
-    #     # Raw is being called by the payment file creation to reuse this logic to #
-    #     # collect all data needed to create a payment file from the booking file  #
-    #     ###########################################################################
-    #     payment_data = []
-    #     content = expenses_bucket.blob(
-    #         f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
-    #     ).download_as_string()
-    #     with tempfile.NamedTemporaryFile(delete=False) as file:
-    #         file.write(content)
-    #         file.close()
-    #         reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
-    #         for piece in reader:
-    #             if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
-    #                 personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-    #                 employee_detail = self.get_employee_afas_data(None, personal_no)
-    #                 payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-    #             else:
-    #                 logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-    #                                f"missing or invalid! [{piece}]")
-    #         # file.delete() # type of 'file' is bool here?????
-    #     return payment_data
-
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
@@ -773,10 +749,10 @@ class EmployeeExpenses(ClaimExpenses):
     def _prepare_context_update_expense(self, data, expense):
         # Check if expense is from employee
         if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-            return make_response(jsonify(None), 403)
+            return {}, {}
         # Check if status is either rejected_by_manager or rejected_by_creditor
         if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
-            return make_response(jsonify(None), 403)
+            return {}, {}
 
         fields = {
             "status",
@@ -826,11 +802,14 @@ class EmployeeExpenses(ClaimExpenses):
 
 class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        return True
+        return expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value()
 
-    def __init__(self, department_id):
+    def __init__(self):
         super().__init__()
-        self.department_id = department_id
+
+    def get_manager_identifying_value(self):
+        manager_name = self.employee_info['name']
+        return (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -844,8 +823,7 @@ class DepartmentExpenses(ClaimExpenses):
             "=",
             "ready_for_manager"
         )
-        manager_name = self.employee_info['name']
-        manager_name = (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
+        manager_name = self.get_manager_identifying_value()
         expenses_info.add_filter(
             "employee.afas_data.Manager",
             "=",
@@ -855,15 +833,21 @@ class DepartmentExpenses(ClaimExpenses):
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
-        fields = {
-            "status",
-            "cost_type",
-            "rnote"
-        }
-        status = {
-            "ready_for_creditor",
-            "rejected_by_manager",
-        }
+        # Check if requesting manager is manager of this employee
+        if expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value():
+            fields = {
+                "status",
+                "cost_type",
+                "rnote"
+            }
+            status = {
+                "ready_for_creditor",
+                "rejected_by_manager",
+            }
+        else:
+            fields = {}
+            status = {}
+
         return fields, status
 
     def _process_status_text_update(self, item, expense):
@@ -1031,12 +1015,8 @@ def create_booking_and_payment_file():
         return {"Info": "No Exports Available"}
 
 
-def get_department_expenses(department_id):
-    """
-    Get expenses corresponding to this manager
-    :param department_id:
-    """
-    expense_instance = DepartmentExpenses(department_id)
+def get_managers_expenses():
+    expense_instance = DepartmentExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -1084,6 +1064,7 @@ def update_expenses_employee(expenses_id):
             expense_instance = EmployeeExpenses(None)
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
+        logging.exception("Update exp")
         return jsonify(er.args), 500
 
 
@@ -1096,7 +1077,7 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses(None)
+            expense_instance = DepartmentExpenses()
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
@@ -1118,22 +1099,22 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances_manager(expenses_id):
-    """
-    Get attachment by expenses id
-    :param expenses_id:
-    :return:
-    """
-    expense_instance = DepartmentExpenses(None)
-    return expense_instance.get_attachment(expenses_id)
-
-
 def get_attachment_finances_creditor(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
+    expense_instance = ControllerExpenses()
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_finances_manager(expenses_id):
+    expense_instance = DepartmentExpenses()
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_controllers(expenses_id):
     expense_instance = ControllerExpenses()
     return expense_instance.get_attachment(expenses_id)
 
