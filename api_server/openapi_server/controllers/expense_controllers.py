@@ -692,7 +692,7 @@ class ClaimExpenses:
             return export_file
 
     def _create_expenses_query(self):
-        return self.ds_client.query(kind="Expenses", order=["claim_date"])
+        return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
     @staticmethod
     def _process_expenses_info(expenses_info):
