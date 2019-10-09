@@ -8,13 +8,13 @@ import requests
 import datetime
 import mimetypes
 import tempfile
-import time
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
 from typing import Dict, Any
 import dateutil
+
 
 import pytz
 
@@ -23,7 +23,7 @@ import logging
 import pandas as pd
 
 import connexion
-from flask import make_response, jsonify, Response, g
+from flask import make_response, jsonify, Response, g, request
 from google.cloud import datastore, storage, kms_v1
 
 from openapi_server.models.attachment_data import AttachmentData
@@ -34,7 +34,6 @@ from OpenSSL import crypto
 logger = logging.getLogger(__name__)
 
 # Constants
-MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["approved"]
 VWT_TIME_ZONE = "Europe/Amsterdam"
 FILTERED_OUT_ON_PROCESS = [
@@ -668,11 +667,21 @@ class ClaimExpenses:
             prefix=f"exports/booking_file"
         )
 
+        base_url = request.host_url
+
+        if 'GAE_INSTANCE' in os.environ:
+            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com"
+
         for blob in blobs:
+            base_file = os.path.basename(blob.name).split('.')[0]
+            file_date = blob.time_created.strftime('%-m_%-d')
+            file = f"{file_date}_{base_file}"
             all_exports_files.append({
                 "date_exported": os.path.basename(blob.name),
-                "file_name": blob.name
-            })
+                "file_name": blob.name,
+                "booking_file": f"{base_url}/finances/expenses/documents/{file}.csv/kinds/booking_file",
+                "payment_file": f"{base_url}/finances/expenses/documents/{file}/kinds/payment_file"
+             })
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
