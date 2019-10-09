@@ -54,7 +54,7 @@ class ClaimExpenses:
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
-    def get_employee_afas_data(self, unique_name, employee_number=None):
+    def get_employee_afas_data(self, unique_name):
         """
         Data Access Link to the AFAS environment to retrieve employee information
         - Bank Account
@@ -67,17 +67,6 @@ class ClaimExpenses:
         # Fake AFAS data for E2E:
         if unique_name == 'opensource.e2e@vwtelecom.com':
             return config.e2e_afas_data
-        elif employee_number:
-            employee_afas_query = self.ds_client.query(kind="AFAS_HRM")
-            employee_afas_query.add_filter(
-                "Personeelsnummer", "=", int(employee_number)
-            )
-            result = list(employee_afas_query.fetch(limit=1))
-            if result[0]:
-                return dict(result[0])
-            else:
-                logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
-                return None
         else:
             employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
             employee_afas_query = self.ds_client.get(employee_afas_key)
@@ -710,7 +699,7 @@ class ClaimExpenses:
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
                     "claim_date": ed["claim_date"],
-                     "transaction_date": ed["transaction_date"],
+                    "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 }
@@ -796,14 +785,17 @@ class EmployeeExpenses(ClaimExpenses):
 
 class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        return expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value()
+        return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
     def __init__(self):
         super().__init__()
 
     def get_manager_identifying_value(self):
-        manager_name = self.employee_info['name']
-        return (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
+        afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
+        if afas_data:
+            return afas_data["Personeelsnummer"]
+        else:
+            return None
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -812,18 +804,17 @@ class DepartmentExpenses(ClaimExpenses):
             "=",
             "ready_for_manager"
         )
-        manager_name = self.get_manager_identifying_value()
         expenses_info.add_filter(
-            "employee.afas_data.Manager",
+            "employee.afas_data.Manager_personeelsnummer",
             "=",
-            manager_name
+            self.get_manager_identifying_value()
         )
         # expenses_data = expenses_info.fetch(limit=10)
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
         # Check if requesting manager is manager of this employee
-        if expense["employee"]["afas_data"]["Manager"] == self.get_manager_identifying_value():
+        if expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value():
             fields = {
                 "status",
                 "cost_type",
