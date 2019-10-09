@@ -278,9 +278,11 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
+            old_expense = self.ds_client.get(exp_key)
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
+                self.expense_journal(old_expense, expense)
                 return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
@@ -707,6 +709,25 @@ class ClaimExpenses:
             ])
         else:
             return make_response(jsonify(None), 204)
+
+    def expense_journal(self, old_expense, expense):
+        changed = []
+
+        for attribute in list(set(list(old_expense)) & set(list(expense))):
+            if old_expense[attribute] != expense[attribute]:
+                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+
+        key = self.ds_client.key("Expenses_Journal")
+        entity = datastore.Entity(key=key)
+        entity.update(
+            {
+                "Expenses_Id": old_expense.key.id,
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                "Attributes_Changed": json.dumps(changed),
+                "User": self.employee_info["unique_name"],
+            }
+        )
+        self.ds_client.put(entity)
 
 
 class EmployeeExpenses(ClaimExpenses):
