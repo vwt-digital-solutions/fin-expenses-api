@@ -674,7 +674,7 @@ class ClaimExpenses:
 
         for blob in blobs:
             all_exports_files.append({
-                "date_exported": blob.time_created,
+                "date_exported": os.path.basename(blob_name),
                 "file_name": blob.name
             })
         return all_exports_files
