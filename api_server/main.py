@@ -2,8 +2,9 @@ import logging
 
 import openapi_server
 
-from cache_control import CacheControl
-from audit_log import AuditLog
+from Flask_AuditLog import AuditLog
+from Flask_No_Cache import CacheControl
+
 
 app = openapi_server.app
 flaskapp = app.app
