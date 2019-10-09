@@ -260,7 +260,7 @@ class ClaimExpenses:
                         "date_of_transaction": int(data.date_of_transaction),
                         "transaction_date": data.transaction_date,
                         "date_of_claim": int(time.time() * 1000),
-                        "claim_date": datetime.datetime.utcnow().isoformat(),
+                        "claim_date": datetime.datetime.utcnow().isoformat('seconds')+'Z',
                         "status": dict(date_exported="never", text=ready_text),
                     }
                 )
@@ -393,7 +393,6 @@ class ClaimExpenses:
         :return:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        document_type = "booking_file"
 
         if expense_claims_to_export:
             booking_file_data = []
@@ -464,10 +463,10 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
+                f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
-            blob.upload_from_string(booking_file, content_type="text/csv")
+            blob.upload_from_string(bookingdocument_type_file, content_type="text/csv")
             has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
             return has_expenses, document_export_date, booking_file, location
@@ -484,7 +483,6 @@ class ClaimExpenses:
         has_expenses = True  # Initialise
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        document_type = "payment_file"
         str_num_unique = string.ascii_letters[:8] + string.digits
         if expense_claims_to_export:
             message_id = f"{200}/{self.generate_random_msgid()}"
@@ -585,7 +583,7 @@ class ClaimExpenses:
                 ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"/tmp/{document_type}_{document_export_date}"
+            payment_file_name = f"/tmp/payment_file_{document_export_date}"
             open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
             
 
@@ -593,7 +591,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}"
+                f"exports/payment_file/{today.year}/{today.month}/{today.day}/{document_export_date}"
             )
 
             # Upload file to Blob Storage
@@ -667,7 +665,6 @@ class ClaimExpenses:
 
 
     def get_all_documents_list(self):
-        #today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
         all_exports_files = []
@@ -676,9 +673,8 @@ class ClaimExpenses:
         )
 
         for blob in blobs:
-            blob_name = blob.name
             all_exports_files.append({
-                "date_exported": os.path.basename(blob_name),
+                "date_exported": blob.time_created,
                 "file_name": blob.name
             })
         return all_exports_files
