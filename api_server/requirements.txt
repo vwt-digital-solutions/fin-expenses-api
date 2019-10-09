@@ -17,5 +17,5 @@ setuptools >= 21.0.0
 pandas==0.25.0
 requests==2.22.0
 python-dateutil==2.8.0
-Flask-AuditLog==0.1
-Flask-No-Cache==0.1
+Flask-AuditLog==1.0
+Flask-No-Cache==1.0
