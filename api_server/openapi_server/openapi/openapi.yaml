@@ -116,12 +116,10 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
                         transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
                         transaction_date: 2017-07-21T17:32:28Z
           description: Succesfull response - returns all expenses of a logged in employee
         default:
@@ -303,11 +301,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -332,11 +330,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -397,11 +395,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -479,7 +477,6 @@ components:
         - amount
         - note
         - cost_type
-        - date_of_transaction
         - transaction_date
       type: object
       properties:
@@ -490,8 +487,6 @@ components:
           type: string
         cost_type:
           type: string
-        date_of_transaction:
-          type: integer
         transaction_date:
           type: string
       example: |-
@@ -500,7 +495,6 @@ components:
             "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
-            "date_of_transaction": "1566892146383"
             "transaction_date": "2017-07-21T17:32:28Z"
         }
     ExpenseDataArray:
@@ -522,7 +516,6 @@ components:
             cost_type: |
               This is a cost_type
             status: new
-            date_of_transaction: 1566892146383
             transaction_date: 2017-07-21T17:32:28Z
           - note: |
               This is a notes
@@ -532,7 +525,6 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
-            date_of_transaction: 1566892146383
             transaction_date: 2017-07-21T17:32:28Z
     CostTypes:
       title: costTypes
