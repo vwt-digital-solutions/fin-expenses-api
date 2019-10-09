@@ -14,6 +14,7 @@ import xml.dom.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
 from typing import Dict, Any
+import dateutil
 
 import pytz
 
@@ -218,8 +219,6 @@ class ClaimExpenses:
                         "amount": ed["amount"],
                         "note": ed["note"],
                         "cost_type": ed["cost_type"],
-                        "date_of_claim": ed["date_of_claim"],
-                        "date_of_transaction": ed["date_of_transaction"],
                         "claim_date": ed["claim_date"],
                         "transaction_date": ed["transaction_date"],
                         "employee": ed["employee"]["full_name"],
@@ -257,9 +256,7 @@ class ClaimExpenses:
                         "amount": data.amount,
                         "note": data.note,
                         "cost_type": data.cost_type,
-                        "date_of_transaction": int(data.date_of_transaction),
                         "transaction_date": data.transaction_date,
-                        "date_of_claim": int(time.time() * 1000),
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
                         "status": dict(date_exported="never", text=ready_text),
                     }
@@ -409,13 +406,12 @@ class ClaimExpenses:
                             "Departments", department_number_aka_afdeling_code
                         )
                     )
-                    logger.debug(f" date of transaction [{expense_detail['date_of_transaction']}]")
-                    transtime = datetime.datetime.fromtimestamp(
-                        int((expense_detail['date_of_transaction']
-                             if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000)) \
-                        .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
+                    logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {transtime}"
+                    trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+
+                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
+
                     expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
                     booking_file_data.append(
@@ -704,10 +700,8 @@ class ClaimExpenses:
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
                     "claim_date": ed["claim_date"],
-                    "date_of_transaction": ed["date_of_transaction"],
-                    "transaction_date": ed["transaction_date"],
+                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 }
@@ -866,9 +860,7 @@ class ControllerExpenses(ClaimExpenses):
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
                     "claim_date": ed["claim_date"],
-                    "date_of_transaction": ed["date_of_transaction"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],

@@ -11,11 +11,10 @@ pyopenssl==19.0.0
 gunicorn==19.9.0
 jwkaas==0.3
 MarkupSafe==1.1.1
-python-dateutil==2.6.0
 PyYAML==5.1.1
 swagger-ui-bundle==0.0.2
 setuptools >= 21.0.0
 pandas==0.25.0
 requests==2.22.0
-
+python-dateutil==2.8.0
 
