@@ -404,6 +404,8 @@ class ClaimExpenses:
 
                     expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
+                    cost_type_split = expense_detail["cost_type"].split(":")
+
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": boekingsomschrijving_bron,
@@ -421,7 +423,7 @@ class ClaimExpenses:
                             if (company_number is not None
                                 and ("Administratief Bedrijf" in company_number))
                             else "",
-                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[1],
+                            "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
                             "Doel Org code": department_number_aka_afdeling_code,
                             "Doel Proces": "000",
                             "Doel Produkt": "000",
@@ -452,7 +454,7 @@ class ClaimExpenses:
                 f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
-            blob.upload_from_string(bookingdocument_type_file, content_type="text/csv")
+            blob.upload_from_string(booking_file, content_type="text/csv")
             has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
             return has_expenses, document_export_date, booking_file, location
