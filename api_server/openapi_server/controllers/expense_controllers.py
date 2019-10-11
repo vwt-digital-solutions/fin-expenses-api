@@ -462,6 +462,9 @@ class ClaimExpenses:
             has_expenses = False
             return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
+    def _gather_creditor_name(self, expense):
+        return expense["employee"]["afas_data"].get("Naam")
+
     def create_payment_file(self, expense_claims_to_export, document_export_date, document_time):
 
         """
@@ -556,7 +559,7 @@ class ClaimExpenses:
 
                 # Creditor name
                 creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = expense["boekingsomschrijving_bron"].split("-")[1]
+                ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
 
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
