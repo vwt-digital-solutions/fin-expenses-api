@@ -246,7 +246,7 @@ class ClaimExpenses:
                         "cost_type": data.cost_type,
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                        "status": dict(date_exported="never", export_date="never", text=ready_text),
+                        "status": dict(export_date="never", text=ready_text),
                     }
                 )
                 self.ds_client.put(entity)
@@ -322,7 +322,6 @@ class ClaimExpenses:
         for exp in expenses_exported:
             with self.ds_client.transaction():
                 expense = self.ds_client.get(self.ds_client.key("Expenses", exp.id))
-                expense["status"]["date_exported"] = document_date
                 expense["status"]["export_date"] = document_time
                 expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
@@ -674,8 +673,6 @@ class ClaimExpenses:
             file_date = blob.time_created.strftime('%-m_%-d')
             file = f"{file_date}_{base_file}"
             all_exports_files.append({
-                "date_exported": os.path.basename(blob.name),
-                "file_name": blob.name,
                 "export_date" : blob.time_created,
                 "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
                 "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"

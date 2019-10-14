@@ -549,10 +549,6 @@ components:
       description: Booking File Exported data
       type: object
       properties:
-        date_exported:
-          type: string
-        file_name:
-          type: string
         export_date:
           type: string
         booking_file:
@@ -561,8 +557,9 @@ components:
           type: string
       example: |-
         {
-            "date_exported": "1566892146383"
-            "file_name": "1566892146383"
+          "booking_file": "http://127.0.0.1:5000/finances/expenses/documents/booking.csv/kinds/booking_file",
+          "export_date": "2019-10-01T06:07:19.188000+00:00",
+          "payment_file": "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
         }
   parameters:
     DocumentDate:
