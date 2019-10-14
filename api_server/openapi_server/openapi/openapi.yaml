@@ -116,11 +116,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
           description: Succesfull response - returns all expenses of a logged in employee
         default:
           description: Response Successfully Executed
@@ -168,12 +168,10 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/finances/expenses/{document_type}/files':
+  '/finances/documents':
     get:
       operationId: get_document_list
-      summary: Get a list of all booking or payment files
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
+      summary: Get a list of all booking and payment files
       responses:
         '200':
           description: Download Success
@@ -193,11 +191,8 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
-      operationId: create_document
-      summary: Creates a single booking or payment document
-      parameters:
-        - $ref: '#/components/parameters/DocumentType'
-        - $ref: '#/components/parameters/DocumentName'
+      operationId: create_booking_and_payment_file
+      summary: Creates a single booking and payment document containing all expenses ready for payment.
       responses:
         '200':
           description: Download Success
@@ -219,7 +214,6 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DocumentDate'
         - $ref: '#/components/parameters/DocumentType'
-
       responses:
         '200':
           description: Download Success
@@ -276,22 +270,6 @@ paths:
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /managers/expenses/{expenses_id}/attachments:
-    get:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-      responses:
-        '200':
-          description: Succesfully received all attachments for expense
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UrlArray'
-      summary: Get attachments by expense id
-      operationId: get_attachment_finances_manager
-      security:
-        - oauth2: [manager.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -306,7 +284,7 @@ paths:
       summary: Get attachments by expense id
       operationId: get_attachment_finances_creditor
       security:
-        - oauth2: [finance.expenses]
+        - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:
@@ -323,11 +301,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -337,10 +315,8 @@ paths:
       summary: Get all expenses
       description: Retrieve all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /finances/department/{department_id}/expenses:
+  /managers/expenses:
     get:
-      parameters:
-        - $ref: '#/components/parameters/DepartmentId'
       responses:
         '200':
           content:
@@ -354,18 +330,18 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
       security:
-        - oauth2: [manager.write]
-      operationId: get_department_expenses
-      summary: Get all expenses belonging to a specific manager
+        - oauth2: [finance.expenses]
+      operationId: get_managers_expenses
+      summary: Get all expenses for approval of a specific manager
       description: Retrieve all expenses for a given manager
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses/{expenses_id}:
@@ -386,7 +362,23 @@ paths:
         default:
           description: Status of an expense has been updated
       security:
-        - oauth2: [manager.write]
+        - oauth2: [finance.expenses]
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /managers/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_finances_manager
+      security:
+        - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /controllers/expenses:
     get:
@@ -403,11 +395,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-21T17:32:28Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        date_of_transaction: 1566892146383
+                        transaction_date: 2017-07-22T17:32:28Z
           description: Succesfull response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -416,6 +408,22 @@ paths:
       operationId: get_controller_expenses
       summary: Get all expenses
       description: Get all expenses for controllers
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /controllers/expenses/{expenses_id}/attachments:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          description: Succesfully received all attachments for expense
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlArray'
+      summary: Get attachments by expense id
+      operationId: get_attachment_controllers
+      security:
+        - oauth2: [controller.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
 components:
   schemas:
@@ -448,14 +456,6 @@ components:
       example:
         status: 'cancelled_by_creditor'
         finance_note: 'Wrong amount'
-    Documents:
-      description: Information for documents
-      properties:
-        document:
-          format: binary
-          type: string
-      example:
-        document: ''
     AttachmentData:
       title: attachmentData
       description: form data for single attachment
@@ -477,7 +477,7 @@ components:
         - amount
         - note
         - cost_type
-        - date_of_transaction
+        - transaction_date
       type: object
       properties:
         amount:
@@ -487,16 +487,15 @@ components:
           type: string
         cost_type:
           type: string
-        date_of_transaction:
-          type: integer
+        transaction_date:
+          type: string
       example: |-
         {
             "note": "This is a note",
             "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
-            "date_of_transaction": "1566892146383"
-            "status": "new"
+            "transaction_date": "2017-07-21T17:32:28Z"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
@@ -517,7 +516,7 @@ components:
             cost_type: |
               This is a cost_type
             status: new
-            date_of_transaction: 1566892146383"
+            transaction_date: 2017-07-21T17:32:28Z
           - note: |
               This is a notes
             id: |
@@ -526,7 +525,7 @@ components:
             cost_type: |
               This is a cost_type
             status: opened
-            date_of_transaction: 1566892146383"
+            transaction_date: 2017-07-21T17:32:28Z
     CostTypes:
       title: costTypes
       description: CostType data
@@ -550,14 +549,17 @@ components:
       description: Booking File Exported data
       type: object
       properties:
-        date_exported:
+        export_date:
           type: string
-        file_name:
+        booking_file:
+          type: string
+        payment_file:
           type: string
       example: |-
         {
-            "date_exported": "1566892146383"
-            "file_name": "1566892146383"
+          "booking_file": "http://127.0.0.1:5000/finances/expenses/documents/booking.csv/kinds/booking_file",
+          "export_date": "2019-10-01T06:07:19.188000+00:00",
+          "payment_file": "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
         }
   parameters:
     DocumentDate:
@@ -605,14 +607,6 @@ components:
         type: integer
       in: path
       required: true
-    DocumentName:
-      style: simple
-      explode: false
-      name: name
-      schema:
-        type: string
-      in: query
-      required: false
     DocumentType:
       style: simple
       explode: false
@@ -620,7 +614,7 @@ components:
       schema:
         type: string
       in: path
-      required: false
+      required: true
   requestBodies:
     formData:
       content:
@@ -638,15 +632,13 @@ components:
       type: oauth2
       description: This API uses OAuth 2 with the implicit grant flow.
       flows:
-        clientCredentials:
+        implicit:
           authorizationUrl: >-
             https://azuread.url/2.0/authorize
-          tokenUrl: >-
-            https://azuread.url/v2.0/token
           scopes:
-            manager.write: Read all expenses and documents
             creditor.write: Write all expenses and documents
             finance.expenses: Read expense and document information
-            controller.read: Read all expense information
+            controller.write: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope
+      

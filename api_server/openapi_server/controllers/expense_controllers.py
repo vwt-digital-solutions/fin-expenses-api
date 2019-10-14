@@ -1,5 +1,4 @@
 import base64
-import csv
 import json
 import secrets
 import string
@@ -9,42 +8,32 @@ import requests
 import datetime
 import mimetypes
 import tempfile
-import time
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
-from typing import Dict, Any, Union
+from typing import Dict, Any
+import dateutil
+
 
 import pytz
 
-import urllib.parse
-
-from google.cloud.datastore import Entity
-
 import config
-from jwkaas import JWKaas
 import logging
 import pandas as pd
 
 import connexion
-from flask import make_response, jsonify, Response, g
+from flask import make_response, jsonify, Response, g, request
 from google.cloud import datastore, storage, kms_v1
 
 from openapi_server.models.attachment_data import AttachmentData
-from openapi_server.models.booking_file import BookingFile
-from openapi_server.models.cost_types import CostTypes
-from openapi_server.models.documents import Documents
-from openapi_server.models.status import Status
 from openapi_server.models.expense_data import ExpenseData
-from openapi_server.models.expense_data_array import ExpenseDataArray
 
 from OpenSSL import crypto
 
 logger = logging.getLogger(__name__)
 
 # Constants
-MAX_DAYS_RESOLVE = 3
 EXPORTABLE_STATUSES = ["approved"]
 VWT_TIME_ZONE = "Europe/Amsterdam"
 FILTERED_OUT_ON_PROCESS = [
@@ -65,19 +54,7 @@ class ClaimExpenses:
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
-    def get_manager_info(self):
-        """
-            Create a store for OID, SUBS to anonymously identify managers
-
-        """
-        emp = self.employee_info
-        key = self.ds_client.key("Manager", emp["oid"])
-        if not self.ds_client.get(key):
-            entity = datastore.Entity(key=key)
-            entity.update({"manager_id": f"{emp['given_name']} {emp['family_name']}"})
-            self.ds_client.put(entity)
-
-    def get_employee_afas_data(self, unique_name, employee_number=None):
+    def get_employee_afas_data(self, unique_name):
         """
         Data Access Link to the AFAS environment to retrieve employee information
         - Bank Account
@@ -90,17 +67,6 @@ class ClaimExpenses:
         # Fake AFAS data for E2E:
         if unique_name == 'opensource.e2e@vwtelecom.com':
             return config.e2e_afas_data
-        elif employee_number:
-            employee_afas_query = self.ds_client.query(kind="AFAS_HRM")
-            employee_afas_query.add_filter(
-                "Personeelsnummer", "=", int(employee_number)
-            )
-            result = list(employee_afas_query.fetch(limit=1))
-            if result[0]:
-                return dict(result[0])
-            else:
-                logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
-                return None
         else:
             employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
             employee_afas_query = self.ds_client.get(employee_afas_key)
@@ -143,6 +109,8 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
 
         blob.delete()
+
+        return '', 204
 
     def get_cost_types(self):
         """
@@ -239,8 +207,8 @@ class ClaimExpenses:
                         "amount": ed["amount"],
                         "note": ed["note"],
                         "cost_type": ed["cost_type"],
-                        "date_of_claim": ed["date_of_claim"],
-                        "date_of_transaction": ed["date_of_transaction"],
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
                         "employee": ed["employee"]["full_name"],
                         "status": ed["status"],
                     })
@@ -276,9 +244,9 @@ class ClaimExpenses:
                         "amount": data.amount,
                         "note": data.note,
                         "cost_type": data.cost_type,
-                        "date_of_transaction": int(data.date_of_transaction),
-                        "date_of_claim": int(time.time() * 1000),
-                        "status": dict(date_exported="never", text=ready_text),
+                        "transaction_date": data.transaction_date,
+                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                        "status": dict(export_date="never", text=ready_text),
                     }
                 )
                 self.ds_client.put(entity)
@@ -310,8 +278,14 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
+            old_expense = self.ds_client.get(exp_key)
             fields, status = self._prepare_context_update_expense(data, expense)
-            self._update_expenses(data, fields, status, expense)
+            if fields and status:
+                self._update_expenses(data, fields, status, expense)
+                self.expense_journal(old_expense, expense)
+                return make_response(jsonify(None), 200)
+            else:
+                return make_response(jsonify(None), 403)
 
     def _update_expenses(self, data, fields, status, expense):
         items_to_update = list(fields.intersection(set(data.keys())))
@@ -337,23 +311,19 @@ class ClaimExpenses:
         if need_to_save:
             self.ds_client.put(expense)
 
-    def update_exported_expenses(self, expenses_exported, document_date, document_type):
+    def update_exported_expenses(self, expenses_exported, document_date, document_time):
         """
         Do some sanity changed to keep data updated.
         :param document_type: A Payment or a booking file
         :param expenses_exported: Expense <Entity Keys>
         :param document_date: Date when it was exported
         """
-        status = {
-            "payment_file": "exported",
-            "booking_file": "exported",
-        }
 
         for exp in expenses_exported:
             with self.ds_client.transaction():
-                expense = self.ds_client.get(exp)
-                expense["status"]["date_exported"] = document_date
-                expense["status"]["text"] = status[document_type]
+                expense = self.ds_client.get(self.ds_client.key("Expenses", exp.id))
+                expense["status"]["export_date"] = document_time
+                expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
 
     @staticmethod
@@ -373,50 +343,48 @@ class ClaimExpenses:
                 "NOTPROVIDED"
             )  # ABN-AMRO will determine the BIC based on the Debtor Account
 
-    def filter_expenses(self, document_type):
+    def filter_expenses_to_export(self):
         """
         Query the expenses to return desired values
         :return:
         """
+
+        never_exported = []
+        expenses_query = self.ds_client.query(kind="Expenses")
+        for entity in expenses_query.fetch():
+            if entity["status"]["text"] in EXPORTABLE_STATUSES:
+                never_exported.append(entity)
+
+        return never_exported
+
+    def create_booking_and_payment_file(self):
 
         now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
         document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
             document_date
         )
+        document_time = now.isoformat(timespec="seconds")
 
-        status = {
-            "booking_file": EXPORTABLE_STATUSES,
-            "payment_file": ["exported"],
-        }
+        expense_claims_to_export = self.filter_expenses_to_export()
 
-        never_exported = []
-        expenses_query = self.ds_client.query(kind="Expenses")
-        for entity in expenses_query.fetch():
-            if entity["status"]["text"] in status[document_type]:
-                never_exported.append(self.ds_client.key("Expenses", entity.id))
-        return (
-            never_exported,
-            document_export_date,
-            document_date,
-            now.isoformat(timespec="seconds"),
-        )
+        result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
+        self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
-    def create_booking_file(self, document_type):
+        return result
+
+    def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
         """
         Create a booking file
-        :param document_type:
         :return:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        never_exported, document_export_date, document_date, document_time = self.filter_expenses(
-            document_type
-        )
-        if never_exported:
+
+        if expense_claims_to_export:
             booking_file_data = []
-            for exps in never_exported:
-                expense_detail = self.ds_client.get(exps)
-                if expense_detail["employee"].__len__() > 0:
+            for expense_detail in expense_claims_to_export:
+                if expense_detail["employee"]:
                     try:
                         department_number_aka_afdeling_code = expense_detail["employee"][
                             "afas_data"
@@ -428,14 +396,16 @@ class ClaimExpenses:
                             "Departments", department_number_aka_afdeling_code
                         )
                     )
-                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']}"
-                    logger.debug(f" date of transaction [{expense_detail['date_of_transaction']}]")
-                    transtime = datetime.datetime.fromtimestamp(
-                        int((expense_detail['date_of_transaction']
-                             if isinstance(expense_detail['date_of_transaction'], int) else 0) / 1000)) \
-                        .replace(tzinfo=pytz.utc).astimezone(pytz.timezone(VWT_TIME_ZONE)).strftime('%d-%m-%Y')
+                    logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-                    boekingsomschrijving_bron += f" {transtime}"
+                    trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+
+                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
+
+                    expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
+
+                    cost_type_split = expense_detail["cost_type"].split(":")
+
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": boekingsomschrijving_bron,
@@ -453,7 +423,7 @@ class ClaimExpenses:
                             if (company_number is not None
                                 and ("Administratief Bedrijf" in company_number))
                             else "",
-                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[1],
+                            "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
                             "Doel Org code": department_number_aka_afdeling_code,
                             "Doel Proces": "000",
                             "Doel Produkt": "000",
@@ -465,9 +435,9 @@ class ClaimExpenses:
                         }
                     )
                 else:
-                    no_expenses = False
+                    has_expenses = False
                     return (
-                        no_expenses,
+                        has_expenses,
                         None,
                         jsonify({"Info": "No Exports Available"}),
                         None,
@@ -481,57 +451,31 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
+                f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
             blob.upload_from_string(booking_file, content_type="text/csv")
-            self.update_exported_expenses(
-                never_exported, document_export_date, document_type
-            )
-            no_expenses = True
+            has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
-            return no_expenses, document_export_date, booking_file, location
+            return has_expenses, document_export_date, booking_file, location
         else:
-            no_expenses = False
-            return no_expenses, None, jsonify({"Info": "No Exports Available"}), None
+            has_expenses = False
+            return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
 
-    @staticmethod
-    def generate_random_msgid():
-        """
-        A message ID that will be read in the XML should be unique. This has
-        a minimal random collision disadvantage
-        :return:
-        """
-        alphabet = string.ascii_letters + string.digits
-        while True:
-            random_id = "".join(secrets.choice(alphabet) for i in range(9))
-            if (
-                    any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3
-            ):
-                break
-        return "/".join(
-            random_id[i: i + 3] for i in range(0, len(random_id), 3)
-        ).upper()
+    def _gather_creditor_name(self, expense):
+        return expense["employee"]["afas_data"].get("Naam")
 
-    def create_payment_file(self, document_type, document_name):
+    def create_payment_file(self, expense_claims_to_export, document_export_date, document_time):
 
         """
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
         ==> status -- 'booking-file-created'
-        :param document_name:
-        :type document_type: object
         """
-        no_expenses = True  # Initialise
+        has_expenses = True  # Initialise
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        exported, document_export_date, document_date, document_time = self.filter_expenses(
-            document_type
-        )
         str_num_unique = string.ascii_letters[:8] + string.digits
-        if exported:
-            booking_file_detail = self.get_single_document_content(document_id=document_name)
+        if expense_claims_to_export:
             message_id = f"{200}/{self.generate_random_msgid()}"
             payment_info_id = (
                 f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
@@ -553,7 +497,7 @@ class ClaimExpenses:
             ET.SubElement(header, "MsgId").text = message_id
             ET.SubElement(header, "CreDtTm").text = document_time
             ET.SubElement(header, "NbOfTxs").text = str(
-                booking_file_detail.__len__()  # Number Of Transactions in the batch
+                len(expense_claims_to_export)  # Number Of Transactions in the batch
             )
             initiating_party = ET.SubElement(header, "InitgPty")
             ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
@@ -563,7 +507,7 @@ class ClaimExpenses:
             ET.SubElement(payment_info, "PmtInfId").text = message_id
             ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
             ET.SubElement(payment_info, "NbOfTxs").text = str(
-                booking_file_detail.__len__()  # Number Of Transactions in the batch
+                len(expense_claims_to_export)  # Number Of Transactions in the batch
             )
 
             # Payment Type Information
@@ -594,20 +538,16 @@ class ClaimExpenses:
                 "bic"
             ]
 
-            for expense in booking_file_detail:
+            for expense in expense_claims_to_export:
                 # Transaction Transfer Information
                 transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
                 transfer_payment_id = ET.SubElement(transfer, "PmtId")
                 ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
-                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ]
+                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["boekingsomschrijving_bron"]
 
                 # Amount
                 amount = ET.SubElement(transfer, "Amt")
-                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["data"][
-                                                                            "Bedrag excl. BTW"
-                                                                        ])
+                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["amount"])
                 ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
                 # Creditor Agent Tag Information
@@ -615,31 +555,26 @@ class ClaimExpenses:
                 payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
                 ET.SubElement(
                     payment_creditor_agent_id, "BIC"
-                ).text = self.get_iban_details(expense["iban"])
+                ).text = self.get_iban_details(expense["employee"]["afas_data"]["IBAN"])
 
                 # Creditor name
                 creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ].split("-")[1]
+                ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
 
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
                 creditor_account_id = ET.SubElement(creditor_account, "Id")
-                ET.SubElement(creditor_account_id, "IBAN").text = expense[
-                    "iban"
-                ].replace(
-                    " ", ""
-                )  # <ValidationPass> on whitespaces
+
+                # <ValidationPass> on whitespaces
+                ET.SubElement(creditor_account_id, "IBAN").text = \
+                    expense["employee"]["afas_data"]["IBAN"].replace(" ", "")
 
                 # Remittance Information
                 remittance_info = ET.SubElement(transfer, "RmtInf")
-                ET.SubElement(remittance_info, "Ustrd").text = expense["data"][
-                    "BoekingsomschrijvingBron"
-                ]
+                ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
             payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"/tmp/{document_type}_{document_name[:-4].split('_')[2]}"
+            payment_file_name = f"/tmp/payment_file_{document_export_date}"
             open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
             
 
@@ -647,7 +582,7 @@ class ClaimExpenses:
             bucket = self.cs_client.get_bucket(self.bucket_name)
 
             blob = bucket.blob(
-                f"exports/{document_type}/{today.year}/{today.month}/{today.day}/{document_name[:-4].split('_')[2]}"
+                f"exports/payment_file/{today.year}/{today.month}/{today.day}/{document_export_date}"
             )
 
             # Upload file to Blob Storage
@@ -664,15 +599,14 @@ class ClaimExpenses:
             client = kms_v1.KeyManagementServiceClient()
 
             # Get the passphrase for the private key
-            pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key-pass')
+            pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY_PASSPHRASE)
             response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
 
             passphrase = response.plaintext.decode("utf-8").replace('\n', '')
 
             # Get the private key and decode using passphrase
-            pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', 'vwt-d-gew1-fin-expenses-keyring', 'power2pay-ems-key')
+            pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY)
             response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
-
 
             # Write un-encrypted key to file (for requests library)
             pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
@@ -686,70 +620,64 @@ class ClaimExpenses:
 
             xml_file = payment_file_name
             headers = {'Content-Type':'text/xml'}
-            url = "https://b2b-test.vwtelecom.com:8443/Power2Pay"
 
             with open(xml_file) as xml:
-                r = requests.post(url, data=xml, cert=cert, verify=True)
+                r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
 
-
-            ############################
-            #  KEEP AS LAST TO HAPPEN  #
-            ############################
-            self.update_exported_expenses(exported, document_export_date, document_type)
-            return no_expenses, document_export_date, payment_file, location
+            return has_expenses, document_export_date, payment_file, location
         else:
-            no_expenses = False
+            has_expenses = False
             return (
-                no_expenses,
+                has_expenses,
                 None,
                 jsonify({"Info": "No Exports needed to create Payment Available"}),
                 None,
             )
 
-    def get_all_documents_list(self, document_type):
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+    @staticmethod
+    def generate_random_msgid():
+        """
+        A message ID that will be read in the XML should be unique. This has
+        a minimal random collision disadvantage
+        :return:
+        """
+        alphabet = string.ascii_letters + string.digits
+        while True:
+            random_id = "".join(secrets.choice(alphabet) for i in range(9))
+            if (
+                    any(c.islower() for c in random_id)
+                    and any(c.isupper() for c in random_id)
+                    and sum(c.isdigit() for c in random_id) >= 3
+            ):
+                break
+        return "/".join(
+            random_id[i: i + 3] for i in range(0, len(random_id), 3)
+        ).upper()
+
+
+    def get_all_documents_list(self):
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
         all_exports_files = []
         blobs = expenses_bucket.list_blobs(
-            prefix=f"exports/{document_type}/{today.year}"
+            prefix=f"exports/booking_file"
         )
 
+        base_url = request.host_url
+
+        if 'GAE_INSTANCE' in os.environ:
+            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+
         for blob in blobs:
-            blob_name = blob.name
+            base_file = os.path.basename(blob.name).split('.')[0]
+            file_date = blob.time_created.strftime('%-m_%-d')
+            file = f"{file_date}_{base_file}"
             all_exports_files.append({
-                "date_exported": blob_name.split("/")[5],
-                "file_name": blob.name
-            })
+                "export_date" : blob.time_created,
+                "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
+                "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
+             })
         return all_exports_files
-
-    def get_single_document_content(self, document_id):
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
-
-        month, day, file_name = document_id.split("_")
-        ###########################################################################
-        # Raw is being called by the payment file creation to reuse this logic to #
-        # collect all data needed to create a payment file from the booking file  #
-        ###########################################################################
-        payment_data = []
-        content = expenses_bucket.blob(
-            f"exports/booking_file/{today.year}/{month}/{day}/{file_name}"
-        ).download_as_string()
-        with tempfile.NamedTemporaryFile(delete=False) as file:
-            file.write(content)
-            file.close()
-            reader = pd.read_csv(file.name, sep=";").to_dict(orient="records")
-            for piece in reader:
-                if 'BoekingsomschrijvingBron' in piece and piece["BoekingsomschrijvingBron"].find(' ') != -1:
-                    personal_no = piece["BoekingsomschrijvingBron"].split(" ")[0]
-                    employee_detail = self.get_employee_afas_data(None, personal_no)
-                    payment_data.append(dict(data=piece, iban=employee_detail["IBAN"]))
-                else:
-                    logger.warning(f"{file.name}: invalid file format, 'BoekingsomschrijvingBron' element "
-                                   f"missing or invalid! [{piece}]")
-            # file.delete() # type of 'file' is bool here?????
-        return payment_data
 
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
@@ -764,7 +692,7 @@ class ClaimExpenses:
             return export_file
 
     def _create_expenses_query(self):
-        return self.ds_client.query(kind="Expenses")
+        return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -776,8 +704,8 @@ class ClaimExpenses:
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
-                    "date_of_transaction": ed["date_of_transaction"],
+                    "claim_date": ed["claim_date"],
+                    "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 }
@@ -785,6 +713,25 @@ class ClaimExpenses:
             ])
         else:
             return make_response(jsonify(None), 204)
+
+    def expense_journal(self, old_expense, expense):
+        changed = []
+
+        for attribute in list(set(list(old_expense)) & set(list(expense))):
+            if old_expense[attribute] != expense[attribute]:
+                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+
+        key = self.ds_client.key("Expenses_Journal")
+        entity = datastore.Entity(key=key)
+        entity.update(
+            {
+                "Expenses_Id": old_expense.key.id,
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                "Attributes_Changed": json.dumps(changed),
+                "User": self.employee_info["unique_name"],
+            }
+        )
+        self.ds_client.put(entity)
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -808,10 +755,10 @@ class EmployeeExpenses(ClaimExpenses):
     def _prepare_context_update_expense(self, data, expense):
         # Check if expense is from employee
         if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-            return make_response(jsonify(None), 403)
+            return {}, {}
         # Check if status is either rejected_by_manager or rejected_by_creditor
         if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
-            return make_response(jsonify(None), 403)
+            return {}, {}
 
         fields = {
             "status",
@@ -849,6 +796,8 @@ class EmployeeExpenses(ClaimExpenses):
         expense = self.ds_client.get(expense_key)
         if not expense:
             return make_response(jsonify('Attempt to add attachment to undefined expense claim', 400))
+        if expense["employee"]["email"] != self.employee_info["unique_name"]:
+            return make_response(jsonify('Unauthorized'), 403)
 
         self.create_attachment(
             data,
@@ -856,49 +805,54 @@ class EmployeeExpenses(ClaimExpenses):
             self.employee_info["unique_name"]
         )
 
-        pass
+        return '', 204
 
 
 class DepartmentExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        return True
+        return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
-    def __init__(self, department_id):
+    def __init__(self):
         super().__init__()
-        self.department_id = department_id
+
+    def get_manager_identifying_value(self):
+        afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
+        if afas_data:
+            return afas_data["Personeelsnummer"]
+        else:
+            return None
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
-        # self.get_manager_info()
-        # manager = self.ds_client.get(self.ds_client.key("Manager", self.department_id))
-        # query_filter: Dict[Any, str] = dict(
-        #     creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        # )
         expenses_info.add_filter(
             "status.text",
             "=",
             "ready_for_manager"
         )
-        manager_name = self.employee_info['name']
-        manager_name = (manager_name.split(',')[1] + ' ' + manager_name.split(',')[0]).strip()
         expenses_info.add_filter(
-            "employee.afas_data.Manager",
+            "employee.afas_data.Manager_personeelsnummer",
             "=",
-            manager_name
+            self.get_manager_identifying_value()
         )
         # expenses_data = expenses_info.fetch(limit=10)
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
-        fields = {
-            "status",
-            "cost_type",
-            "rnote"
-        }
-        status = {
-            "ready_for_creditor",
-            "rejected_by_manager",
-        }
+        # Check if requesting manager is manager of this employee
+        if expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value():
+            fields = {
+                "status",
+                "cost_type",
+                "rnote"
+            }
+            status = {
+                "ready_for_creditor",
+                "rejected_by_manager",
+            }
+        else:
+            fields = {}
+            status = {}
+
         return fields, status
 
     def _process_status_text_update(self, item, expense):
@@ -931,8 +885,8 @@ class ControllerExpenses(ClaimExpenses):
                     "amount": ed["amount"],
                     "note": ed["note"],
                     "cost_type": ed["cost_type"],
-                    "date_of_claim": ed["date_of_claim"],
-                    "date_of_transaction": ed["date_of_transaction"],
+                    "claim_date": ed["claim_date"],
+                    "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
                 })
@@ -1034,55 +988,40 @@ def get_document(document_date, document_type):
     )
 
 
-def get_document_list(document_type):
+def get_document_list():
     """
     Get a list of all documents ever created
     :rtype: None
     :return"""
 
     expense_instance = ClaimExpenses()
-    all_exports = expense_instance.get_all_documents_list(document_type=document_type)
+    all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
 
 
-def create_document(document_type):
-    """
-    Make a booking file based of expenses id. Looks up all objects with
-    status: exported => False. Gives the object a new status and does a few sanity checks
-    """
-    document_name = connexion.request.args.get("name")
+def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    expenses, export_id, export_file, location = (
-        expense_instance.create_booking_file(document_type)
-        if document_type == "booking_file"
-        else expense_instance.create_payment_file(document_type, document_name)
+    has_expenses, export_id, export_file, location = (
+        expense_instance.create_booking_and_payment_file()
     )
 
-    # Separate Content
-    content_type = {"payment_file": "application/xml", "booking_file": "text/csv"}
-
-    if expenses:
-        mime_type = content_type[document_type]
+    if has_expenses:
         response = make_response(export_file, 200)
         response.headers = {
-            "Content-Type": f"{mime_type}",
+            "Content-Type": "text/csv",
             "Content-Disposition":
-                f"attachment; filename={export_id}.{mime_type.split('/')[1]}; file_location={location}",
+                f"attachment; filename={export_id}.csv; file_location={location}",
             "Authorization": "",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
         return response
     else:
-        return export_file
+        return {"Info": "No Exports Available"}
 
 
-def get_department_expenses(department_id):
-    """
-    Get expenses corresponding to this manager
-    :param department_id:
-    """
-    expense_instance = DepartmentExpenses(department_id)
+def get_managers_expenses():
+    expense_instance = DepartmentExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -1115,6 +1054,7 @@ def update_expenses_finance(expenses_id):
             expense_instance = ControllerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
@@ -1130,6 +1070,7 @@ def update_expenses_employee(expenses_id):
             expense_instance = EmployeeExpenses(None)
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
+        logging.exception("Update exp")
         return jsonify(er.args), 500
 
 
@@ -1142,7 +1083,7 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses(None)
+            expense_instance = DepartmentExpenses()
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         return jsonify(er.args), 500
@@ -1164,22 +1105,22 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances_manager(expenses_id):
-    """
-    Get attachment by expenses id
-    :param expenses_id:
-    :return:
-    """
-    expense_instance = DepartmentExpenses(None)
-    return expense_instance.get_attachment(expenses_id)
-
-
 def get_attachment_finances_creditor(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
+    expense_instance = ControllerExpenses()
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_finances_manager(expenses_id):
+    expense_instance = DepartmentExpenses()
+    return expense_instance.get_attachment(expenses_id)
+
+
+def get_attachment_controllers(expenses_id):
     expense_instance = ControllerExpenses()
     return expense_instance.get_attachment(expenses_id)
 

@@ -1,6 +1,9 @@
 # coding: utf-8
 
 from __future__ import absolute_import
+from datetime import date, datetime  # noqa: F401
+
+from typing import List, Dict  # noqa: F401
 
 from openapi_server.models.base_model_ import Model
 from openapi_server import util
@@ -13,8 +16,12 @@ class AttachmentData(Model):
     """
 
     def __init__(self, name=None, content=None):  # noqa: E501
-        """ExpenseData - a model defined in OpenAPI
+        """AttachmentData - a model defined in OpenAPI
 
+        :param name: The name of this AttachmentData.  # noqa: E501
+        :type name: str
+        :param content: The content of this AttachmentData.  # noqa: E501
+        :type content: str
         """
         self.openapi_types = {
             'name': str,
@@ -35,48 +42,49 @@ class AttachmentData(Model):
 
         :param dikt: A dict.
         :type: dict
-        :return: The ExpenseData of this ExpenseData.  # noqa: E501
-        :rtype: ExpenseData
+        :return: The AttachmentData of this AttachmentData.  # noqa: E501
+        :rtype: AttachmentData
         """
         return util.deserialize_model(dikt, cls)
 
     @property
     def name(self):
-        """Gets the name of this ExpenseData.
+        """Gets the name of this AttachmentData.
 
 
-        :return: The name of this ExpenseData.
-        :rtype: float
+        :return: The name of this AttachmentData.
+        :rtype: str
         """
         return self._name
 
     @name.setter
     def name(self, name):
-        """Sets the name of this ExpenseData.
+        """Sets the name of this AttachmentData.
 
 
-        :param name: The name of this ExpenseData.
-        :type name: float
+        :param name: The name of this AttachmentData.
+        :type name: str
         """
-        if name is None:
-            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
         self._name = name
 
     @property
     def content(self):
-        """Gets the content of this ExpenseData
+        """Gets the content of this AttachmentData.
 
 
-        :param content: The content of this ExpenseData.
-        :type content: str"""
+        :return: The content of this AttachmentData.
+        :rtype: str
+        """
         return self._content
 
     @content.setter
     def content(self, content):
-        """Sets the content of this ExpenseData"""
+        """Sets the content of this AttachmentData.
 
-        if content is None:
-            raise ValueError("Invalid value for `content`, must not be `None`")  # noqa: E501
+
+        :param content: The content of this AttachmentData.
+        :type content: str
+        """
 
         self._content = content
