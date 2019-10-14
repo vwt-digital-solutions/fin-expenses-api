@@ -668,16 +668,19 @@ class ClaimExpenses:
         if 'GAE_INSTANCE' in os.environ:
             base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
+
         for blob in blobs:
             base_file = os.path.basename(blob.name).split('.')[0]
             file_date = blob.time_created.strftime('%-m_%-d')
             file = f"{file_date}_{base_file}"
+            
             all_exports_files.append({
                 "export_date" : blob.time_created,
                 "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
                 "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
              })
-        return all_exports_files
+
+        return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
 
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
