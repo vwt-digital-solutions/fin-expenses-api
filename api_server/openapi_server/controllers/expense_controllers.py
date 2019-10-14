@@ -181,7 +181,7 @@ class ClaimExpenses:
                 "content": stream_read.decode('utf-8'),
                 "name": blob.name.split('/')[-1]
             }
-            results.append(content_result)
+            results.insert(content_result)
 
         return jsonify(results)
 
