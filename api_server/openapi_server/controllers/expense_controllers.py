@@ -278,9 +278,11 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
+            old_expense = self.ds_client.get(exp_key)
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
+                self.expense_journal(old_expense, expense)
                 return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
@@ -403,6 +405,8 @@ class ClaimExpenses:
 
                     expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
+                    cost_type_split = expense_detail["cost_type"].split(":")
+
                     booking_file_data.append(
                         {
                             "BoekingsomschrijvingBron": boekingsomschrijving_bron,
@@ -420,7 +424,7 @@ class ClaimExpenses:
                             if (company_number is not None
                                 and ("Administratief Bedrijf" in company_number))
                             else "",
-                            "Doel-gr boekrek": expense_detail["cost_type"].split(":")[1],
+                            "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
                             "Doel Org code": department_number_aka_afdeling_code,
                             "Doel Proces": "000",
                             "Doel Produkt": "000",
@@ -451,13 +455,16 @@ class ClaimExpenses:
                 f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
             )
 
-            blob.upload_from_string(bookingdocument_type_file, content_type="text/csv")
+            blob.upload_from_string(booking_file, content_type="text/csv")
             has_expenses = True
             location = f"{today.month}_{today.day}_{document_export_date}.csv"
             return has_expenses, document_export_date, booking_file, location
         else:
             has_expenses = False
             return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
+
+    def _gather_creditor_name(self, expense):
+        return expense["employee"]["afas_data"].get("Naam")
 
     def create_payment_file(self, expense_claims_to_export, document_export_date, document_time):
 
@@ -553,7 +560,7 @@ class ClaimExpenses:
 
                 # Creditor name
                 creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = expense["boekingsomschrijving_bron"].split("-")[1]
+                ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
 
                 # Creditor Account
                 creditor_account = ET.SubElement(transfer, "CdtrAcct")
@@ -709,6 +716,25 @@ class ClaimExpenses:
             ])
         else:
             return make_response(jsonify(None), 204)
+
+    def expense_journal(self, old_expense, expense):
+        changed = []
+
+        for attribute in list(set(list(old_expense)) & set(list(expense))):
+            if old_expense[attribute] != expense[attribute]:
+                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+
+        key = self.ds_client.key("Expenses_Journal")
+        entity = datastore.Entity(key=key)
+        entity.update(
+            {
+                "Expenses_Id": old_expense.key.id,
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                "Attributes_Changed": json.dumps(changed),
+                "User": self.employee_info["unique_name"],
+            }
+        )
+        self.ds_client.put(entity)
 
 
 class EmployeeExpenses(ClaimExpenses):
