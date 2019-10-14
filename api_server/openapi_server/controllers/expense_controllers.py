@@ -246,7 +246,7 @@ class ClaimExpenses:
                         "cost_type": data.cost_type,
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                        "status": dict(date_exported="never", text=ready_text),
+                        "status": dict(date_exported="never", export_date="never", text=ready_text),
                     }
                 )
                 self.ds_client.put(entity)
@@ -309,7 +309,7 @@ class ClaimExpenses:
         if need_to_save:
             self.ds_client.put(expense)
 
-    def update_exported_expenses(self, expenses_exported, document_date):
+    def update_exported_expenses(self, expenses_exported, document_date, document_time):
         """
         Do some sanity changed to keep data updated.
         :param document_type: A Payment or a booking file
@@ -321,6 +321,7 @@ class ClaimExpenses:
             with self.ds_client.transaction():
                 expense = self.ds_client.get(self.ds_client.key("Expenses", exp.id))
                 expense["status"]["date_exported"] = document_date
+                expense["status"]["export_date"] = document_time
                 expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
 
@@ -368,7 +369,7 @@ class ClaimExpenses:
 
         result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
         self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
-        self.update_exported_expenses(expense_claims_to_export, document_export_date)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
 
@@ -659,7 +660,7 @@ class ClaimExpenses:
         base_url = request.host_url
 
         if 'GAE_INSTANCE' in os.environ:
-            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com"
+            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
         for blob in blobs:
             base_file = os.path.basename(blob.name).split('.')[0]
@@ -668,8 +669,9 @@ class ClaimExpenses:
             all_exports_files.append({
                 "date_exported": os.path.basename(blob.name),
                 "file_name": blob.name,
-                "booking_file": f"{base_url}/finances/expenses/documents/{file}.csv/kinds/booking_file",
-                "payment_file": f"{base_url}/finances/expenses/documents/{file}/kinds/payment_file"
+                "export_date" : blob.time_created,
+                "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
+                "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
              })
         return all_exports_files
 

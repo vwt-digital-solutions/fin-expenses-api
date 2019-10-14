@@ -553,6 +553,12 @@ components:
           type: string
         file_name:
           type: string
+        export_date:
+          type: string
+        booking_file:
+          type: string
+        payment_file:
+          type: string
       example: |-
         {
             "date_exported": "1566892146383"
