@@ -377,7 +377,7 @@ class ClaimExpenses:
         if not result2[0]:
             return result2
 
-        #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
 
