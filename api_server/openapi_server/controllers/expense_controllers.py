@@ -1012,6 +1012,26 @@ def create_booking_and_payment_file():
     else:
         return export_file
 
+def create_booking_and_payment_file_v2():
+
+    expense_instance = ClaimExpenses()
+    has_expenses, export_id, export_file = (
+        expense_instance.create_booking_and_payment_file()
+    )
+
+    if has_expenses:
+        response = make_response(export_file, 200)
+        response.headers = {
+            "Content-Type": "text/csv",
+            "Content-Disposition":
+                f"attachment; filename={export_id}.csv",
+            "Authorization": "",
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        }
+        return response
+    else:
+        return export_file
+
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
     return expense_instance.get_all_expenses()
