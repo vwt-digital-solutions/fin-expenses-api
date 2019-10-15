@@ -341,7 +341,7 @@ class ClaimExpenses:
         else:
             return (
                 "NOTPROVIDED"
-            )  # ABN-AMRO will determine the BIC based on the Debtor Account
+            )  # Bank will determine the BIC based on the Debtor Account
 
     def filter_expenses_to_export(self):
         """
@@ -418,9 +418,9 @@ class ClaimExpenses:
                     "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                     "Boekings-jaar": today.year,
                     "Periode": today.month,
-                    "Bron-bedrijfs-nummer": 200,
-                    "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
-                    "Bron Org Code": 94015,
+                    "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
+                    "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
+                    "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
                     "Bron Process": "000",
                     "Bron Produkt": "000",
                     "Bron EC": "000",
@@ -495,7 +495,7 @@ class ClaimExpenses:
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
         initiating_party = ET.SubElement(header, "InitgPty")
-        ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
+        ET.SubElement(initiating_party, "Nm").text = config.OWN_ACCOUNT["bedrijf"]
 
         #  Payment Information
         payment_info = ET.SubElement(customer_header, "PmtInf")
@@ -520,7 +520,7 @@ class ClaimExpenses:
         ET.SubElement(payment_debitor_info, "Nm").text = "VWT BV"
         payment_debitor_account = ET.SubElement(payment_info, "DbtrAcct")
         payment_debitor_account_id = ET.SubElement(payment_debitor_account, "Id")
-        ET.SubElement(payment_debitor_account_id, "IBAN").text = config.VWT_ACCOUNT[
+        ET.SubElement(payment_debitor_account_id, "IBAN").text = config.OWN_ACCOUNT[
             "iban"
         ]
 
@@ -529,7 +529,7 @@ class ClaimExpenses:
         payment_debitor_agent_id = ET.SubElement(
             payment_debitor_agent, "FinInstnId"
         )
-        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.VWT_ACCOUNT[
+        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT[
             "bic"
         ]
 
