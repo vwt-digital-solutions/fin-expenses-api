@@ -369,10 +369,15 @@ class ClaimExpenses:
         expense_claims_to_export = self.filter_expenses_to_export()
 
         result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
-        self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
-        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        result2 = self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+
+        if not result2[0]:
+            return result2
+
+        self.update_exported_expenses ( expense_claims_to_export, document_export_date, document_time )
 
         return result
+
 
     def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
         """
@@ -624,7 +629,10 @@ class ClaimExpenses:
             with open(xml_file) as xml:
                 r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
 
-            return has_expenses, document_export_date, payment_file, location
+            if not r.ok:
+                return (False, None, jsonify({"Info": "Failed to upload payment file"}), None)
+
+            return (has_expenses, document_export_date, payment_file, location)
         else:
             has_expenses = False
             return (
@@ -673,7 +681,7 @@ class ClaimExpenses:
             base_file = os.path.basename(blob.name).split('.')[0]
             file_date = blob.time_created.strftime('%-m_%-d')
             file = f"{file_date}_{base_file}"
-            
+
             all_exports_files.append({
                 "export_date" : blob.time_created,
                 "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
@@ -1020,8 +1028,7 @@ def create_booking_and_payment_file():
         }
         return response
     else:
-        return {"Info": "No Exports Available"}
-
+        return export_file
 
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
