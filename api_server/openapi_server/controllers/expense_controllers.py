@@ -1,7 +1,5 @@
 import base64
 import json
-import secrets
-import string
 import os
 import requests
 
@@ -469,13 +467,9 @@ class ClaimExpenses:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        str_num_unique = string.ascii_letters[:8] + string.digits
-
-        message_id = f"{200}/{self.generate_random_msgid()}"
-        payment_info_id = (
-            f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
-            f"{''.join(secrets.choice(string.digits) for i in range(8))}"
-        )
+        booking_timestamp_id = today.strftime("%Y%m%d%H%M%S")
+        message_id = f"200/DEC/{booking_timestamp_id}"
+        payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
         # Set namespaces
         ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
@@ -585,7 +579,6 @@ class ClaimExpenses:
 
         #  Do some sanity routine
 
-        location = f"{today.month}_{today.day}_{document_export_date}"
         payment_file = MD.parseString(payment_file_string).toprettyxml(
             encoding="utf-8"
         )
@@ -623,27 +616,6 @@ class ClaimExpenses:
             return (False, None, jsonify({"Info": "Failed to upload payment file"}))
 
         return (True, document_export_date, payment_file)
-
-
-    @staticmethod
-    def generate_random_msgid():
-        """
-        A message ID that will be read in the XML should be unique. This has
-        a minimal random collision disadvantage
-        :return:
-        """
-        alphabet = string.ascii_letters + string.digits
-        while True:
-            random_id = "".join(secrets.choice(alphabet) for i in range(9))
-            if (
-                    any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3
-            ):
-                break
-        return "/".join(
-            random_id[i: i + 3] for i in range(0, len(random_id), 3)
-        ).upper()
 
 
     def get_all_documents_list(self):
