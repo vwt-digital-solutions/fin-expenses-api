@@ -1,7 +1,5 @@
 import base64
 import json
-import secrets
-import string
 import os
 import requests
 
@@ -341,7 +339,7 @@ class ClaimExpenses:
         else:
             return (
                 "NOTPROVIDED"
-            )  # ABN-AMRO will determine the BIC based on the Debtor Account
+            )  # Bank will determine the BIC based on the Debtor Account
 
     def filter_expenses_to_export(self):
         """
@@ -377,7 +375,7 @@ class ClaimExpenses:
         if not result2[0]:
             return result2
 
-        #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
 
@@ -455,9 +453,9 @@ class ClaimExpenses:
                     "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
                     "Boekings-jaar": today.year,
                     "Periode": today.month,
-                    "Bron-bedrijfs-nummer": 200,
-                    "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
-                    "Bron Org Code": 94015,
+                    "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
+                    "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
+                    "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
                     "Bron Process": "000",
                     "Bron Produkt": "000",
                     "Bron EC": "000",
@@ -506,13 +504,9 @@ class ClaimExpenses:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        str_num_unique = string.ascii_letters[:8] + string.digits
-
-        message_id = f"{200}/{self.generate_random_msgid()}"
-        payment_info_id = (
-            f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
-            f"{''.join(secrets.choice(string.digits) for i in range(8))}"
-        )
+        booking_timestamp_id = today.strftime("%Y%m%d%H%M%S")
+        message_id = f"200/DEC/{booking_timestamp_id}"
+        payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
         # Set namespaces
         ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
@@ -532,7 +526,7 @@ class ClaimExpenses:
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
         initiating_party = ET.SubElement(header, "InitgPty")
-        ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
+        ET.SubElement(initiating_party, "Nm").text = config.OWN_ACCOUNT["bedrijf"]
 
         #  Payment Information
         payment_info = ET.SubElement(customer_header, "PmtInf")
@@ -557,7 +551,7 @@ class ClaimExpenses:
         ET.SubElement(payment_debitor_info, "Nm").text = "VWT BV"
         payment_debitor_account = ET.SubElement(payment_info, "DbtrAcct")
         payment_debitor_account_id = ET.SubElement(payment_debitor_account, "Id")
-        ET.SubElement(payment_debitor_account_id, "IBAN").text = config.VWT_ACCOUNT[
+        ET.SubElement(payment_debitor_account_id, "IBAN").text = config.OWN_ACCOUNT[
             "iban"
         ]
 
@@ -566,7 +560,7 @@ class ClaimExpenses:
         payment_debitor_agent_id = ET.SubElement(
             payment_debitor_agent, "FinInstnId"
         )
-        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.VWT_ACCOUNT[
+        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT[
             "bic"
         ]
 
@@ -622,7 +616,6 @@ class ClaimExpenses:
 
         #  Do some sanity routine
 
-        location = f"{today.month}_{today.day}_{document_export_date}"
         payment_file = MD.parseString(payment_file_string).toprettyxml(
             encoding="utf-8"
         )
@@ -660,27 +653,6 @@ class ClaimExpenses:
             return (False, None, jsonify({"Info": "Failed to upload payment file"}))
 
         return (True, document_export_date, payment_file)
-
-
-    @staticmethod
-    def generate_random_msgid():
-        """
-        A message ID that will be read in the XML should be unique. This has
-        a minimal random collision disadvantage
-        :return:
-        """
-        alphabet = string.ascii_letters + string.digits
-        while True:
-            random_id = "".join(secrets.choice(alphabet) for i in range(9))
-            if (
-                    any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3
-            ):
-                break
-        return "/".join(
-            random_id[i: i + 3] for i in range(0, len(random_id), 3)
-        ).upper()
 
 
     def get_all_documents_list(self):
