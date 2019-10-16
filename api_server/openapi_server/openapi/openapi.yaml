@@ -168,7 +168,7 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/finances/documents':
+  '/v2/finances/documents':
     get:
       operationId: get_document_list
       summary: Get a list of all booking and payment files
@@ -207,7 +207,7 @@ paths:
       security:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/v2/finances/documents':
+  '/finances/documents':
     post:
       operationId: create_booking_and_payment_file_v2
       summary: Creates a single booking and payment document containing all expenses ready for payment.
