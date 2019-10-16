@@ -371,13 +371,13 @@ class ClaimExpenses:
 
         export_file_name = datetime.datetime.utcnow ().strftime ( '%Y%m%d%H%M%S' )
 
-        result = self.create_booking_file(expense_claims_to_export, export_file_name, document_date)
-        result2 = self.create_payment_file(expense_claims_to_export, export_file_name, document_time)
+        result = self.create_booking_file(expense_claims_to_export, export_file_name, now)
+        result2 = self.create_payment_file(expense_claims_to_export, export_file_name, now)
 
         if not result2[0]:
             return result2
 
-        #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
 
@@ -390,13 +390,14 @@ class ClaimExpenses:
             return {"Info": "No Exports Available"}, 200
 
         now = datetime.datetime.utcnow()
-        document_date = f"{now.day}{now:%m}{now.year}"
-        document_time = now.isoformat(timespec="seconds")
+
+        local_tz = pytz.timezone(VWT_TIME_ZONE)
+        local_now = now.replace(tzinfo=pytz.utc).astimezone(local_tz)
 
         export_file_name = now.strftime('%Y%m%d%H%M%S')
 
-        result = self.create_booking_file(expense_claims_to_export, export_file_name, document_date)
-        result = self.create_payment_file(expense_claims_to_export, export_file_name, document_time)
+        result = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
+        result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
         if not result[0]:
             return {"Info": "Failed to upload payment file"}, 503
@@ -406,7 +407,7 @@ class ClaimExpenses:
                       "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
                       "export_date": now.isoformat(timespec="seconds")+'Z'}]}
 
-        #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_export_date, now)
 
         return retval, 200
 
@@ -416,8 +417,6 @@ class ClaimExpenses:
         Create a booking file
         :return:
         """
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-
         booking_file_data = []
         for expense_detail in expense_claims_to_export:
             try:
@@ -444,9 +443,9 @@ class ClaimExpenses:
             booking_file_data.append(
                 {
                     "BoekingsomschrijvingBron": boekingsomschrijving_bron,
-                    "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
-                    "Boekings-jaar": today.year,
-                    "Periode": today.month,
+                    "Document-datum": document_date.strftime("%d%m%Y"),
+                    "Boekings-jaar": document_date.strftime("%Y"),
+                    "Periode": document_date.strftime("%m"),
                     "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
                     "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
                     "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
@@ -478,12 +477,11 @@ class ClaimExpenses:
         bucket = self.cs_client.get_bucket(self.bucket_name)
 
         blob = bucket.blob(
-            f"exports/booking_file/{today.year}/{today.month}/{today.day}/{export_filename}"
+            f"exports/booking_file/{document_date.year}/{document_date.month}/{document_date.day}/{export_filename}"
         )
 
         blob.upload_from_string(booking_file, content_type="text/csv")
 
-        location = f"{today.month}_{today.day}_{export_filename}.csv"
         return True, export_filename, booking_file
 
 
@@ -496,9 +494,8 @@ class ClaimExpenses:
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
         ==> status -- 'booking-file-created'
         """
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        booking_timestamp_id = document_time.strftime("%Y%m%d%H%M%S")
 
-        booking_timestamp_id = today.strftime("%Y%m%d%H%M%S")
         message_id = f"200/DEC/{booking_timestamp_id}"
         payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
@@ -515,7 +512,7 @@ class ClaimExpenses:
         # Group Header
         header = ET.SubElement(customer_header, "GrpHdr")
         ET.SubElement(header, "MsgId").text = message_id
-        ET.SubElement(header, "CreDtTm").text = document_time
+        ET.SubElement(header, "CreDtTm").text = document_time.isoformat(timespec="seconds")
         ET.SubElement(header, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
@@ -536,9 +533,7 @@ class ClaimExpenses:
         payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
         ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
-            0
-        ]
+        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.date().isoformat()
 
         # Debitor Information
         payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
@@ -597,12 +592,11 @@ class ClaimExpenses:
         payment_file_name = f"/tmp/payment_file_{export_filename}"
         open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
 
-
         # Save File to CloudStorage
         bucket = self.cs_client.get_bucket(self.bucket_name)
 
         blob = bucket.blob(
-            f"exports/payment_file/{today.year}/{today.month}/{today.day}/{export_filename}"
+            f"exports/payment_file/{document_time.year}/{document_time.month}/{document_time.day}/{export_filename}"
         )
 
         # Upload file to Blob Storage
@@ -638,7 +632,6 @@ class ClaimExpenses:
         cert = (cert_file_path, key_file_path)
 
         xml_file = payment_file_name
-        headers = {'Content-Type':'text/xml'}
 
         with open(xml_file) as xml:
             r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
