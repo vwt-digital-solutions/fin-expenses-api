@@ -357,7 +357,7 @@ class ClaimExpenses:
 
         return never_exported
 
-    def create_booking_and_payment_file(self):
+    def create_booking_and_payment_file_v2(self):
         # make a selection of expenses to export
         expense_claims_to_export = self.filter_expenses_to_export ()
 
@@ -380,6 +380,43 @@ class ClaimExpenses:
         #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
+
+    def create_booking_and_payment_file(self):
+        # make a selection of expenses to export
+        expense_claims_to_export = self.filter_expenses_to_export ()
+
+        # if nothing to report, return immediate
+        if not expense_claims_to_export:
+            return {"Info": "No Exports Available"}, 200
+
+        now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        document_date = f"{now.day}{now:%m}{now.year}"
+        document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
+            document_date
+        )
+
+        document_time = now.isoformat(timespec="seconds")
+
+        export_file_name = datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z'
+
+        result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
+        #result = self.create_booking_file(expense_claims_to_export, export_file_name, now)
+        result = self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+
+        if not result[0]:
+            return {"Info": "Failed to upload payment file"}, 503
+       
+        file_date = now.strftime('%-m_%-d')
+        file = f"{file_date}_{document_export_date}"
+
+        retval = {"file_list" : [
+                     {"booking_file": f"{api_base_url()}finances/expenses/documents/{file}.csv/kinds/booking_file",
+                      "payment_file": f"{api_base_url()}finances/expenses/documents/{file}/kinds/payment_file",
+                      "export_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z'}]}
+
+        #self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+
+        return retval, 200
 
 
     def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
@@ -654,11 +691,6 @@ class ClaimExpenses:
             prefix=f"exports/booking_file"
         )
 
-        base_url = request.host_url
-
-        if 'GAE_INSTANCE' in os.environ:
-            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
-
         for blob in blobs:
             base_file = os.path.basename(blob.name).split('.')[0]
             file_date = blob.time_created.strftime('%-m_%-d')
@@ -666,8 +698,8 @@ class ClaimExpenses:
 
             all_exports_files.append({
                 "export_date" : blob.time_created,
-                "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
-                "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
+                "booking_file": f"{api_base_url()}finances/expenses/documents/{file}.csv/kinds/booking_file",
+                "payment_file": f"{api_base_url()}finances/expenses/documents/{file}/kinds/payment_file"
              })
 
         return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
@@ -995,28 +1027,14 @@ def get_document_list():
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file()
-    )
 
-    if has_expenses:
-        response = make_response(export_file, 200)
-        response.headers = {
-            "Content-Type": "text/csv",
-            "Content-Disposition":
-                f"attachment; filename={export_id}.csv",
-            "Authorization": "",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        }
-        return response
-    else:
-        return export_file
+    return expense_instance.create_booking_and_payment_file()
 
 def create_booking_and_payment_file_v2():
 
     expense_instance = ClaimExpenses()
     has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file()
+        expense_instance.create_booking_and_payment_file_v2()
     )
 
     if has_expenses:
@@ -1169,4 +1187,12 @@ def add_attachment_employee(expenses_id):
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
+
+def api_base_url():
+    base_url = request.host_url
+
+    if 'GAE_INSTANCE' in os.environ:
+        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+
+    return base_url
 
