@@ -191,7 +191,7 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
-      operationId: create_booking_and_payment_file
+      operationId: create_booking_and_payment_file_v2
       summary: Creates a single booking and payment document containing all expenses ready for payment.
       responses:
         '200':
@@ -209,7 +209,7 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   '/v2/finances/documents':
     post:
-      operationId: create_booking_and_payment_file_v2
+      operationId: create_booking_and_payment_file
       summary: Creates a single booking and payment document containing all expenses ready for payment.
       responses:
         '200':
