@@ -1,7 +1,5 @@
 import base64
 import json
-import secrets
-import string
 import os
 import requests
 
@@ -341,7 +339,7 @@ class ClaimExpenses:
         else:
             return (
                 "NOTPROVIDED"
-            )  # ABN-AMRO will determine the BIC based on the Debtor Account
+            )  # Bank will determine the BIC based on the Debtor Account
 
     def filter_expenses_to_export(self):
         """
@@ -358,6 +356,11 @@ class ClaimExpenses:
         return never_exported
 
     def create_booking_and_payment_file(self):
+        # make a selection of expenses to export
+        expense_claims_to_export = self.filter_expenses_to_export ()
+
+        if not expense_claims_to_export:
+            return(False, None, jsonify({"Info": "No Exports Available"}))
 
         now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
         document_date = f"{now.day}{now:%m}{now.year}"
@@ -366,13 +369,16 @@ class ClaimExpenses:
         )
         document_time = now.isoformat(timespec="seconds")
 
-        expense_claims_to_export = self.filter_expenses_to_export()
-
         result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
-        self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+        result2 = self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+
+        if not result2[0]:
+            return result2
+
         self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
 
         return result
+
 
     def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
         """
@@ -381,86 +387,74 @@ class ClaimExpenses:
         """
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        if expense_claims_to_export:
-            booking_file_data = []
-            for expense_detail in expense_claims_to_export:
-                if expense_detail["employee"]:
-                    try:
-                        department_number_aka_afdeling_code = expense_detail["employee"][
-                            "afas_data"
-                        ]["Afdeling Code"]
-                    except Exception as e:
-                        department_number_aka_afdeling_code = 0000
-                    company_number = self.ds_client.get(
-                        self.ds_client.key(
-                            "Departments", department_number_aka_afdeling_code
-                        )
-                    )
-                    logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
+        booking_file_data = []
+        for expense_detail in expense_claims_to_export:
+            try:
+                department_number_aka_afdeling_code = expense_detail["employee"][
+                    "afas_data"
+                ]["Afdeling Code"]
+            except Exception as e:
+                department_number_aka_afdeling_code = 0000
+            company_number = self.ds_client.get(
+                self.ds_client.key(
+                    "Departments", department_number_aka_afdeling_code
+                )
+            )
+            logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-                    trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
 
-                    boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
+            boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
-                    expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
+            expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
-                    cost_type_split = expense_detail["cost_type"].split(":")
+            cost_type_split = expense_detail["cost_type"].split(":")
 
-                    booking_file_data.append(
-                        {
-                            "BoekingsomschrijvingBron": boekingsomschrijving_bron,
-                            "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
-                            "Boekings-jaar": today.year,
-                            "Periode": today.month,
-                            "Bron-bedrijfs-nummer": 200,
-                            "Bron gr boekrek": 114310,  # (voor nu, later definitief vaststellen)
-                            "Bron Org Code": 94015,
-                            "Bron Process": "000",
-                            "Bron Produkt": "000",
-                            "Bron EC": "000",
-                            "Bron VP": "00",
-                            "Doel-bedrijfs-nummer": company_number["Administratief Bedrijf"].split("_")[0]
-                            if (company_number is not None
-                                and ("Administratief Bedrijf" in company_number))
-                            else "",
-                            "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
-                            "Doel Org code": department_number_aka_afdeling_code,
-                            "Doel Proces": "000",
-                            "Doel Produkt": "000",
-                            "Doel EC": "000",
-                            "Doel VP": "00",
-                            "D/C": "C",
-                            "Bedrag excl. BTW": expense_detail["amount"],
-                            "BTW-Bedrag": "0,00",
-                        }
-                    )
-                else:
-                    has_expenses = False
-                    return (
-                        has_expenses,
-                        None,
-                        jsonify({"Info": "No Exports Available"}),
-                        None,
-                    )
-
-            booking_file = pd.DataFrame(booking_file_data).to_csv(
-                sep=";", index=False, decimal=","
+            booking_file_data.append(
+                {
+                    "BoekingsomschrijvingBron": boekingsomschrijving_bron,
+                    "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
+                    "Boekings-jaar": today.year,
+                    "Periode": today.month,
+                    "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
+                    "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
+                    "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
+                    "Bron Process": "000",
+                    "Bron Produkt": "000",
+                    "Bron EC": "000",
+                    "Bron VP": "00",
+                    "Doel-bedrijfs-nummer": company_number["Administratief Bedrijf"].split("_")[0]
+                    if (company_number is not None
+                        and ("Administratief Bedrijf" in company_number))
+                    else "",
+                    "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
+                    "Doel Org code": department_number_aka_afdeling_code,
+                    "Doel Proces": "000",
+                    "Doel Produkt": "000",
+                    "Doel EC": "000",
+                    "Doel VP": "00",
+                    "D/C": "C",
+                    "Bedrag excl. BTW": expense_detail["amount"],
+                    "BTW-Bedrag": "0,00",
+                }
             )
 
-            # Save File to CloudStorage
-            bucket = self.cs_client.get_bucket(self.bucket_name)
+        booking_file = pd.DataFrame(booking_file_data).to_csv(
+            sep=";", index=False, decimal=","
+        )
 
-            blob = bucket.blob(
-                f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
-            )
+        # Save File to CloudStorage
+        bucket = self.cs_client.get_bucket(self.bucket_name)
 
-            blob.upload_from_string(booking_file, content_type="text/csv")
-            has_expenses = True
-            location = f"{today.month}_{today.day}_{document_export_date}.csv"
-            return has_expenses, document_export_date, booking_file, location
-        else:
-            has_expenses = False
-            return has_expenses, None, jsonify({"Info": "No Exports Available"}), None
+        blob = bucket.blob(
+            f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
+        )
+
+        blob.upload_from_string(booking_file, content_type="text/csv")
+
+        location = f"{today.month}_{today.day}_{document_export_date}.csv"
+        return True, document_export_date, booking_file
+
 
     def _gather_creditor_name(self, expense):
         return expense["employee"]["afas_data"].get("Naam")
@@ -471,188 +465,157 @@ class ClaimExpenses:
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
         ==> status -- 'booking-file-created'
         """
-        has_expenses = True  # Initialise
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
 
-        str_num_unique = string.ascii_letters[:8] + string.digits
-        if expense_claims_to_export:
-            message_id = f"{200}/{self.generate_random_msgid()}"
-            payment_info_id = (
-                f"{200}/{''.join(secrets.choice(str_num_unique.upper()) for i in range(3))}/"
-                f"{''.join(secrets.choice(string.digits) for i in range(8))}"
-            )
+        booking_timestamp_id = today.strftime("%Y%m%d%H%M%S")
+        message_id = f"200/DEC/{booking_timestamp_id}"
+        payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
-            # Set namespaces
-            ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
-            root = ET.Element(
-                "{urn:iso:std:iso:20022:tech:xsd:pain.001.001.03}Document"
-            )
+        # Set namespaces
+        ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
+        root = ET.Element(
+            "{urn:iso:std:iso:20022:tech:xsd:pain.001.001.03}Document"
+        )
 
-            root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+        root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
-            customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
+        customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
 
-            # Group Header
-            header = ET.SubElement(customer_header, "GrpHdr")
-            ET.SubElement(header, "MsgId").text = message_id
-            ET.SubElement(header, "CreDtTm").text = document_time
-            ET.SubElement(header, "NbOfTxs").text = str(
-                len(expense_claims_to_export)  # Number Of Transactions in the batch
-            )
-            initiating_party = ET.SubElement(header, "InitgPty")
-            ET.SubElement(initiating_party, "Nm").text = config.VWT_ACCOUNT["bedrijf"]
+        # Group Header
+        header = ET.SubElement(customer_header, "GrpHdr")
+        ET.SubElement(header, "MsgId").text = message_id
+        ET.SubElement(header, "CreDtTm").text = document_time
+        ET.SubElement(header, "NbOfTxs").text = str(
+            len(expense_claims_to_export)  # Number Of Transactions in the batch
+        )
+        initiating_party = ET.SubElement(header, "InitgPty")
+        ET.SubElement(initiating_party, "Nm").text = config.OWN_ACCOUNT["bedrijf"]
 
-            #  Payment Information
-            payment_info = ET.SubElement(customer_header, "PmtInf")
-            ET.SubElement(payment_info, "PmtInfId").text = message_id
-            ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
-            ET.SubElement(payment_info, "NbOfTxs").text = str(
-                len(expense_claims_to_export)  # Number Of Transactions in the batch
-            )
+        #  Payment Information
+        payment_info = ET.SubElement(customer_header, "PmtInf")
+        ET.SubElement(payment_info, "PmtInfId").text = message_id
+        ET.SubElement(payment_info, "PmtMtd").text = "TRF"  # Standard Value
+        ET.SubElement(payment_info, "NbOfTxs").text = str(
+            len(expense_claims_to_export)  # Number Of Transactions in the batch
+        )
 
-            # Payment Type Information
-            payment_typ_info = ET.SubElement(payment_info, "PmtTpInf")
-            ET.SubElement(payment_typ_info, "InstrPrty").text = "NORM"
-            payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
-            ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
+        # Payment Type Information
+        payment_typ_info = ET.SubElement(payment_info, "PmtTpInf")
+        ET.SubElement(payment_typ_info, "InstrPrty").text = "NORM"
+        payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
+        ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-            ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
-                0
-            ]
+        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
+            0
+        ]
 
-            # Debitor Information
-            payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
-            ET.SubElement(payment_debitor_info, "Nm").text = "VWT BV"
-            payment_debitor_account = ET.SubElement(payment_info, "DbtrAcct")
-            payment_debitor_account_id = ET.SubElement(payment_debitor_account, "Id")
-            ET.SubElement(payment_debitor_account_id, "IBAN").text = config.VWT_ACCOUNT[
-                "iban"
-            ]
+        # Debitor Information
+        payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
+        ET.SubElement(payment_debitor_info, "Nm").text = "VWT BV"
+        payment_debitor_account = ET.SubElement(payment_info, "DbtrAcct")
+        payment_debitor_account_id = ET.SubElement(payment_debitor_account, "Id")
+        ET.SubElement(payment_debitor_account_id, "IBAN").text = config.OWN_ACCOUNT[
+            "iban"
+        ]
 
-            # Debitor Agent Tags Information
-            payment_debitor_agent = ET.SubElement(payment_info, "DbtrAgt")
-            payment_debitor_agent_id = ET.SubElement(
-                payment_debitor_agent, "FinInstnId"
-            )
-            ET.SubElement(payment_debitor_agent_id, "BIC").text = config.VWT_ACCOUNT[
-                "bic"
-            ]
+        # Debitor Agent Tags Information
+        payment_debitor_agent = ET.SubElement(payment_info, "DbtrAgt")
+        payment_debitor_agent_id = ET.SubElement(
+            payment_debitor_agent, "FinInstnId"
+        )
+        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT[
+            "bic"
+        ]
 
-            for expense in expense_claims_to_export:
-                # Transaction Transfer Information
-                transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
-                transfer_payment_id = ET.SubElement(transfer, "PmtId")
-                ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
-                ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["boekingsomschrijving_bron"]
+        for expense in expense_claims_to_export:
+            # Transaction Transfer Information
+            transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
+            transfer_payment_id = ET.SubElement(transfer, "PmtId")
+            ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
+            ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["boekingsomschrijving_bron"]
 
-                # Amount
-                amount = ET.SubElement(transfer, "Amt")
-                ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["amount"])
-                ET.SubElement(transfer, "ChrgBr").text = "SLEV"
+            # Amount
+            amount = ET.SubElement(transfer, "Amt")
+            ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["amount"])
+            ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
-                # Creditor Agent Tag Information
-                amount_agent = ET.SubElement(transfer, "CdtrAgt")
-                payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
-                ET.SubElement(
-                    payment_creditor_agent_id, "BIC"
-                ).text = self.get_iban_details(expense["employee"]["afas_data"]["IBAN"])
+            # Creditor Agent Tag Information
+            amount_agent = ET.SubElement(transfer, "CdtrAgt")
+            payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
+            ET.SubElement(
+                payment_creditor_agent_id, "BIC"
+            ).text = self.get_iban_details(expense["employee"]["afas_data"]["IBAN"])
 
-                # Creditor name
-                creditor_name = ET.SubElement(transfer, "Cdtr")
-                ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
+            # Creditor name
+            creditor_name = ET.SubElement(transfer, "Cdtr")
+            ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
 
-                # Creditor Account
-                creditor_account = ET.SubElement(transfer, "CdtrAcct")
-                creditor_account_id = ET.SubElement(creditor_account, "Id")
+            # Creditor Account
+            creditor_account = ET.SubElement(transfer, "CdtrAcct")
+            creditor_account_id = ET.SubElement(creditor_account, "Id")
 
-                # <ValidationPass> on whitespaces
-                ET.SubElement(creditor_account_id, "IBAN").text = \
-                    expense["employee"]["afas_data"]["IBAN"].replace(" ", "")
+            # <ValidationPass> on whitespaces
+            ET.SubElement(creditor_account_id, "IBAN").text = \
+                expense["employee"]["afas_data"]["IBAN"].replace(" ", "")
 
-                # Remittance Information
-                remittance_info = ET.SubElement(transfer, "RmtInf")
-                ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
+            # Remittance Information
+            remittance_info = ET.SubElement(transfer, "RmtInf")
+            ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
-            payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-            payment_file_name = f"/tmp/payment_file_{document_export_date}"
-            open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
-            
+        payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
+        payment_file_name = f"/tmp/payment_file_{document_export_date}"
+        open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
 
-            # Save File to CloudStorage
-            bucket = self.cs_client.get_bucket(self.bucket_name)
 
-            blob = bucket.blob(
-                f"exports/payment_file/{today.year}/{today.month}/{today.day}/{document_export_date}"
-            )
+        # Save File to CloudStorage
+        bucket = self.cs_client.get_bucket(self.bucket_name)
 
-            # Upload file to Blob Storage
-            blob.upload_from_string(payment_file_string, content_type="application/xml")
+        blob = bucket.blob(
+            f"exports/payment_file/{today.year}/{today.month}/{today.day}/{document_export_date}"
+        )
 
-            #  Do some sanity routine
+        # Upload file to Blob Storage
+        blob.upload_from_string(payment_file_string, content_type="application/xml")
 
-            location = f"{today.month}_{today.day}_{document_export_date}"
-            payment_file = MD.parseString(payment_file_string).toprettyxml(
-                encoding="utf-8"
-            )
+        #  Do some sanity routine
 
-            ## Upload file to Power2Pay
-            client = kms_v1.KeyManagementServiceClient()
+        payment_file = MD.parseString(payment_file_string).toprettyxml(
+            encoding="utf-8"
+        )
 
-            # Get the passphrase for the private key
-            pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY_PASSPHRASE)
-            response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
+        ## Upload file to Power2Pay
+        client = kms_v1.KeyManagementServiceClient()
 
-            passphrase = response.plaintext.decode("utf-8").replace('\n', '')
+        # Get the passphrase for the private key
+        pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY_PASSPHRASE)
+        response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
 
-            # Get the private key and decode using passphrase
-            pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY)
-            response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
+        passphrase = response.plaintext.decode("utf-8").replace('\n', '')
 
-            # Write un-encrypted key to file (for requests library)
-            pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
+        # Get the private key and decode using passphrase
+        pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY)
+        response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
 
-            key_file_path = "/tmp/key.pem"
-            open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+        # Write un-encrypted key to file (for requests library)
+        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
 
-            # Create the HTTP POST request
-            cert_file_path = "power2pay-cert.pem"
-            cert = (cert_file_path, key_file_path)
+        key_file_path = "/tmp/key.pem"
+        open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
 
-            xml_file = payment_file_name
-            headers = {'Content-Type':'text/xml'}
+        # Create the HTTP POST request
+        cert_file_path = "power2pay-cert.pem"
+        cert = (cert_file_path, key_file_path)
 
-            with open(xml_file) as xml:
-                r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
+        xml_file = payment_file_name
+        headers = {'Content-Type':'text/xml'}
 
-            return has_expenses, document_export_date, payment_file, location
-        else:
-            has_expenses = False
-            return (
-                has_expenses,
-                None,
-                jsonify({"Info": "No Exports needed to create Payment Available"}),
-                None,
-            )
+        with open(xml_file) as xml:
+            r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
 
-    @staticmethod
-    def generate_random_msgid():
-        """
-        A message ID that will be read in the XML should be unique. This has
-        a minimal random collision disadvantage
-        :return:
-        """
-        alphabet = string.ascii_letters + string.digits
-        while True:
-            random_id = "".join(secrets.choice(alphabet) for i in range(9))
-            if (
-                    any(c.islower() for c in random_id)
-                    and any(c.isupper() for c in random_id)
-                    and sum(c.isdigit() for c in random_id) >= 3
-            ):
-                break
-        return "/".join(
-            random_id[i: i + 3] for i in range(0, len(random_id), 3)
-        ).upper()
+        if not r.ok:
+            return (False, None, jsonify({"Info": "Failed to upload payment file"}))
+
+        return (True, document_export_date, payment_file)
 
 
     def get_all_documents_list(self):
@@ -672,12 +635,14 @@ class ClaimExpenses:
             base_file = os.path.basename(blob.name).split('.')[0]
             file_date = blob.time_created.strftime('%-m_%-d')
             file = f"{file_date}_{base_file}"
+
             all_exports_files.append({
                 "export_date" : blob.time_created,
                 "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
                 "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
              })
-        return all_exports_files
+
+        return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
 
     def get_single_document_reference(self, document_id, document_type):
         today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
@@ -1002,7 +967,7 @@ def get_document_list():
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    has_expenses, export_id, export_file, location = (
+    has_expenses, export_id, export_file = (
         expense_instance.create_booking_and_payment_file()
     )
 
@@ -1011,14 +976,33 @@ def create_booking_and_payment_file():
         response.headers = {
             "Content-Type": "text/csv",
             "Content-Disposition":
-                f"attachment; filename={export_id}.csv; file_location={location}",
+                f"attachment; filename={export_id}.csv",
             "Authorization": "",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
         return response
     else:
-        return {"Info": "No Exports Available"}
+        return export_file
 
+def create_booking_and_payment_file_v2():
+
+    expense_instance = ClaimExpenses()
+    has_expenses, export_id, export_file = (
+        expense_instance.create_booking_and_payment_file()
+    )
+
+    if has_expenses:
+        response = make_response(export_file, 200)
+        response.headers = {
+            "Content-Type": "text/csv",
+            "Content-Disposition":
+                f"attachment; filename={export_id}.csv",
+            "Authorization": "",
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        }
+        return response
+    else:
+        return export_file
 
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
