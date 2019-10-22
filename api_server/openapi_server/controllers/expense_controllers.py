@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 import os
 import requests
@@ -276,7 +277,7 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
-            old_expense = self.ds_client.get(exp_key)
+            old_expense = copy.deepcopy(expense)
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
