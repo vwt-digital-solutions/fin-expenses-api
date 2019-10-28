@@ -652,13 +652,13 @@ class ClaimExpenses:
         )
 
         for blob in blobs:
-            id = blob.time_created.strftime('%Y%m%d%H%M%S')
+            name=blob.name.split('/')[-1]
 
             all_exports_files.append({
-                "export_date" : blob.time_created,
-                "booking_file": f"{api_base_url()}finances/expenses/documents/{id}/kinds/booking_file",
-                "payment_file": f"{api_base_url()}finances/expenses/documents/{id}/kinds/payment_file"
-             })
+                "export_date" : datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
+                "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
+                "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
+            })
 
         return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
 
