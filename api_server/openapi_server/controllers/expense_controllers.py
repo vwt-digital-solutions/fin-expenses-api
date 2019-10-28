@@ -310,7 +310,7 @@ class ClaimExpenses:
         if need_to_save:
             self.ds_client.put(expense)
 
-    def update_exported_expenses(self, expenses_exported, document_date, document_time):
+    def update_exported_expenses(self, expenses_exported, document_time):
         """
         Do some sanity changed to keep data updated.
         :param document_type: A Payment or a booking file
@@ -356,6 +356,8 @@ class ClaimExpenses:
 
         return never_exported
 
+
+
     def create_booking_and_payment_file_v2(self):
         # make a selection of expenses to export
         expense_claims_to_export = self.filter_expenses_to_export ()
@@ -378,7 +380,7 @@ class ClaimExpenses:
         if not result2[0]:
             return result2
 
-        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        self.update_exported_expenses(expense_claims_to_export, document_time)
 
         return result
 
@@ -408,7 +410,7 @@ class ClaimExpenses:
                       "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
                       "export_date": now.isoformat(timespec="seconds")+'Z'}]}
 
-        self.update_exported_expenses(expense_claims_to_export, document_export_date, now)
+        self.update_exported_expenses(expense_claims_to_export, now)
 
         return retval, 200
 
@@ -981,12 +983,11 @@ def get_document_list():
     all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
 
-
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-
     return expense_instance.create_booking_and_payment_file()
+
 
 def create_booking_and_payment_file_v2():
 
