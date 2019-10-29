@@ -634,7 +634,7 @@ class ClaimExpenses:
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-        sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
+        all_exports_files['file_list'] = sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
 
         return all_exports_files
 
