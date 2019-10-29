@@ -648,7 +648,7 @@ class ClaimExpenses:
     def get_all_documents_list(self):
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        all_exports_files = []
+        all_exports_files = {'file_list':[]}
         blobs = expenses_bucket.list_blobs(
             prefix=f"exports/booking_file"
         )
@@ -656,13 +656,15 @@ class ClaimExpenses:
         for blob in blobs:
             name=blob.name.split('/')[-1]
 
-            all_exports_files.append({
+            all_exports_files['file_list'].append({
                 "export_date" : datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
                 "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-        return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
+        sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
+        
+        return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
 
