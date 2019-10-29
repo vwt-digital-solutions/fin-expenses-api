@@ -191,24 +191,6 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
     post:
-      operationId: create_booking_and_payment_file_v2
-      summary: Creates a single booking and payment document containing all expenses ready for payment.
-      responses:
-        '200':
-          description: Download Success
-        '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
-        '400':
-          description: A missing parameter or, unsupported parameter value.
-        '403':
-          description: The Access token does not have the required scope
-        default:
-          description: Booking file made Successfully OK
-      security:
-        - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  '/v2/finances/documents':
-    post:
       operationId: create_booking_and_payment_file
       summary: Creates a single booking and payment document containing all expenses ready for payment.
       responses:

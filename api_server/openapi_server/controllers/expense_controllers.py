@@ -356,34 +356,6 @@ class ClaimExpenses:
 
         return never_exported
 
-
-
-    def create_booking_and_payment_file_v2(self):
-        # make a selection of expenses to export
-        expense_claims_to_export = self.filter_expenses_to_export ()
-
-        if not expense_claims_to_export:
-            return(False, None, jsonify({"Info": "No Exports Available"}))
-
-        now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        document_date = f"{now.day}{now:%m}{now.year}"
-        document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
-            document_date
-        )
-        document_time = now.isoformat(timespec="seconds")
-
-        export_file_name = datetime.datetime.utcnow ().strftime ( '%Y%m%d%H%M%S' )
-
-        result = self.create_booking_file(expense_claims_to_export, export_file_name, now)
-        result2 = self.create_payment_file(expense_claims_to_export, export_file_name, now)
-
-        if not result2[0]:
-            return result2
-
-        self.update_exported_expenses(expense_claims_to_export, document_time)
-
-        return result
-
     def create_booking_and_payment_file(self):
         # make a selection of expenses to export
         expense_claims_to_export = self.filter_expenses_to_export ()
@@ -663,7 +635,7 @@ class ClaimExpenses:
             })
 
         sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
-        
+
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
@@ -988,14 +960,8 @@ def get_document_list():
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    return expense_instance.create_booking_and_payment_file()
-
-
-def create_booking_and_payment_file_v2():
-
-    expense_instance = ClaimExpenses()
     has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file_v2()
+        expense_instance.create_booking_and_payment_file()
     )
 
     if has_expenses:
