@@ -386,7 +386,6 @@ class ClaimExpenses:
 
         return retval, 200
 
-
     def create_booking_file(self, expense_claims_to_export, export_filename, document_date):
         """
         Create a booking file
@@ -634,8 +633,8 @@ class ClaimExpenses:
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-        all_exports_files['file_list'] = sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
 
+        all_exports_files['file_list'] = sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
@@ -960,22 +959,8 @@ def get_document_list():
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file()
-    )
+    return expense_instance.create_booking_and_payment_file()
 
-    if has_expenses:
-        response = make_response(export_file, 200)
-        response.headers = {
-            "Content-Type": "text/csv",
-            "Content-Disposition":
-                f"attachment; filename={export_id}.csv",
-            "Authorization": "",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        }
-        return response
-    else:
-        return export_file
 
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
