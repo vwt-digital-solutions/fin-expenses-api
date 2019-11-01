@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 import os
 import requests
@@ -276,7 +277,7 @@ class ClaimExpenses:
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
-            old_expense = self.ds_client.get(exp_key)
+            old_expense = copy.deepcopy(expense)
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
@@ -309,7 +310,7 @@ class ClaimExpenses:
         if need_to_save:
             self.ds_client.put(expense)
 
-    def update_exported_expenses(self, expenses_exported, document_date, document_time):
+    def update_exported_expenses(self, expenses_exported, document_time):
         """
         Do some sanity changed to keep data updated.
         :param document_type: A Payment or a booking file
@@ -359,34 +360,37 @@ class ClaimExpenses:
         # make a selection of expenses to export
         expense_claims_to_export = self.filter_expenses_to_export ()
 
+        # if nothing to report, return immediate
         if not expense_claims_to_export:
-            return(False, None, jsonify({"Info": "No Exports Available"}))
+            return {"Info": "No Exports Available"}, 200
 
-        now = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        document_date = f"{now.day}{now:%m}{now.year}"
-        document_export_date = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}-".__add__(
-            document_date
-        )
-        document_time = now.isoformat(timespec="seconds")
+        now = datetime.datetime.utcnow()
 
-        result = self.create_booking_file(expense_claims_to_export, document_export_date, document_date)
-        result2 = self.create_payment_file(expense_claims_to_export, document_export_date, document_time)
+        local_tz = pytz.timezone(VWT_TIME_ZONE)
+        local_now = now.replace(tzinfo=pytz.utc).astimezone(local_tz)
 
-        if not result2[0]:
-            return result2
+        export_file_name = now.strftime('%Y%m%d%H%M%S')
 
-        self.update_exported_expenses(expense_claims_to_export, document_export_date, document_time)
+        result = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
+        result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
-        return result
+        if not result[0]:
+            return {"Info": "Failed to upload payment file"}, 503
+       
+        retval = {"file_list" : [
+                     {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
+                      "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
+                      "export_date": now.isoformat(timespec="seconds")+'Z'}]}
 
+        self.update_exported_expenses(expense_claims_to_export, now)
 
-    def create_booking_file(self, expense_claims_to_export, document_export_date, document_date):
+        return retval, 200
+
+    def create_booking_file(self, expense_claims_to_export, export_filename, document_date):
         """
         Create a booking file
         :return:
         """
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-
         booking_file_data = []
         for expense_detail in expense_claims_to_export:
             try:
@@ -413,9 +417,9 @@ class ClaimExpenses:
             booking_file_data.append(
                 {
                     "BoekingsomschrijvingBron": boekingsomschrijving_bron,
-                    "Document-datum": datetime.datetime.strptime(document_date, "%d%m%Y").strftime("%d%m%Y"),
-                    "Boekings-jaar": today.year,
-                    "Periode": today.month,
+                    "Document-datum": document_date.strftime("%d%m%Y"),
+                    "Boekings-jaar": document_date.strftime("%Y"),
+                    "Periode": document_date.strftime("%m"),
                     "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
                     "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
                     "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
@@ -447,27 +451,25 @@ class ClaimExpenses:
         bucket = self.cs_client.get_bucket(self.bucket_name)
 
         blob = bucket.blob(
-            f"exports/booking_file/{today.year}/{today.month}/{today.day}/{document_export_date}.csv"
+            f"exports/booking_file/{document_date.year}/{document_date.month}/{document_date.day}/{export_filename}"
         )
 
         blob.upload_from_string(booking_file, content_type="text/csv")
 
-        location = f"{today.month}_{today.day}_{document_export_date}.csv"
-        return True, document_export_date, booking_file
+        return True, export_filename, booking_file
 
 
     def _gather_creditor_name(self, expense):
         return expense["employee"]["afas_data"].get("Naam")
 
-    def create_payment_file(self, expense_claims_to_export, document_export_date, document_time):
+    def create_payment_file(self, expense_claims_to_export, export_filename, document_time):
 
         """
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
         ==> status -- 'booking-file-created'
         """
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
+        booking_timestamp_id = document_time.strftime("%Y%m%d%H%M%S")
 
-        booking_timestamp_id = today.strftime("%Y%m%d%H%M%S")
         message_id = f"200/DEC/{booking_timestamp_id}"
         payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
@@ -484,7 +486,7 @@ class ClaimExpenses:
         # Group Header
         header = ET.SubElement(customer_header, "GrpHdr")
         ET.SubElement(header, "MsgId").text = message_id
-        ET.SubElement(header, "CreDtTm").text = document_time
+        ET.SubElement(header, "CreDtTm").text = document_time.isoformat(timespec="seconds")
         ET.SubElement(header, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
@@ -505,9 +507,7 @@ class ClaimExpenses:
         payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
         ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.split("T")[
-            0
-        ]
+        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.date().isoformat()
 
         # Debitor Information
         payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
@@ -563,15 +563,14 @@ class ClaimExpenses:
             ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
         payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-        payment_file_name = f"/tmp/payment_file_{document_export_date}"
+        payment_file_name = f"/tmp/payment_file_{export_filename}"
         open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
-
 
         # Save File to CloudStorage
         bucket = self.cs_client.get_bucket(self.bucket_name)
 
         blob = bucket.blob(
-            f"exports/payment_file/{today.year}/{today.month}/{today.day}/{document_export_date}"
+            f"exports/payment_file/{document_time.year}/{document_time.month}/{document_time.day}/{export_filename}"
         )
 
         # Upload file to Blob Storage
@@ -607,7 +606,6 @@ class ClaimExpenses:
         cert = (cert_file_path, key_file_path)
 
         xml_file = payment_file_name
-        headers = {'Content-Type':'text/xml'}
 
         with open(xml_file) as xml:
             r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
@@ -615,45 +613,40 @@ class ClaimExpenses:
         if not r.ok:
             return (False, None, jsonify({"Info": "Failed to upload payment file"}))
 
-        return (True, document_export_date, payment_file)
+        return (True, export_filename, payment_file)
 
 
     def get_all_documents_list(self):
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        all_exports_files = []
+        all_exports_files = {'file_list':[]}
         blobs = expenses_bucket.list_blobs(
             prefix=f"exports/booking_file"
         )
 
-        base_url = request.host_url
-
-        if 'GAE_INSTANCE' in os.environ:
-            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
-
         for blob in blobs:
-            base_file = os.path.basename(blob.name).split('.')[0]
-            file_date = blob.time_created.strftime('%-m_%-d')
-            file = f"{file_date}_{base_file}"
+            name=blob.name.split('/')[-1]
 
-            all_exports_files.append({
-                "export_date" : blob.time_created,
-                "booking_file": f"{base_url}finances/expenses/documents/{file}.csv/kinds/booking_file",
-                "payment_file": f"{base_url}finances/expenses/documents/{file}/kinds/payment_file"
-             })
+            all_exports_files['file_list'].append({
+                "export_date" : datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
+                "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
+                "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
+            })
 
-        return sorted(all_exports_files, key=lambda k: k['export_date'], reverse=True)
+
+        all_exports_files['file_list'] = sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
+        return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
-        today = pytz.timezone(VWT_TIME_ZONE).localize(datetime.datetime.now())
-        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        month, day, file_name = document_id.split("_")
-        with tempfile.NamedTemporaryFile(delete=False) as export_file:
-            expenses_bucket.blob(
-                f"exports/{document_type}/{today.year}/{month}/{day}/{file_name}"
-            ).download_to_file(export_file)
-            export_file.close()
+        document_date = datetime.datetime.strptime (document_id, '%Y%m%d%H%M%S' )
+        expenses_bucket = self.cs_client.get_bucket ( self.bucket_name )
+
+        with tempfile.NamedTemporaryFile ( delete=False ) as export_file:
+            expenses_bucket.blob (
+                f"exports/{document_type}/{document_date.year}/{document_date.month}/{document_date.day}/{document_id}"
+            ).download_to_file ( export_file )
+            export_file.close ()
             return export_file
 
     def _create_expenses_query(self):
@@ -913,7 +906,7 @@ def get_cost_types():  # noqa: E501
     return expense_instance.get_cost_types()
 
 
-def get_document(document_date, document_type):
+def get_document(document_id, document_type):
     """
     Get a requested booking or payment file from a booking or payment identity in the format of
     1. Booking File => month_day_file_name => 7_12_12:34-12-07-2019
@@ -923,8 +916,9 @@ def get_document(document_date, document_type):
     :return"""
 
     expense_instance = ClaimExpenses()
-    export_file = expense_instance.get_single_document_reference(document_id=document_date, document_type=document_type)
+    export_file = expense_instance.get_single_document_reference(document_id=document_id, document_type=document_type)
     # Separate Content
+
     if document_type == 'payment_file':
         content_response = {
             "content_type": "application/xml",
@@ -941,17 +935,16 @@ def get_document(document_date, document_type):
         logger.error(f'Invalid document type requested [{document_type}]')
         return make_response(f'Invalid document type requested [{document_type}]', 400)
 
-    # export_file.delete() # 'export_file' is bool here?????
+
     mime_type = content_response['content_type']
     return Response(
         content_response["file"],
         headers={
             "Content-Type": f"{mime_type}",
-            "Content-Disposition": f"attachment; filename={document_date}.{mime_type.split('/')[1]}",
+            "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
     )
-
 
 def get_document_list():
     """
@@ -963,46 +956,11 @@ def get_document_list():
     all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
 
-
 def create_booking_and_payment_file():
 
     expense_instance = ClaimExpenses()
-    has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file()
-    )
+    return expense_instance.create_booking_and_payment_file()
 
-    if has_expenses:
-        response = make_response(export_file, 200)
-        response.headers = {
-            "Content-Type": "text/csv",
-            "Content-Disposition":
-                f"attachment; filename={export_id}.csv",
-            "Authorization": "",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        }
-        return response
-    else:
-        return export_file
-
-def create_booking_and_payment_file_v2():
-
-    expense_instance = ClaimExpenses()
-    has_expenses, export_id, export_file = (
-        expense_instance.create_booking_and_payment_file()
-    )
-
-    if has_expenses:
-        response = make_response(export_file, 200)
-        response.headers = {
-            "Content-Type": "text/csv",
-            "Content-Disposition":
-                f"attachment; filename={export_id}.csv",
-            "Authorization": "",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-        }
-        return response
-    else:
-        return export_file
 
 def get_managers_expenses():
     expense_instance = DepartmentExpenses()
@@ -1141,4 +1099,12 @@ def add_attachment_employee(expenses_id):
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
+
+def api_base_url():
+    base_url = request.host_url
+
+    if 'GAE_INSTANCE' in os.environ:
+        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+
+    return base_url
 
