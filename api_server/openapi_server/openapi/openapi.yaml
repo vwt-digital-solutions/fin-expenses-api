@@ -99,6 +99,7 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /employees/{employee_id}/expenses:
     get:
       parameters:
