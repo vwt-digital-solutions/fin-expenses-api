@@ -14,9 +14,10 @@ def process_approve(request):
         pending = int(request.args['pending'])
         logging.info(f'Auto-approve claims older than {pending} business days')
         business_pending = shift_to_business_days(pending)
-        boundary = int((datetime.datetime.now() - datetime.timedelta(days=business_pending))
-                       .timestamp()) * 1000
-        query.add_filter('date_of_claim', '<=', boundary)
+        boundary = (datetime.datetime.now() - datetime.timedelta(
+            days=business_pending)).isoformat(timespec="seconds") + 'Z'
+
+        query.add_filter('claim_date', '<=', boundary)
         # only single une-quality criteria, must check programmatically after
         # query.add_filter('status.text', '>', 'approved')
         # query.add_filter('status.text', '<', 'approved')
