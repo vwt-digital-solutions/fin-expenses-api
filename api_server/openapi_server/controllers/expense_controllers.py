@@ -332,9 +332,15 @@ class ClaimExpenses:
         :param iban:
         :return:
         """
-        detail = iban.split(" ")
-        bank_data = config.BIC_NUMBERS
-        bic = next(r["bic"] for r in bank_data if r["identifier"] == detail[1])
+        detail = iban.replace(" ", "")
+
+        if len(detail) > 8:
+            bank_code = detail[4:8]
+            bank_data = config.BIC_NUMBERS
+            bic = next((r["bic"] for r in bank_data if r["identifier"] == bank_code), None)
+        else:
+            bic = None
+
         if bic:
             return bic
         else:
