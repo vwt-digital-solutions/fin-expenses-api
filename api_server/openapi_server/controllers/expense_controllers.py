@@ -334,10 +334,10 @@ class ClaimExpenses:
         """
         detail = iban.replace(" ", "")
 
-        if len(detail) > 7:
-            bank_code = detail[3:7]
+        if len(detail) > 8:
+            bank_code = detail[4:8]
             bank_data = config.BIC_NUMBERS
-            bic = next(r["bic"] for r in bank_data if r["identifier"] == bank_code)
+            bic = next((r["bic"] for r in bank_data if r["identifier"] == bank_code), None)
         else:
             bic = None
 
