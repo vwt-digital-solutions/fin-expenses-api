@@ -364,7 +364,7 @@ class ClaimExpenses:
 
     def create_booking_and_payment_file(self):
         # make a selection of expenses to export
-        expense_claims_to_export = self.filter_expenses_to_export ()
+        expense_claims_to_export = self.filter_expenses_to_export()
 
         # if nothing to report, return immediate
         if not expense_claims_to_export:
@@ -382,8 +382,8 @@ class ClaimExpenses:
 
         if not result[0]:
             return {"Info": "Failed to upload payment file"}, 503
-       
-        retval = {"file_list" : [
+
+        retval = {"file_list": [
                      {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
                       "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
                       "export_date": now.isoformat(timespec="seconds")+'Z'}]}
@@ -403,7 +403,7 @@ class ClaimExpenses:
                 department_number_aka_afdeling_code = expense_detail["employee"][
                     "afas_data"
                 ]["Afdeling Code"]
-            except Exception as e:
+            except Exception:
                 department_number_aka_afdeling_code = 0000
             company_number = self.ds_client.get(
                 self.ds_client.key(
@@ -463,7 +463,6 @@ class ClaimExpenses:
         blob.upload_from_string(booking_file, content_type="text/csv")
 
         return True, export_filename, booking_file
-
 
     def _gather_creditor_name(self, expense):
         return expense["employee"]["afas_data"].get("Naam")
@@ -588,71 +587,74 @@ class ClaimExpenses:
             encoding="utf-8"
         )
 
-        ## Upload file to Power2Pay
-        client = kms_v1.KeyManagementServiceClient()
-
-        # Get the passphrase for the private key
-        pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY_PASSPHRASE)
-        response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
-
-        passphrase = response.plaintext.decode("utf-8").replace('\n', '')
-
-        # Get the private key and decode using passphrase
-        pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1', os.environ['GOOGLE_CLOUD_PROJECT']+'-keyring', config.POWER2PAY_KEY)
-        response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
-
-        # Write un-encrypted key to file (for requests library)
-        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
-
-        key_file_path = "/tmp/key.pem"
-        open(key_file_path, "w").write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
-
-        # Create the HTTP POST request
-        cert_file_path = "power2pay-cert.pem"
-        cert = (cert_file_path, key_file_path)
-
-        xml_file = payment_file_name
-
-        with open(xml_file) as xml:
-            r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
-
-        if not r.ok:
-            return (False, None, jsonify({"Info": "Failed to upload payment file"}))
+        if config.POWER2PAY_URL:
+            if not self.send_to_power2pay(payment_file_name):
+                return (False, None, jsonify({"Info": "Failed to upload payment file"}))
+            else:
+                logger.warning("Error sending to Power2Pay")
+        else:
+            logger.warning("Sending to Power2Pay is disabled")
 
         return (True, export_filename, payment_file)
 
+    def send_to_power2pay(self, payment_file_name):
+        # Upload file to Power2Pay
+        client = kms_v1.KeyManagementServiceClient()
+        # Get the passphrase for the private key
+        pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
+                                                    os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
+                                                    config.POWER2PAY_KEY_PASSPHRASE)
+        response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
+        passphrase = response.plaintext.decode("utf-8").replace('\n', '')
+        # Get the private key and decode using passphrase
+        pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
+                                             os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring', config.POWER2PAY_KEY)
+        response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
+        # Write un-encrypted key to file (for requests library)
+        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
+        key_file_path = "/tmp/key.pem"
+        open(key_file_path, "w").write(
+            str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+        # Create the HTTP POST request
+        cert_file_path = "power2pay-cert.pem"
+        cert = (cert_file_path, key_file_path)
+        xml_file = payment_file_name
+        with open(xml_file) as xml:
+            r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
+
+        logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
+        return r.ok
 
     def get_all_documents_list(self):
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        all_exports_files = {'file_list':[]}
+        all_exports_files = {'file_list': []}
         blobs = expenses_bucket.list_blobs(
             prefix=f"exports/booking_file"
         )
 
         for blob in blobs:
-            name=blob.name.split('/')[-1]
+            name = blob.name.split('/')[-1]
 
             all_exports_files['file_list'].append({
-                "export_date" : datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
+                "export_date": datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
                 "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-
-        all_exports_files['file_list'] = sorted (all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True )
+        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True)
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
 
-        document_date = datetime.datetime.strptime (document_id, '%Y%m%d%H%M%S' )
-        expenses_bucket = self.cs_client.get_bucket ( self.bucket_name )
+        document_date = datetime.datetime.strptime(document_id, '%Y%m%d%H%M%S')
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        with tempfile.NamedTemporaryFile ( delete=False ) as export_file:
-            expenses_bucket.blob (
+        with tempfile.NamedTemporaryFile(delete=False) as export_file:
+            expenses_bucket.blob(
                 f"exports/{document_type}/{document_date.year}/{document_date.month}/{document_date.day}/{document_id}"
-            ).download_to_file ( export_file )
-            export_file.close ()
+            ).download_to_file(export_file)
+            export_file.close()
             return export_file
 
     def _create_expenses_query(self):
@@ -941,7 +943,6 @@ def get_document(document_id, document_type):
         logger.error(f'Invalid document type requested [{document_type}]')
         return make_response(f'Invalid document type requested [{document_type}]', 400)
 
-
     mime_type = content_response['content_type']
     return Response(
         content_response["file"],
@@ -952,6 +953,7 @@ def get_document(document_id, document_type):
         },
     )
 
+
 def get_document_list():
     """
     Get a list of all documents ever created
@@ -961,6 +963,7 @@ def get_document_list():
     expense_instance = ClaimExpenses()
     all_exports = expense_instance.get_all_documents_list()
     return jsonify(all_exports)
+
 
 def create_booking_and_payment_file():
 
@@ -1106,6 +1109,7 @@ def add_attachment_employee(expenses_id):
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
+
 def api_base_url():
     base_url = request.host_url
 
@@ -1113,4 +1117,3 @@ def api_base_url():
         base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
-
