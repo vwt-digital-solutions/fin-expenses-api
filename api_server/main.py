@@ -13,4 +13,4 @@ logging.basicConfig(level=logging.INFO)
 
 AuditLog(app)
 CacheControl(app)
-SSLify(app, permanent=True)
+SSLify(app.app, permanent=True)
