@@ -2,7 +2,6 @@
 import connexion
 # from flask import request, g
 from flask_cors import CORS
-from flask_sslify import SSLify
 
 from openapi_server import encoder
 
@@ -19,7 +18,6 @@ app.add_api('openapi.yaml',
             arguments={'title': 'P2P: Expenses API'},
             pythonic_params=True)
 CORS(app.app)
-SSLify(app.app, permanent=True)
 
 # @app.app.before_request
 # def before_request():
