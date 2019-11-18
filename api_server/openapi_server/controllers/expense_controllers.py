@@ -399,17 +399,17 @@ class ClaimExpenses:
         """
         booking_file_data = []
         for expense_detail in expense_claims_to_export:
-            try:
-                department_number_aka_afdeling_code = expense_detail["employee"][
-                    "afas_data"
-                ]["Afdeling Code"]
-            except Exception:
-                department_number_aka_afdeling_code = 0000
-            company_number = self.ds_client.get(
-                self.ds_client.key(
-                    "Departments", department_number_aka_afdeling_code
-                )
-            )
+            # try:
+            #     department_number_aka_afdeling_code = expense_detail["employee"][
+            #         "afas_data"
+            #     ]["Afdeling Code"]
+            # except Exception:
+            #     department_number_aka_afdeling_code = 0000
+            # company_number = self.ds_client.get(
+            #     self.ds_client.key(
+            #         "Departments", department_number_aka_afdeling_code
+            #     )
+            # )
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
             trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
@@ -433,12 +433,9 @@ class ClaimExpenses:
                     "Bron Produkt": "000",
                     "Bron EC": "000",
                     "Bron VP": "00",
-                    "Doel-bedrijfs-nummer": company_number["Administratief Bedrijf"].split("_")[0]
-                    if (company_number is not None
-                        and ("Administratief Bedrijf" in company_number))
-                    else "",
+                    "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Doel-bedrijfs-nummer"],
                     "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
-                    "Doel Org code": department_number_aka_afdeling_code,
+                    "Doel Org code": config.BOOKING_FILE_STATICS["Doel-org-code"],
                     "Doel Proces": "000",
                     "Doel Produkt": "000",
                     "Doel EC": "000",
