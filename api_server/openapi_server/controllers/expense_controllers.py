@@ -24,7 +24,6 @@ import pandas as pd
 import connexion
 from flask import make_response, jsonify, Response, g, request
 from google.cloud import datastore, storage, kms_v1
-from google.appengine.api import mail
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
@@ -250,13 +249,6 @@ class ClaimExpenses:
                     }
                 )
                 self.ds_client.put(entity)
-
-                # Only sent e-mail notification when expense amount is higher than or equal to 50
-                if data.amount >= 50:
-                    self.sent_email_notification(
-                        'add_expense', self.employee_info["unique_name"],
-                        entity.key.id_or_name)
-
                 return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
@@ -703,54 +695,6 @@ class ClaimExpenses:
             }
         )
         self.ds_client.put(entity)
-
-    def sent_email_notification(self, email_type, employee_email, expense_id):
-        context = None
-
-        if email_type == 'add_expense':
-            context = {
-                "subject": 'Er staat een nieuwe declaratie voor je klaar!',
-                "body": """Beste {},
-                
-                Er staat een nieuwe declaratie voor je klaar in de declaratie-app om te beoordelen.
-                Navigeer naar https://declaratie.app.vwtelecom.com/ om deze te bekijken.
-                
-                Met vriendelijke groeten,
-                Financiën"""
-            }
-
-        if context and 'subject' in context and 'body' in context:
-            employee_key = self.ds_client.key("AFAS_HRM", employee_email)
-            employee = self.ds_client.get(employee_key)
-
-            if employee and 'Manager_personeelsnummer' in employee:
-                query = self.ds_client.query(kind="AFAS_HRM")
-                query.add_filter('Personeelsnummer', '=',
-                                 employee['Manager_personeelsnummer'])
-                ds_manager = list(query.fetch(limit=1))
-
-                if ds_manager is not None and 'email_address' in ds_manager[0]:
-                    recipient = ds_manager[0]['email_address']
-                    first_name = ds_manager[0]['Voornaam'] if \
-                        'Voornaam' in ds_manager[0] else 'ontvanger'
-
-                    message = mail.EmailMessage(
-                        sender=config.MAIL_SENDER_ADDRESS,
-                        subject=context.subject)
-
-                    message.to = recipient
-                    message.body = context.body.format(first_name)
-                    message.send()
-                    logging.info(
-                        f"Expense notification [{expense_id}]: e-mail has been sent")
-                else:
-                    logging.error(
-                        f"Expense notification [{expense_id}]: employee's manager can't be found")
-            else:
-                logging.error(f"Expense notification [{expense_id}]: employee can't be found")
-        else:
-            logging.error(
-                f"Expense notification [{expense_id}]: message is empty")
 
 
 class EmployeeExpenses(ClaimExpenses):
