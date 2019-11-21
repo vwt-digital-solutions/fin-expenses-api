@@ -60,7 +60,8 @@ class ClaimExpenses:
             subject=config.GMAIL_SUBJECT_ADDRESS)
 
         self.gmail_service = googleapiclient.discovery.build(
-            'gmail', 'v1', credentials=delegated_credentials)
+            'gmail', 'v1', credentials=delegated_credentials,
+            cache_discovery=False)
 
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
