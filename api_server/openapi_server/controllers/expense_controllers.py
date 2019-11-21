@@ -54,8 +54,8 @@ class ClaimExpenses:
 
     def __init__(self):
         # Decrypt Gmail SDK credentials & init G Mail service
-        delegated_credentials = service_account.Credentials.from_service_account_file(
-            self.decrypt_gmailsdk_credentials(),
+        delegated_credentials = service_account.Credentials.from_service_account_info(
+            json.loads(self.decrypt_gmailsdk_credentials()),
             scopes=['https://www.googleapis.com/auth/gmail.send'],
             subject=config.GMAIL_SUBJECT_ADDRESS)
 
@@ -77,11 +77,7 @@ class ClaimExpenses:
         decrypt_response = kms_client.decrypt(
             pk_passphrase, open(f"{file_name}.enc", "rb").read())
 
-        with open(f"{file_name}.json", 'w') as outfile:
-            outfile.write(
-                decrypt_response.plaintext.decode("utf-8").replace('\n', ''))
-
-        return f"{file_name}.json"
+        return decrypt_response.plaintext.decode("utf-8").replace('\n', '')
 
     def get_employee_afas_data(self, unique_name):
         """
