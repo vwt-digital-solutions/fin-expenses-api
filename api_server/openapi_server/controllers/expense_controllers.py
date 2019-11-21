@@ -22,8 +22,13 @@ import logging
 import pandas as pd
 
 import connexion
+import googleapiclient.discovery
 from flask import make_response, jsonify, Response, g, request
 from google.cloud import datastore, storage, kms_v1
+from google.oauth2 import service_account
+from apiclient import errors
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
@@ -48,10 +53,35 @@ class ClaimExpenses:
     """
 
     def __init__(self):
+        # Decrypt Gmail SDK credentials & init G Mail service
+        delegated_credentials = service_account.Credentials.from_service_account_file(
+            self.decrypt_gmailsdk_credentials(),
+            scopes=['https://www.googleapis.com/auth/gmail.send'],
+            subject=config.GMAIL_SUBJECT_ADDRESS)
+
+        self.gmail_service = googleapiclient.discovery.build(
+            'gmail', 'v1', credentials=delegated_credentials)
+
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
+
+    def decrypt_gmailsdk_credentials(self):
+        file_name = 'gmailsdk_credentials'
+        kms_client = kms_v1.KeyManagementServiceClient()
+        pk_passphrase = kms_client.crypto_key_path_path(
+            os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
+            os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
+            config.GMAIL_CREDENTIALS_KEY)
+        decrypt_response = kms_client.decrypt(
+            pk_passphrase, open(f"{file_name}.enc", "rb").read())
+
+        with open(f"{file_name}.json", 'w') as outfile:
+            outfile.write(
+                decrypt_response.plaintext.decode("utf-8").replace('\n', ''))
+
+        return f"{file_name}.json"
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -249,6 +279,12 @@ class ClaimExpenses:
                     }
                 )
                 self.ds_client.put(entity)
+
+                if ready_text == 'ready_for_manager':
+                    self.send_email_notification(
+                        'add_expense', self.employee_info["unique_name"],
+                        entity.key.id_or_name)
+
                 return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
@@ -695,6 +731,90 @@ class ClaimExpenses:
             }
         )
         self.ds_client.put(entity)
+
+    def send_message_internal(self, user_id, message, expense_id):
+        try:
+            message = (self.gmail_service.users().messages().send(
+                userId=user_id, body=message).execute())
+            logging.info(
+                f"Email '{message['id']}' for expense '{expense_id}' " +
+                "has been sent")
+        except errors.HttpError as error:
+            logging.error('An error occurred: %s' % error)
+
+    def create_message(self, to, mail_body):
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['From'] = config.GMAIL_SENDER_ADDRESS
+            msg['Subject'] = mail_body['subject']
+            msg['Reply-To'] = mail_body['reply_to']
+            msg['To'] = to
+
+            with open('gmail_template.html', 'r') as mail_template:
+                msg_html = mail_template.read()
+
+            msg_html = msg_html.replace('$MAIL_TITLE',
+                                        mail_body['mail_title'])
+            msg_html = msg_html.replace('$MAIL_BODY',
+                                        mail_body['mail_body'])
+
+            msg.attach(MIMEText(msg_html, 'html'))
+            raw = base64.urlsafe_b64encode(msg.as_bytes())
+            raw = raw.decode()
+            body = {'raw': raw}
+            return body
+        except Exception as error:
+            logging.error('An error occurred: %s' % error)
+
+    def send_message(self, expense_id, to, mail_body):
+        new_message = self.create_message(to, mail_body)
+        self.send_message_internal("me", new_message, expense_id)
+
+    def send_email_notification(self, mail_type, unique_email, expense_id):
+        mail_body = None
+        if mail_type == 'add_expense':
+            mail_body = {
+                'from': config.GMAIL_SENDER_ADDRESS,
+                'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
+                'subject': 'Er staat een nieuwe declaratie voor je klaar!',
+                'mail_title': 'Nieuwe declaratie',
+                'mail_body': """Beste {},<br /><br />
+                Er staat een nieuwe declaratie voor je klaar in de <a href="{}">Declaratie-app</a> om te beoordelen.
+                Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                Met vriendelijke groeten,<br />FSSC"""
+            }
+
+        if mail_body:
+            employee_key = self.ds_client.key('AFAS_HRM', unique_email)
+            employee = self.ds_client.get(employee_key)
+
+            if employee and 'Manager_personeelsnummer' in employee:
+                query = self.ds_client.query(kind='AFAS_HRM')
+                query.add_filter('Personeelsnummer', '=',
+                                 employee['Manager_personeelsnummer'])
+                db_data = list(query.fetch(limit=1))
+
+                if db_data and len(db_data) > 0 and \
+                        'email_address' in db_data[0]:
+                    manager = db_data[0]
+                    logging.info(f"Creating email for expense '{expense_id}'")
+
+                    mail_body['mail_body'] = mail_body['mail_body'].format(
+                        manager['Voornaam'], config.GMAIL_ADDEXPENSE_URL,
+                        config.GMAIL_ADDEXPENSE_REPLYTO,
+                        config.GMAIL_ADDEXPENSE_REPLYTO
+                    )
+                    self.send_message(expense_id, manager['email_address'],
+                                      mail_body)
+                else:
+                    logging.info(
+                        f"No manager found for employee '{unique_email}', " +
+                        "no email sent")
+            else:
+                logging.info(
+                    f"Employee '{unique_email}' not found, no email sent")
+        else:
+            logging.info(f"No mail body found for expense '{expense_id}'")
 
 
 class EmployeeExpenses(ClaimExpenses):
