@@ -776,7 +776,7 @@ class ClaimExpenses:
                 'subject': 'Er staat een nieuwe declaratie voor je klaar!',
                 'mail_title': 'Nieuwe declaratie',
                 'mail_body': """Beste {},<br /><br />
-                Er staat een nieuwe declaratie voor je klaar in de Declaratie-app om te beoordelen, log in om deze te bekijken.
+                Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
                 Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
                 Met vriendelijke groeten,<br />FSSC"""
             }
