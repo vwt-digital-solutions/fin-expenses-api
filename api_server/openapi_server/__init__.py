@@ -19,7 +19,6 @@ app.add_api('openapi.yaml',
             pythonic_params=True)
 CORS(app.app)
 
-
 # @app.app.before_request
 # def before_request():
 #     g.user = ''

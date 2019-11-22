@@ -22,8 +22,13 @@ import logging
 import pandas as pd
 
 import connexion
+import googleapiclient.discovery
 from flask import make_response, jsonify, Response, g, request
 from google.cloud import datastore, storage, kms_v1
+from google.oauth2 import service_account
+from apiclient import errors
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
@@ -48,10 +53,32 @@ class ClaimExpenses:
     """
 
     def __init__(self):
+        # Decrypt Gmail SDK credentials & init G Mail service
+        delegated_credentials = service_account.Credentials.from_service_account_info(
+            json.loads(self.decrypt_gmailsdk_credentials()),
+            scopes=['https://www.googleapis.com/auth/gmail.send'],
+            subject=config.GMAIL_SUBJECT_ADDRESS)
+
+        self.gmail_service = googleapiclient.discovery.build(
+            'gmail', 'v1', credentials=delegated_credentials,
+            cache_discovery=False)
+
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStore
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
+
+    def decrypt_gmailsdk_credentials(self):
+        file_name = 'gmailsdk_credentials'
+        kms_client = kms_v1.KeyManagementServiceClient()
+        pk_passphrase = kms_client.crypto_key_path_path(
+            os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
+            os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
+            config.GMAIL_CREDENTIALS_KEY)
+        decrypt_response = kms_client.decrypt(
+            pk_passphrase, open(f"{file_name}.enc", "rb").read())
+
+        return decrypt_response.plaintext.decode("utf-8").replace('\n', '')
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -249,6 +276,12 @@ class ClaimExpenses:
                     }
                 )
                 self.ds_client.put(entity)
+
+                if ready_text == 'ready_for_manager':
+                    self.send_email_notification(
+                        'add_expense', afas_data,
+                        entity.key.id_or_name)
+
                 return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
@@ -399,17 +432,17 @@ class ClaimExpenses:
         """
         booking_file_data = []
         for expense_detail in expense_claims_to_export:
-            try:
-                department_number_aka_afdeling_code = expense_detail["employee"][
-                    "afas_data"
-                ]["Afdeling Code"]
-            except Exception:
-                department_number_aka_afdeling_code = 0000
-            company_number = self.ds_client.get(
-                self.ds_client.key(
-                    "Departments", department_number_aka_afdeling_code
-                )
-            )
+            # try:
+            #     department_number_aka_afdeling_code = expense_detail["employee"][
+            #         "afas_data"
+            #     ]["Afdeling Code"]
+            # except Exception:
+            #     department_number_aka_afdeling_code = 0000
+            # company_number = self.ds_client.get(
+            #     self.ds_client.key(
+            #         "Departments", department_number_aka_afdeling_code
+            #     )
+            # )
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
             trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
@@ -433,12 +466,9 @@ class ClaimExpenses:
                     "Bron Produkt": "000",
                     "Bron EC": "000",
                     "Bron VP": "00",
-                    "Doel-bedrijfs-nummer": company_number["Administratief Bedrijf"].split("_")[0]
-                    if (company_number is not None
-                        and ("Administratief Bedrijf" in company_number))
-                    else "",
+                    "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Doel-bedrijfs-nummer"],
                     "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
-                    "Doel Org code": department_number_aka_afdeling_code,
+                    "Doel Org code": config.BOOKING_FILE_STATICS["Doel-org-code"],
                     "Doel Proces": "000",
                     "Doel Produkt": "000",
                     "Doel EC": "000",
@@ -698,6 +728,89 @@ class ClaimExpenses:
             }
         )
         self.ds_client.put(entity)
+
+    def send_message_internal(self, user_id, message, expense_id):
+        try:
+            message = (self.gmail_service.users().messages().send(
+                userId=user_id, body=message).execute())
+            logging.info(
+                f"Email '{message['id']}' for expense '{expense_id}' " +
+                "has been sent")
+        except errors.HttpError as error:
+            logging.error('An error occurred: %s' % error)
+
+    def create_message(self, to, mail_body):
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['From'] = config.GMAIL_SENDER_ADDRESS
+            msg['Subject'] = mail_body['subject']
+            msg['Reply-To'] = mail_body['reply_to']
+            msg['To'] = to
+
+            with open('gmail_template.html', 'r') as mail_template:
+                msg_html = mail_template.read()
+
+            msg_html = msg_html.replace('$MAIL_TITLE',
+                                        mail_body['mail_title'])
+            msg_html = msg_html.replace('$MAIL_BODY',
+                                        mail_body['mail_body'])
+
+            msg.attach(MIMEText(msg_html, 'html'))
+            raw = base64.urlsafe_b64encode(msg.as_bytes())
+            raw = raw.decode()
+            body = {'raw': raw}
+            return body
+        except Exception as error:
+            logging.error('An error occurred: %s' % error)
+
+    def send_message(self, expense_id, to, mail_body):
+        new_message = self.create_message(to, mail_body)
+        self.send_message_internal("me", new_message, expense_id)
+
+    def send_email_notification(self, mail_type, afas_data, expense_id):
+        mail_body = None
+        if mail_type == 'add_expense':
+            mail_body = {
+                'from': config.GMAIL_SENDER_ADDRESS,
+                'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
+                'subject': 'Er staat een nieuwe declaratie voor je klaar!',
+                'mail_title': 'Nieuwe declaratie',
+                'mail_body': """Beste {},<br /><br />
+                Er staat een nieuwe declaratie voor je klaar in de Declaratie-app om te beoordelen, log in om deze te bekijken.
+                Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                Met vriendelijke groeten,<br />FSSC"""
+            }
+
+        if mail_body:
+            if afas_data and 'Manager_personeelsnummer' in afas_data:
+                query = self.ds_client.query(kind='AFAS_HRM')
+                query.add_filter('Personeelsnummer', '=',
+                                 afas_data['Manager_personeelsnummer'])
+                db_data = list(query.fetch(limit=1))
+
+                if db_data and len(db_data) > 0 and \
+                        'email_address' in db_data[0]:
+                    manager = db_data[0]
+                    logging.info(f"Creating email for expense '{expense_id}'")
+
+                    manager_naam = manager['Voornaam'] \
+                        if 'Voornaam' in manager else 'ontvanger'
+
+                    mail_body['mail_body'] = mail_body['mail_body'].format(
+                        manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
+                        config.GMAIL_ADDEXPENSE_REPLYTO
+                    )
+                    self.send_message(expense_id, manager['email_address'],
+                                      mail_body)
+                else:
+                    logging.info(
+                        "No manager found for employee '" +
+                        afas_data['email_address'] + "', no email sent")
+            else:
+                logging.info(
+                    f"No employee data found for expense '{expense_id}'")
+        else:
+            logging.info(f"No mail body found for expense '{expense_id}'")
 
 
 class EmployeeExpenses(ClaimExpenses):
