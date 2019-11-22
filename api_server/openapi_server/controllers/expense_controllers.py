@@ -279,7 +279,7 @@ class ClaimExpenses:
 
                 if ready_text == 'ready_for_manager':
                     self.send_email_notification(
-                        'add_expense', self.employee_info["unique_name"],
+                        'add_expense', afas_data,
                         entity.key.id_or_name)
 
                 return make_response(jsonify(entity.key.id_or_name), 201)
@@ -767,7 +767,7 @@ class ClaimExpenses:
         new_message = self.create_message(to, mail_body)
         self.send_message_internal("me", new_message, expense_id)
 
-    def send_email_notification(self, mail_type, unique_email, expense_id):
+    def send_email_notification(self, mail_type, afas_data, expense_id):
         mail_body = None
         if mail_type == 'add_expense':
             mail_body = {
@@ -776,19 +776,16 @@ class ClaimExpenses:
                 'subject': 'Er staat een nieuwe declaratie voor je klaar!',
                 'mail_title': 'Nieuwe declaratie',
                 'mail_body': """Beste {},<br /><br />
-                Er staat een nieuwe declaratie voor je klaar in de <a href="{}">Declaratie-app</a> om te beoordelen.
+                Er staat een nieuwe declaratie voor je klaar in de Declaratie-app om te beoordelen, log in om deze te bekijken.
                 Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
                 Met vriendelijke groeten,<br />FSSC"""
             }
 
         if mail_body:
-            employee_key = self.ds_client.key('AFAS_HRM', unique_email)
-            employee = self.ds_client.get(employee_key)
-
-            if employee and 'Manager_personeelsnummer' in employee:
+            if afas_data and 'Manager_personeelsnummer' in afas_data:
                 query = self.ds_client.query(kind='AFAS_HRM')
                 query.add_filter('Personeelsnummer', '=',
-                                 employee['Manager_personeelsnummer'])
+                                 afas_data['Manager_personeelsnummer'])
                 db_data = list(query.fetch(limit=1))
 
                 if db_data and len(db_data) > 0 and \
@@ -796,20 +793,22 @@ class ClaimExpenses:
                     manager = db_data[0]
                     logging.info(f"Creating email for expense '{expense_id}'")
 
+                    manager_naam = manager['Voornaam'] \
+                        if 'Voornaam' in manager else 'ontvanger'
+
                     mail_body['mail_body'] = mail_body['mail_body'].format(
-                        manager['Voornaam'], config.GMAIL_ADDEXPENSE_URL,
-                        config.GMAIL_ADDEXPENSE_REPLYTO,
+                        manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
                         config.GMAIL_ADDEXPENSE_REPLYTO
                     )
                     self.send_message(expense_id, manager['email_address'],
                                       mail_body)
                 else:
                     logging.info(
-                        f"No manager found for employee '{unique_email}', " +
-                        "no email sent")
+                        "No manager found for employee '" +
+                        afas_data['email_address'] + "', no email sent")
             else:
                 logging.info(
-                    f"Employee '{unique_email}' not found, no email sent")
+                    f"No employee data found for expense '{expense_id}'")
         else:
             logging.info(f"No mail body found for expense '{expense_id}'")
 
