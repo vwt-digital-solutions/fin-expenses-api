@@ -307,6 +307,8 @@ class ClaimExpenses:
         :param data:
         :return:
         """
+        if not data.get('rnote'):
+            return jsonify('Some data is missing'), 400
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
