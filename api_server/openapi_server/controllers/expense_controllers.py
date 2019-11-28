@@ -308,7 +308,8 @@ class ClaimExpenses:
         :param note_check:
         :return:
         """
-        if not data.get('rnote') and note_check:
+        if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
+                                                     or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
