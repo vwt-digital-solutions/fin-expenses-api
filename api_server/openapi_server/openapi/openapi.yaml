@@ -417,6 +417,7 @@ paths:
       summary: Get all expenses
       description: Get all expenses for controllers
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
