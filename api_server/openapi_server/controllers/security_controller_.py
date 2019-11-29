@@ -40,7 +40,7 @@ def info_from_oAuth2(token):
             result = config.e2e_key_data
 
     if result is not None:
-        g.user = result.get('upn', 'e2e-technical-user')
+        g.user = result.get('upn', '')
         g.token = result
 
     return result

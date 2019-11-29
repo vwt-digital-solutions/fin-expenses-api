@@ -300,13 +300,17 @@ class ClaimExpenses:
     def _prepare_context_update_expense(self, data, expense):
         pass
 
-    def update_expenses(self, expenses_id, data):
+    def update_expenses(self, expenses_id, data, note_check=False):
         """
         Change the status and add note from expense
         :param expenses_id:
         :param data:
+        :param note_check:
         :return:
         """
+        if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
+                                                     or data['status'] == 'rejected_by_creditor'):
+            return jsonify('Some data is missing'), 400
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -768,49 +772,54 @@ class ClaimExpenses:
         self.send_message_internal("me", new_message, expense_id)
 
     def send_email_notification(self, mail_type, afas_data, expense_id):
-        mail_body = None
-        if mail_type == 'add_expense':
-            mail_body = {
-                'from': config.GMAIL_SENDER_ADDRESS,
-                'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
-                'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                'mail_title': 'Nieuwe declaratie',
-                'mail_body': """Beste {},<br /><br />
-                Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
-                Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                Met vriendelijke groeten,<br />FSSC"""
-            }
+        # Check if production project for sending emails
+        if 'GOOGLE_CLOUD_PROJECT' in os.environ and \
+                'vwt-p-' in os.environ['GOOGLE_CLOUD_PROJECT']:
+            mail_body = None
+            if mail_type == 'add_expense':
+                mail_body = {
+                    'from': config.GMAIL_SENDER_ADDRESS,
+                    'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
+                    'subject': 'Er staat een nieuwe declaratie voor je klaar!',
+                    'mail_title': 'Nieuwe declaratie',
+                    'mail_body': """Beste {},<br /><br />
+                    Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
+                    Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                    Met vriendelijke groeten,<br />FSSC"""
+                }
 
-        if mail_body:
-            if afas_data and 'Manager_personeelsnummer' in afas_data:
-                query = self.ds_client.query(kind='AFAS_HRM')
-                query.add_filter('Personeelsnummer', '=',
-                                 afas_data['Manager_personeelsnummer'])
-                db_data = list(query.fetch(limit=1))
+            if mail_body:
+                if afas_data and 'Manager_personeelsnummer' in afas_data:
+                    query = self.ds_client.query(kind='AFAS_HRM')
+                    query.add_filter('Personeelsnummer', '=',
+                                     afas_data['Manager_personeelsnummer'])
+                    db_data = list(query.fetch(limit=1))
 
-                if db_data and len(db_data) > 0 and \
-                        'email_address' in db_data[0]:
-                    manager = db_data[0]
-                    logging.info(f"Creating email for expense '{expense_id}'")
+                    if db_data and len(db_data) > 0 and \
+                            'email_address' in db_data[0]:
+                        manager = db_data[0]
+                        logging.info(f"Creating email for expense '{expense_id}'")
 
-                    manager_naam = manager['Voornaam'] \
-                        if 'Voornaam' in manager else 'ontvanger'
+                        manager_naam = manager['Voornaam'] \
+                            if 'Voornaam' in manager else 'ontvanger'
 
-                    mail_body['mail_body'] = mail_body['mail_body'].format(
-                        manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
-                        config.GMAIL_ADDEXPENSE_REPLYTO
-                    )
-                    self.send_message(expense_id, manager['email_address'],
-                                      mail_body)
+                        mail_body['mail_body'] = mail_body['mail_body'].format(
+                            manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
+                            config.GMAIL_ADDEXPENSE_REPLYTO
+                        )
+                        self.send_message(expense_id, manager['email_address'],
+                                          mail_body)
+                    else:
+                        logging.info(
+                            "No manager found for employee '" +
+                            afas_data['email_address'] + "', no email sent")
                 else:
                     logging.info(
-                        "No manager found for employee '" +
-                        afas_data['email_address'] + "', no email sent")
+                        f"No employee data found for expense '{expense_id}'")
             else:
-                logging.info(
-                    f"No employee data found for expense '{expense_id}'")
+                logging.info(f"No mail body found for expense '{expense_id}'")
         else:
-            logging.info(f"No mail body found for expense '{expense_id}'")
+            logging.info("Dev mode active for sending e-mails")
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -1116,7 +1125,7 @@ def update_expenses_finance(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = ControllerExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data)
+            return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1148,7 +1157,7 @@ def update_expenses_manager(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = DepartmentExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data)
+            return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         return jsonify(er.args), 500
 
