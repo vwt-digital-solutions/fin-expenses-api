@@ -86,6 +86,7 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
@@ -386,6 +387,7 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /controllers/expenses:
     get:
       responses:
@@ -431,6 +433,7 @@ paths:
       security:
         - oauth2: [controller.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
 components:
   schemas:
     Url:
