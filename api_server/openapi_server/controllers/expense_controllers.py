@@ -300,13 +300,17 @@ class ClaimExpenses:
     def _prepare_context_update_expense(self, data, expense):
         pass
 
-    def update_expenses(self, expenses_id, data):
+    def update_expenses(self, expenses_id, data, note_check=False):
         """
         Change the status and add note from expense
         :param expenses_id:
         :param data:
+        :param note_check:
         :return:
         """
+        if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
+                                                     or data['status'] == 'rejected_by_creditor'):
+            return jsonify('Some data is missing'), 400
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -1121,7 +1125,7 @@ def update_expenses_finance(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = ControllerExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data)
+            return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1153,7 +1157,7 @@ def update_expenses_manager(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = DepartmentExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data)
+            return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         return jsonify(er.args), 500
 
