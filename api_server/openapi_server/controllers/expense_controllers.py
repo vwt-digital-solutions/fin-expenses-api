@@ -1013,7 +1013,22 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            return expense_instance.add_expenses(form_data)
+
+            values = {
+                'amount': {
+                    'min_val': 0.00
+                },
+                'transaction_date': {
+                    'type': str,
+                    'date_format': '%Y-%m-%dT%H:%M:%S.%fZ',
+                    'max_val': datetime.datetime.today() + datetime.timedelta(days=1)
+                }
+            }
+
+            if value_funnel(values, form_data.to_dict()):
+                return expense_instance.add_expenses(form_data)
+            else:
+                return 'Some data is missing or incorrect', 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1239,3 +1254,24 @@ def api_base_url():
         base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
+
+
+def value_funnel(values, data):
+    for value in values:
+        if data.get(value) is not None:
+            correct_type = issubclass(values[value].get('type'),
+                                      type(data[value])) if values[value].get('type') is not None else True
+            date_format = True
+            if values[value].get('date_format'):
+                try:
+                    data[value] = datetime.datetime.strptime(data[value],values[value].get('date_format'))
+                    date_format = True
+                except ValueError:
+                    date_format = False
+            min_val = values[value].get('min_val') < data[value] \
+                if values[value].get('min_val') is not None and date_format else True
+            max_val = values[value].get('max_val') > data[value] \
+                if values[value].get('max_val') is not None and date_format else True
+            if not (correct_type and min_val and max_val and date_format):
+                return False
+    return True
