@@ -1021,7 +1021,7 @@ def add_expense():
                 'transaction_date': {
                     'type': str,
                     'date_format': '%Y-%m-%dT%H:%M:%S.%fZ',
-                    'max_val': datetime.datetime.today() + datetime.timedelta(days=1)
+                    'max_val': datetime.datetime.today() + datetime.timedelta(hours=2)
                 }
             }
 
@@ -1156,7 +1156,24 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            return expense_instance.update_expenses(expenses_id, form_data)
+            values = {
+                'amount': {
+                    'min_val': 0.00
+                },
+                'transaction_date': {
+                    'type': str,
+                    'date_format': '%Y-%m-%dT%H:%M:%S.%fZ',
+                    'max_val': datetime.datetime.today() + datetime.timedelta(hours=2)
+                },
+                'status': {
+                    'range': ['ready_for_manager', 'ready_for_creditor']
+                }
+            }
+
+            if value_funnel(values, form_data):
+                return expense_instance.update_expenses(expenses_id, form_data)
+            else:
+                return 'Some data is missing or incorrect', 400
     except Exception as er:
         logging.exception("Update exp")
         return jsonify(er.args), 500
@@ -1261,6 +1278,7 @@ def value_funnel(values, data):
         if data.get(value) is not None:
             correct_type = issubclass(values[value].get('type'),
                                       type(data[value])) if values[value].get('type') is not None else True
+            in_range = data[value] in values[value].get('range') if values[value].get('range') is not None else True
             date_format = True
             if values[value].get('date_format'):
                 try:
@@ -1272,6 +1290,6 @@ def value_funnel(values, data):
                 if values[value].get('min_val') is not None and date_format else True
             max_val = values[value].get('max_val') > data[value] \
                 if values[value].get('max_val') is not None and date_format else True
-            if not (correct_type and min_val and max_val and date_format):
+            if not (correct_type and min_val and max_val and date_format and in_range):
                 return False
     return True
