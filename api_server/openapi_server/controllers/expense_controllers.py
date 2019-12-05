@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import requests
+import re
 
 import datetime
 import mimetypes
@@ -1258,7 +1259,15 @@ def add_attachment_employee(expenses_id):
             form_data = AttachmentData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            return expense_instance.add_attachment(expenses_id, form_data)
+            values = {
+                'content': {
+                    'data_type_range': ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']
+                }
+            }
+            if value_funnel(values, form_data.to_dict()):
+                return expense_instance.add_attachment(expenses_id, form_data)
+            else:
+                return 'Some data is missing or incorrect', 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1274,15 +1283,21 @@ def api_base_url():
 
 
 def value_funnel(values, data):
+
+    # TODO - Add to package
+    # TODO - Add sanitizer
     for value in values:
         if data.get(value) is not None:
             correct_type = issubclass(values[value].get('type'),
                                       type(data[value])) if values[value].get('type') is not None else True
             in_range = data[value] in values[value].get('range') if values[value].get('range') is not None else True
+            correct_data_type = re.search("(?<=data:).*?(?=;)",
+                                          data[value])[0] in values[value].get('data_type_range') \
+                if values[value].get('data_type_range') is not None else True
             date_format = True
             if values[value].get('date_format'):
                 try:
-                    data[value] = datetime.datetime.strptime(data[value],values[value].get('date_format'))
+                    data[value] = datetime.datetime.strptime(data[value], values[value].get('date_format'))
                     date_format = True
                 except ValueError:
                     date_format = False
@@ -1290,6 +1305,6 @@ def value_funnel(values, data):
                 if values[value].get('min_val') is not None and date_format else True
             max_val = values[value].get('max_val') > data[value] \
                 if values[value].get('max_val') is not None and date_format else True
-            if not (correct_type and min_val and max_val and date_format and in_range):
+            if not (correct_type and min_val and max_val and date_format and in_range and correct_data_type):
                 return False
     return True
