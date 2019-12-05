@@ -62,6 +62,20 @@ class ExpenseData(Model):
         """
         return util.deserialize_model(dikt, cls)
 
+    def escape_characters(self):
+        html = {
+            '"': "&quot;",
+            "&": "&amp;",
+            "'": "&apos;",
+            ">": "&gt;",
+            "<": "&lt;",
+            "{": "&lbrace;",
+            "}": "&rbrace;",
+            "&nbsp": " "
+        }
+
+        self.note = "".join(html.get(c, c) for c in self.note)
+
     @property
     def amount(self):
         """Gets the amount of this ExpenseData.

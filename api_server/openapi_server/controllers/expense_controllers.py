@@ -1017,6 +1017,7 @@ def add_expense():
 
             values = {
                 'amount': {
+                    'type': float,
                     'min_val': 0.00
                 },
                 'transaction_date': {
@@ -1025,8 +1026,8 @@ def add_expense():
                     'max_val': datetime.datetime.today() + datetime.timedelta(hours=2)
                 }
             }
-
             if value_funnel(values, form_data.to_dict()):
+                form_data.escape_characters()
                 return expense_instance.add_expenses(form_data)
             else:
                 return 'Some data is missing or incorrect', 400
@@ -1285,7 +1286,6 @@ def api_base_url():
 def value_funnel(values, data):
 
     # TODO - Add to package
-    # TODO - Add sanitizer
     for value in values:
         if data.get(value) is not None:
             correct_type = issubclass(values[value].get('type'),
