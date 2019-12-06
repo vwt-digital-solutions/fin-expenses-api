@@ -119,15 +119,10 @@ class ClaimExpenses:
                 base64.b64decode(attachment.content.split(",")[1]),
                 content_type=mimetypes.guess_type(attachment.content)[0],
             )
-        except IndexError:
-            try:
-                blob.upload_from_string(
-                    base64.b64decode(attachment.content.split(";")[1]),
-                    content_type=mimetypes.guess_type(attachment.content)[0],
-                )
-            except IndexError as e:
-                logging.warning(str(e))
-                return jsonify('Some data is missing or incorrect')
+            return True
+        except Exception as e:
+            logger.warning(str(e))
+            return False
 
     def delete_attachment(self, expenses_id, attachments_name):
         """
@@ -899,12 +894,14 @@ class EmployeeExpenses(ClaimExpenses):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return make_response(jsonify('Unauthorized'), 403)
 
-        self.create_attachment(
+        creation = self.create_attachment(
             data,
             expense.key.id_or_name,
             self.employee_info["unique_name"]
         )
 
+        if not creation:
+            return jsonify('Some data was missing or incorrect'), 400
         return '', 204
 
 
