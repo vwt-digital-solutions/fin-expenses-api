@@ -1030,7 +1030,7 @@ def add_expense():
                 form_data.escape_characters()
                 return expense_instance.add_expenses(form_data)
             else:
-                return 'Some data is missing or incorrect', 400
+                return jsonify('Some data is missing or incorrect'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1088,6 +1088,7 @@ def get_document(document_id, document_type):
         headers={
             "Content-Type": f"{mime_type}",
             "charset": "utf-8",
+            "Cache-Control": "no-store",
             "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
@@ -1176,7 +1177,7 @@ def update_expenses_employee(expenses_id):
             if value_funnel(values, form_data):
                 return expense_instance.update_expenses(expenses_id, form_data)
             else:
-                return 'Some data is missing or incorrect', 400
+                return jsonify('Some data is missing or incorrect'), 400
     except Exception as er:
         logging.exception("Update exp")
         return jsonify(er.args), 500
@@ -1269,7 +1270,7 @@ def add_attachment_employee(expenses_id):
             if value_funnel(values, form_data.to_dict()):
                 return expense_instance.add_attachment(expenses_id, form_data)
             else:
-                return 'Some data is missing or incorrect', 400
+                return jsonify('Some data is missing or incorrect'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
