@@ -1088,7 +1088,6 @@ def get_document(document_id, document_type):
         headers={
             "Content-Type": f"{mime_type}",
             "charset": "utf-8",
-            "Cache-Control": "no-store",
             "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
@@ -1293,7 +1292,7 @@ def value_funnel(values, data):
             correct_type = issubclass(values[value].get('type'),
                                       type(data[value])) if values[value].get('type') is not None else True
             in_range = data[value] in values[value].get('range') if values[value].get('range') is not None else True
-            correct_data_type = re.search("(?<=data:).*?(?=;)",
+            correct_data_type = re.search("(?<=data:)(.*)(?=;base64)",
                                           data[value])[0] in values[value].get('data_type_range') \
                 if values[value].get('data_type_range') is not None else True
             date_format = True
