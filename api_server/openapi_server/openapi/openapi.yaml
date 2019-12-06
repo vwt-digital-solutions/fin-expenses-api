@@ -461,6 +461,15 @@ components:
           type: string
         manager_note:
           type: string
+        amount:
+          format: decimal
+          type: number
+        note:
+          type: string
+        cost_type:
+          type: string
+        transaction_date:
+          type: string
       required:
         - status
       example:
@@ -651,4 +660,4 @@ components:
             controller.write: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope
-      
+
