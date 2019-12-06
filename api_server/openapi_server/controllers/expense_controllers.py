@@ -1087,6 +1087,7 @@ def get_document(document_id, document_type):
         content_response["file"],
         headers={
             "Content-Type": f"{mime_type}",
+            "charset": "utf-8",
             "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
