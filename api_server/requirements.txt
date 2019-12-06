@@ -13,7 +13,7 @@ oauth2client==4.1.3
 google-python-cloud-debugger
 pyopenssl==19.0.0
 gunicorn==19.9.0
-jwkaas==0.3
+jwkaas==0.4
 MarkupSafe==1.1.1
 PyYAML==5.1.1
 swagger-ui-bundle==0.0.2
