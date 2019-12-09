@@ -6,7 +6,6 @@ import requests
 import re
 
 import datetime
-import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
@@ -106,7 +105,6 @@ class ClaimExpenses:
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
-
         today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
@@ -117,7 +115,7 @@ class ClaimExpenses:
         try:
             blob.upload_from_string(
                 base64.b64decode(attachment.content.split(",")[1]),
-                content_type=mimetypes.guess_type(attachment.content)[0],
+                content_type=re.search("(?<=data:)(.*)(?=;)", str(attachment))[0]
             )
             return True
         except Exception as e:
@@ -902,7 +900,7 @@ class EmployeeExpenses(ClaimExpenses):
 
         if not creation:
             return jsonify('Some data was missing or incorrect'), 400
-        return '', 204
+        return 201
 
 
 class DepartmentExpenses(ClaimExpenses):
