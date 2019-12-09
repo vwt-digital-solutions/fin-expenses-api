@@ -630,7 +630,7 @@ class ClaimExpenses:
             if not self.send_to_power2pay(payment_file_name):
                 return (False, None, jsonify({"Info": "Failed to upload payment file"}))
             else:
-                logger.warning("Error sending to Power2Pay")
+                logger.info("Power2Pay upload successful")
         else:
             logger.warning("Sending to Power2Pay is disabled")
 
@@ -789,7 +789,8 @@ class ClaimExpenses:
                     'mail_title': 'Nieuwe declaratie',
                     'mail_body': """Beste {},<br /><br />
                     Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
-                    Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                    Mochten er nog vragen zijn, mail gerust naar
+                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
                     Met vriendelijke groeten,<br />FSSC"""
                 }
 
