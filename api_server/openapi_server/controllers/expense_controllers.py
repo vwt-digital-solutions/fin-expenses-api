@@ -1017,18 +1017,9 @@ def add_expense():
                 connexion.request.get_json()
             )  # noqa: E501
 
-            values = {
-                'amount': {
-                    'type': float,
-                    'min_val': 0.00
-                },
-                'transaction_date': {
-                    'type': str,
-                    'date_format': '%Y-%m-%dT%H:%M:%S.%fZ',
-                    'max_val': datetime.datetime.today() + datetime.timedelta(hours=2)
-                }
-            }
-            if value_funnel(values, form_data.to_dict()):
+            if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
+                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
+                    datetime.timedelta(hours=2):
                 form_data.escape_characters()
                 return expense_instance.add_expenses(form_data)
             else:
@@ -1161,21 +1152,10 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            values = {
-                'amount': {
-                    'min_val': 0.00
-                },
-                'transaction_date': {
-                    'type': str,
-                    'date_format': '%Y-%m-%dT%H:%M:%S.%fZ',
-                    'max_val': datetime.datetime.today() + datetime.timedelta(hours=2)
-                },
-                'status': {
-                    'range': ['ready_for_manager', 'ready_for_creditor']
-                }
-            }
-
-            if value_funnel(values, form_data):
+            if datetime.datetime.strptime(form_data.get('transaction_date'),
+                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                    + datetime.timedelta(hours=2):
+                form_data.escape_characters()
                 return expense_instance.update_expenses(expenses_id, form_data)
             else:
                 return jsonify('Some data is missing or incorrect'), 400
@@ -1263,15 +1243,7 @@ def add_attachment_employee(expenses_id):
             form_data = AttachmentData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            values = {
-                'content': {
-                    'data_type_range': ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']
-                }
-            }
-            if value_funnel(values, form_data.to_dict()):
-                return expense_instance.add_attachment(expenses_id, form_data)
-            else:
-                return jsonify('Some data is missing or incorrect'), 400
+            return expense_instance.add_attachment(expenses_id, form_data)
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1284,30 +1256,3 @@ def api_base_url():
         base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
-
-
-def value_funnel(values, data):
-
-    # TODO - Add to package
-    for value in values:
-        if data.get(value) is not None:
-            correct_type = issubclass(values[value].get('type'),
-                                      type(data[value])) if values[value].get('type') is not None else True
-            in_range = data[value] in values[value].get('range') if values[value].get('range') is not None else True
-            correct_data_type = re.search("(?<=data:)(.*)(?=;)",
-                                          data[value])[0] in values[value].get('data_type_range') \
-                if values[value].get('data_type_range') is not None else True
-            date_format = True
-            if values[value].get('date_format'):
-                try:
-                    data[value] = datetime.datetime.strptime(data[value], values[value].get('date_format'))
-                    date_format = True
-                except ValueError:
-                    date_format = False
-            min_val = values[value].get('min_val') < data[value] \
-                if values[value].get('min_val') is not None and date_format else True
-            max_val = values[value].get('max_val') > data[value] \
-                if values[value].get('max_val') is not None and date_format else True
-            if not (correct_type and min_val and max_val and date_format and in_range and correct_data_type):
-                return False
-    return True
