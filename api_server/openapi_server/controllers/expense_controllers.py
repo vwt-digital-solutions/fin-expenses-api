@@ -760,9 +760,9 @@ class ClaimExpenses:
                 msg_html = mail_template.read()
 
             msg_html = msg_html.replace('$MAIL_TITLE',
-                                        mail_body['mail_title'])
+                                        mail_body['title'])
             msg_html = msg_html.replace('$MAIL_BODY',
-                                        mail_body['mail_body'])
+                                        mail_body['body'])
 
             msg.attach(MIMEText(msg_html, 'html'))
             raw = base64.urlsafe_b64encode(msg.as_bytes())
@@ -794,27 +794,42 @@ class ClaimExpenses:
                     recipient = db_data[0]
 
                 mail_body = {
-                    'from': config.GMAIL_SENDER_ADDRESS,
-                    'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
                     'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                    'mail_title': 'Nieuwe declaratie',
-                    'mail_body': """Beste {},<br /><br />
-                    Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
-                    Mochten er nog vragen zijn, mail gerust naar
-                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                    Met vriendelijke groeten,<br />FSSC"""
+                    'title': 'Nieuwe declaratie',
+                    'text': "Er staat een nieuwe declaratie voor je klaar " +
+                            "in de Declaratie-app, log in om deze " +
+                            "te beoordelen."
+                }
+            elif mail_type == 'edit_expense' and 'email_address' in afas_data:
+                recipient = afas_data
+                mail_body = {
+                    'subject': 'Een declaratie heeft aanpassingen nodig!',
+                    'title': 'Aanpassing vereist',
+                    'text': "Een ingediende declaratie heeft wijzigingen " +
+                            "nodig in de Declaratie-app, log in om deze " +
+                            "aan te passen."
                 }
 
-            if mail_body and recipient and afas_data:
+            if mail_body and recipient:
                 logging.info(f"Creating email for expense '{expense_id}'")
-
                 recipient_name = recipient['Voornaam'] \
                     if 'Voornaam' in recipient else 'ontvanger'
 
-                mail_body['mail_body'] = mail_body['mail_body'].format(
-                    recipient_name, config.GMAIL_ADDEXPENSE_REPLYTO,
+                mail_body['body'] = """Beste {},<br /><br />
+                    {}
+                    Mochten er nog vragen zijn, mail gerust naar
+                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                    Met vriendelijke groeten,<br />FSSC""".format(
+                    recipient_name, mail_body['text'],
+                    config.GMAIL_ADDEXPENSE_REPLYTO,
                     config.GMAIL_ADDEXPENSE_REPLYTO
                 )
+
+                mail_body['from'] = config.GMAIL_SENDER_ADDRESS
+                mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
+
+                del mail_body['text']
+
                 self.send_message(expense_id, recipient['email_address'],
                                   mail_body)
             else:
