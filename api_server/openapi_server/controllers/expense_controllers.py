@@ -781,7 +781,18 @@ class ClaimExpenses:
         if 'GOOGLE_CLOUD_PROJECT' in os.environ and \
                 'vwt-p-' in os.environ['GOOGLE_CLOUD_PROJECT']:
             mail_body = None
-            if mail_type == 'add_expense':
+            recipient = None
+
+            if mail_type == 'add_expense' and \
+                    'Manager_personeelsnummer' in afas_data:
+                query = self.ds_client.query(kind='AFAS_HRM')
+                query.add_filter('Personeelsnummer', '=',
+                                 afas_data['Manager_personeelsnummer'])
+                db_data = list(query.fetch(limit=1))
+
+                if len(db_data) == 1 and 'email_address' in db_data[0]:
+                    recipient = db_data[0]
+
                 mail_body = {
                     'from': config.GMAIL_SENDER_ADDRESS,
                     'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
@@ -794,36 +805,20 @@ class ClaimExpenses:
                     Met vriendelijke groeten,<br />FSSC"""
                 }
 
-            if mail_body:
-                if afas_data and 'Manager_personeelsnummer' in afas_data:
-                    query = self.ds_client.query(kind='AFAS_HRM')
-                    query.add_filter('Personeelsnummer', '=',
-                                     afas_data['Manager_personeelsnummer'])
-                    db_data = list(query.fetch(limit=1))
+            if mail_body and recipient and afas_data:
+                logging.info(f"Creating email for expense '{expense_id}'")
 
-                    if db_data and len(db_data) > 0 and \
-                            'email_address' in db_data[0]:
-                        manager = db_data[0]
-                        logging.info(f"Creating email for expense '{expense_id}'")
+                recipient_name = recipient['Voornaam'] \
+                    if 'Voornaam' in recipient else 'ontvanger'
 
-                        manager_naam = manager['Voornaam'] \
-                            if 'Voornaam' in manager else 'ontvanger'
-
-                        mail_body['mail_body'] = mail_body['mail_body'].format(
-                            manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
-                            config.GMAIL_ADDEXPENSE_REPLYTO
-                        )
-                        self.send_message(expense_id, manager['email_address'],
-                                          mail_body)
-                    else:
-                        logging.info(
-                            "No manager found for employee '" +
-                            afas_data['email_address'] + "', no email sent")
-                else:
-                    logging.info(
-                        f"No employee data found for expense '{expense_id}'")
+                mail_body['mail_body'] = mail_body['mail_body'].format(
+                    recipient_name, config.GMAIL_ADDEXPENSE_REPLYTO,
+                    config.GMAIL_ADDEXPENSE_REPLYTO
+                )
+                self.send_message(expense_id, recipient['email_address'],
+                                  mail_body)
             else:
-                logging.info(f"No mail body found for expense '{expense_id}'")
+                logging.info(f"No mail info found for expense '{expense_id}'")
         else:
             logging.info("Dev mode active for sending e-mails")
 
