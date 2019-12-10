@@ -324,6 +324,13 @@ class ClaimExpenses:
             if fields and status:
                 self._update_expenses(data, fields, status, expense)
                 self.expense_journal(old_expense, expense)
+
+                if 'rejected_by_manager' in status or \
+                        'rejected_by_creditor' in status:
+                    self.send_email_notification(
+                        'edit_expense', expense['employee']['afas_data'],
+                        expense.key.id_or_name)
+
                 return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
