@@ -12,21 +12,29 @@ def process_approve(request):
         client = datastore.Client()
         query = client.query(kind='Expenses')
         pending = int(request.args['pending'])
-        logging.info(f'Auto-approve claims older than {pending} business days')
+        filter_amount = int(request.args['amount'])
+        logging.info(
+            f'Auto-approve claims older than {pending} business days with ' +
+            f'amount less than {filter_amount}')
         business_pending = shift_to_business_days(pending)
         boundary = (datetime.datetime.now() - datetime.timedelta(
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
 
         query.add_filter('claim_date', '<=', boundary)
+        query.add_filter('status.text', '=', 'ready_for_manager')
         # only single une-quality criteria, must check programmatically after
-        # query.add_filter('status.text', '>', 'approved')
-        # query.add_filter('status.text', '<', 'approved')
+        # query.add_filter('amount', '<=', filter_amount)
+
+        expenses_to_update = []
         for expense in [exp for exp in query.fetch()
-                        if exp['status']['text'] == 'ready_for_manager']:
+                        if exp['amount'] <= filter_amount]:
             expense['status']['text'] = 'ready_for_creditor'
-            expense['date_of_transaction'] = int(datetime.datetime.now().timestamp()) * 1000
+            expense['date_of_transaction'] = int(
+                datetime.datetime.now().timestamp()) * 1000
             logging.info(f'Auto approve {expense}')
-            client.put(expense)
+            expenses_to_update.append(expense)
+
+        client.put_multi(expenses_to_update)
     else:
         problem = {'type': 'MissingParameter',
                    'title': 'Expected time interval for pending approvals not found',
@@ -39,8 +47,7 @@ def process_approve(request):
 if __name__ == '__main__':
     class R:
         def __init__(self):
-            self.args = {'pending': 3}
-
+            self.args = {'pending': 3, 'amount': 200}
 
     r = R()
     logging.warning(r.args)
