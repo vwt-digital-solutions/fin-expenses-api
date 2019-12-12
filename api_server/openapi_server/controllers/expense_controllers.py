@@ -273,7 +273,7 @@ class ClaimExpenses:
                         BusinessRulesEngine().process_rules(
                             {"expense": data, "afas_data": afas_data})
                 except ValueError as exception:
-                    return make_response(jsonify(str(exception)), 403)
+                    return make_response(jsonify(str(exception)), 400)
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
