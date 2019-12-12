@@ -1,4 +1,5 @@
 config.py
+.enc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

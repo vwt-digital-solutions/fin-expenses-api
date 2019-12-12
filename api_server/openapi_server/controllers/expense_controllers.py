@@ -269,38 +269,39 @@ class ClaimExpenses:
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
-                    BusinessRulesEngine().process_rules(
-                        {"expense": data, "afas_data": afas_data})
+                    if hasattr(config, 'EXPENSE_BUSINESS_RULES'):
+                        BusinessRulesEngine().process_rules(
+                            {"expense": data, "afas_data": afas_data})
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 403)
+                else:
+                    key = self.ds_client.key("Expenses")
+                    entity = datastore.Entity(key=key)
+                    entity.update(
+                        {
+                            "employee": dict(
+                                afas_data=afas_data,
+                                email=self.employee_info["unique_name"],
+                                family_name=self.employee_info["family_name"],
+                                given_name=self.employee_info["given_name"],
+                                full_name=self.employee_info["name"],
+                            ),
+                            "amount": data.amount,
+                            "note": data.note,
+                            "cost_type": data.cost_type,
+                            "transaction_date": data.transaction_date,
+                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                            "status": dict(export_date="never", text=ready_text),
+                        }
+                    )
+                    self.ds_client.put(entity)
 
-                key = self.ds_client.key("Expenses")
-                entity = datastore.Entity(key=key)
-                entity.update(
-                    {
-                        "employee": dict(
-                            afas_data=afas_data,
-                            email=self.employee_info["unique_name"],
-                            family_name=self.employee_info["family_name"],
-                            given_name=self.employee_info["given_name"],
-                            full_name=self.employee_info["name"],
-                        ),
-                        "amount": data.amount,
-                        "note": data.note,
-                        "cost_type": data.cost_type,
-                        "transaction_date": data.transaction_date,
-                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                        "status": dict(export_date="never", text=ready_text),
-                    }
-                )
-                self.ds_client.put(entity)
+                    if ready_text == 'ready_for_manager':
+                        self.send_email_notification(
+                            'add_expense', afas_data,
+                            entity.key.id_or_name)
 
-                if ready_text == 'ready_for_manager':
-                    self.send_email_notification(
-                        'add_expense', afas_data,
-                        entity.key.id_or_name)
-
-                return make_response(jsonify(entity.key.id_or_name), 201)
+                    return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:

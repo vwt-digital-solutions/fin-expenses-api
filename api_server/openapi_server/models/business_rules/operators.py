@@ -6,14 +6,15 @@ from .six import string_types, integer_types
 from .fields import (FIELD_TEXT, FIELD_NUMERIC, FIELD_NO_INPUT,
                      FIELD_SELECT, FIELD_SELECT_MULTIPLE)
 from .utils import fn_name_to_pretty_label, float_to_decimal
-from decimal import Decimal, Inexact, Context
+from decimal import Decimal
+
 
 class BaseType(object):
     def __init__(self, value):
         self.value = self._assert_valid_value_and_cast(value)
 
     def _assert_valid_value_and_cast(self, value):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @classmethod
     def get_all_operators(cls):
@@ -47,7 +48,8 @@ def type_operator(input_type, label=None,
         @wraps(func)
         def inner(self, *args, **kwargs):
             if assert_type_for_arguments:
-                args = [self._assert_valid_value_and_cast(arg) for arg in args]
+                args = [self._assert_valid_value_and_cast(arg) for arg in
+                        args]
                 kwargs = dict((k, self._assert_valid_value_and_cast(v))
                               for k, v in kwargs.items())
             return func(self, *args, **kwargs)
@@ -155,6 +157,7 @@ class BooleanType(BaseType):
     def is_false(self):
         return not self.value
 
+
 @export_type
 class SelectType(BaseType):
 
@@ -170,7 +173,7 @@ class SelectType(BaseType):
     def _case_insensitive_equal_to(value_from_list, other_value):
         if isinstance(value_from_list, string_types) and \
                 isinstance(other_value, string_types):
-                    return value_from_list.lower() == other_value.lower()
+            return value_from_list.lower() == other_value.lower()
         else:
             return value_from_list == other_value
 
