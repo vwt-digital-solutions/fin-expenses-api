@@ -32,6 +32,7 @@ from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
+from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
 
 from OpenSSL import crypto
 
@@ -261,6 +262,12 @@ class ClaimExpenses:
                 ready_text = "ready_for_creditor"
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
+                try:
+                    BusinessRulesEngine().process_rules(
+                        {"expense": data, "afas_data": afas_data})
+                except ValueError as exception:
+                    return make_response(jsonify(str(exception)), 403)
+
                 key = self.ds_client.key("Expenses")
                 entity = datastore.Entity(key=key)
                 entity.update(
