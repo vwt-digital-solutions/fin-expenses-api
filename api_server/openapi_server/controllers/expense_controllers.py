@@ -1042,10 +1042,13 @@ def add_expense():
             if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
                                           '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
                     datetime.timedelta(hours=2):
-                form_data.escape_characters()
+                try:
+                    form_data.escape_characters()
+                except AttributeError:
+                    logging.warning("Can't escape html on form_data. Will pass.")
                 return expense_instance.add_expenses(form_data)
             else:
-                return jsonify('Some data is missing or incorrect'), 400
+                return jsonify('Date needs to be in the past'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
@@ -1174,13 +1177,19 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            if datetime.datetime.strptime(form_data.get('transaction_date'),
-                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
-                    + datetime.timedelta(hours=2):
-                form_data.escape_characters()
-                return expense_instance.update_expenses(expenses_id, form_data)
-            else:
-                return jsonify('Some data is missing or incorrect'), 400
+            if form_data.get('transaction_date'):
+                if datetime.datetime.strptime(form_data.get('transaction_date'),
+                                              '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                        + datetime.timedelta(hours=2):
+                    try:
+                        form_data.escape_characters()
+                    except AttributeError:
+                        logging.warning("Can't escape html on form_data. Will pass.")
+                    return expense_instance.update_expenses(expenses_id, form_data)
+                else:
+                    return jsonify('Date needs to be in de past'), 400
+
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         logging.exception("Update exp")
         return jsonify(er.args), 500
@@ -1195,9 +1204,10 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses()
+            expense_instance = ControllerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 

@@ -464,7 +464,7 @@ components:
             - rejected_by_creditor
             - exported
             - cancelled
-            - accepted
+            - approved
             - payed
         creditor_note:
           type: string
