@@ -499,7 +499,7 @@ components:
         content:
           type: string
           format: byte
-          pattern: '(?<=data:)(image\/png|image\/jpeg|image\/jpg|application\/pdf)(?=;base64)'
+          pattern: '(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)'
       example: |-
         {
           "name": "somename",
