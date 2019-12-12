@@ -217,34 +217,40 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self):
+    def get_all_expenses(self, expenses_list):
         """Get JSON of all the expenses"""
+        if expenses_list == "expenses_all":
+            return make_response(jsonify(None), 204)
 
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        )
+        elif expenses_list == "expenses_creditor_approved":
 
-        expenses_info = self.ds_client.query(kind="Expenses")
+            query_filter: Dict[Any, str] = dict(
+                creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+            )
 
-        expenses_data = expenses_info.fetch()
+            expenses_info = self.ds_client.query(kind="Expenses")
 
-        if expenses_data:
-            results = []
-            for ed in expenses_data:
-                logging.debug(f'get_all_expenses: [{ed}]')
-                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                       query_filter["creditor2"] == ed["status"]["text"]):
-                    results.append({
-                        "id": ed.id,
-                        "amount": ed["amount"],
-                        "note": ed["note"],
-                        "cost_type": ed["cost_type"],
-                        "claim_date": ed["claim_date"],
-                        "transaction_date": ed["transaction_date"],
-                        "employee": ed["employee"]["full_name"],
-                        "status": ed["status"],
-                    })
-            return jsonify(results)
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+                for ed in expenses_data:
+                    logging.debug(f'get_all_expenses: [{ed}]')
+                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                           query_filter["creditor2"] == ed["status"]["text"]):
+                        results.append({
+                            "id": ed.id,
+                            "amount": ed["amount"],
+                            "note": ed["note"],
+                            "cost_type": ed["cost_type"],
+                            "claim_date": ed["claim_date"],
+                            "transaction_date": ed["transaction_date"],
+                            "employee": ed["employee"]["full_name"],
+                            "status": ed["status"],
+                        })
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
         else:
             return make_response(jsonify(None), 204)
 
@@ -1049,22 +1055,25 @@ def add_expense():
             if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
                                           '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
                     datetime.timedelta(hours=2):
-                form_data.escape_characters()
+                try:
+                    form_data.escape_characters()
+                except AttributeError:
+                    logging.warning("Can't escape html on form_data. Will pass.")
                 return expense_instance.add_expenses(form_data)
             else:
-                return jsonify('Some data is missing or incorrect'), 400
+                return jsonify('Date needs to be in the past'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
-def get_all_expenses():
+def get_all_expenses(expenses_list):
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses()
+    return expense_instance.get_all_expenses(expenses_list)
 
 
 def get_cost_types():  # noqa: E501
@@ -1181,13 +1190,19 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            if datetime.datetime.strptime(form_data.get('transaction_date'),
-                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
-                    + datetime.timedelta(hours=2):
-                form_data.escape_characters()
-                return expense_instance.update_expenses(expenses_id, form_data)
-            else:
-                return jsonify('Some data is missing or incorrect'), 400
+            if form_data.get('transaction_date'):
+                if datetime.datetime.strptime(form_data.get('transaction_date'),
+                                              '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                        + datetime.timedelta(hours=2):
+                    try:
+                        form_data.escape_characters()
+                    except AttributeError:
+                        logging.warning("Can't escape html on form_data. Will pass.")
+                    return expense_instance.update_expenses(expenses_id, form_data)
+                else:
+                    return jsonify('Date needs to be in de past'), 400
+
+            return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         logging.exception("Update exp")
         return jsonify(er.args), 500
@@ -1202,9 +1217,10 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses()
+            expense_instance = ControllerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
