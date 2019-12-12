@@ -216,34 +216,40 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self):
+    def get_all_expenses(self, expenses_list):
         """Get JSON of all the expenses"""
+        if expenses_list == "expenses_all":
+            return make_response(jsonify(None), 204)
 
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        )
+        elif expenses_list == "expenses_creditor_approved":
 
-        expenses_info = self.ds_client.query(kind="Expenses")
+            query_filter: Dict[Any, str] = dict(
+                creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+            )
 
-        expenses_data = expenses_info.fetch()
+            expenses_info = self.ds_client.query(kind="Expenses")
 
-        if expenses_data:
-            results = []
-            for ed in expenses_data:
-                logging.debug(f'get_all_expenses: [{ed}]')
-                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                       query_filter["creditor2"] == ed["status"]["text"]):
-                    results.append({
-                        "id": ed.id,
-                        "amount": ed["amount"],
-                        "note": ed["note"],
-                        "cost_type": ed["cost_type"],
-                        "claim_date": ed["claim_date"],
-                        "transaction_date": ed["transaction_date"],
-                        "employee": ed["employee"]["full_name"],
-                        "status": ed["status"],
-                    })
-            return jsonify(results)
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+                for ed in expenses_data:
+                    logging.debug(f'get_all_expenses: [{ed}]')
+                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                           query_filter["creditor2"] == ed["status"]["text"]):
+                        results.append({
+                            "id": ed.id,
+                            "amount": ed["amount"],
+                            "note": ed["note"],
+                            "cost_type": ed["cost_type"],
+                            "claim_date": ed["claim_date"],
+                            "transaction_date": ed["transaction_date"],
+                            "employee": ed["employee"]["full_name"],
+                            "status": ed["status"],
+                        })
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
         else:
             return make_response(jsonify(None), 204)
 

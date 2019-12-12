@@ -294,6 +294,8 @@ paths:
     x-eac-ignore: True
   /finances/expenses:
     get:
+      parameters:
+        - $ref: '#components/parameters/ExpensesList'
       responses:
         '200':
           content:
@@ -651,6 +653,16 @@ components:
         type: string
       in: path
       required: true
+    ExpensesList:
+      style: simple
+      explode: false
+      name: expenses_list
+      description: Type of expenses to be returned
+      schema:
+        default: "expenses_creditor_approved"
+        type: string
+      in: query
+      required: false
   requestBodies:
     formData:
       content:
