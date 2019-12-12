@@ -1066,7 +1066,7 @@ def get_all_expenses():
     :rtype: None
     """
     expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses()
+    return expense_instance.get_all_expenses('expenses_creditor_approved')
 
 
 def get_cost_types():  # noqa: E501
