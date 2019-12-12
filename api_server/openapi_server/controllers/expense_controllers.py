@@ -1060,13 +1060,13 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def get_all_expenses():
+def get_all_expenses(expenses_list):
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses('expenses_creditor_approved')
+    return expense_instance.get_all_expenses(expenses_list)
 
 
 def get_cost_types():  # noqa: E501
