@@ -115,7 +115,7 @@ class ClaimExpenses:
         try:
             blob.upload_from_string(
                 base64.b64decode(attachment.content.split(",")[1]),
-                content_type=re.search("(?<=data:)(.*)(?=;)", str(attachment))[0]
+                content_type=re.search(r"(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)", str(attachment))
             )
             return True
         except Exception as e:
@@ -233,6 +233,7 @@ class ClaimExpenses:
 
             if expenses_data:
                 results = []
+
                 for ed in expenses_data:
                     logging.debug(f'get_all_expenses: [{ed}]')
                     if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
