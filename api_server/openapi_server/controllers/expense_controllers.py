@@ -341,7 +341,6 @@ class ClaimExpenses:
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
                 try:
-                    print(expense['employee']['afas_data'])
                     BusinessRulesEngine().process_rules(
                         data, expense['employee']['afas_data'])
                 except ValueError as exception:
