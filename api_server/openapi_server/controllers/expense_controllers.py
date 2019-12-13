@@ -114,9 +114,12 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
+            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
+            if not content_type:
+                return False
             blob.upload_from_string(
                 base64.b64decode(attachment.content.split(",")[1]),
-                content_type=re.search(r"(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)", str(attachment))
+                content_type=content_type.group()
             )
             return True
         except Exception as e:
