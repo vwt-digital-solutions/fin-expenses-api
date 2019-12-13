@@ -1,3 +1,4 @@
+import config
 import inspect
 from openapi_server.models.expense_data import ExpenseData
 
@@ -15,11 +16,13 @@ class BusinessRulesEngine:
         expense = self.to_dict(expense) if isinstance(expense, ExpenseData) \
             else expense
 
-        if 'Bedrijf' in employee and 'amount' in expense and \
-                employee['Bedrijf'] == 'VW TELECOM BV PAO' and \
-                expense['amount'] <= 10:
-            raise ValueError(
-                'Het minimale bedrag voor een declaratie is €11,-')
+        if hasattr(config, 'CONDITION_PAO_COMPANY') and \
+                hasattr(config, 'CONDITION_PAO_AMOUNT'):
+            if 'Bedrijf' in employee and 'amount' in expense and \
+                    employee['Bedrijf'] == config.CONDITION_PAO_COMPANY and \
+                    expense['amount'] <= config.CONDITION_PAO_AMOUNT:
+                raise ValueError(
+                    'Het minimale bedrag voor een declaratie is €11,-')
 
     def to_dict(self, obj):
         pr = {}
