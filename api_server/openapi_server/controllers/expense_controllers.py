@@ -194,7 +194,9 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-        if not self._check_attachment_permission(expense):
+        if not expense:
+            return make_response(jsonify('Expense not found'), 404)
+        elif not self._check_attachment_permission(expense):
             return make_response(jsonify(None), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
