@@ -270,9 +270,7 @@ class ClaimExpenses:
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
-                    if hasattr(config, 'EXPENSE_BUSINESS_RULES'):
-                        BusinessRulesEngine().process_rules(
-                            {"expense": data, "afas_data": afas_data})
+                    BusinessRulesEngine().process_rules(data, afas_data)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
