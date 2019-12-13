@@ -1229,7 +1229,7 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ControllerExpenses()
+            expense_instance = DepartmentExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on add_expense')
