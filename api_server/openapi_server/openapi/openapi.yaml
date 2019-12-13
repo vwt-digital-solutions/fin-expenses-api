@@ -294,6 +294,8 @@ paths:
     x-eac-ignore: True
   /finances/expenses:
     get:
+      parameters:
+        - $ref: '#components/parameters/ExpensesList'
       responses:
         '200':
           content:
@@ -412,7 +414,7 @@ paths:
         default:
           description: Response Successfully Executed
       security:
-       - oauth2: [controller.write]
+        - oauth2: [controller.write]
       operationId: get_controller_expenses
       summary: Get all expenses
       description: Get all expenses for controllers
@@ -457,14 +459,35 @@ components:
       properties:
         status:
           type: string
+          enum:
+            - ready_for_creditor
+            - ready_for_manager
+            - rejected_by_manager
+            - rejected_by_creditor
+            - exported
+            - cancelled
+            - approved
+            - payed
         creditor_note:
           type: string
         manager_note:
           type: string
+        amount:
+          format: decimal
+          type: number
+          minimum: 0.01
+        note:
+          type: string
+        cost_type:
+          type: string
+        transaction_date:
+          type: string
+          format: date-time
+          pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
       required:
         - status
       example:
-        status: 'cancelled_by_creditor'
+        status: 'rejected_by_creditor'
         finance_note: 'Wrong amount'
     AttachmentData:
       title: attachmentData
@@ -475,6 +498,8 @@ components:
           type: string
         content:
           type: string
+          format: byte
+          pattern: '(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)'
       example: |-
         {
           "name": "somename",
@@ -493,12 +518,15 @@ components:
         amount:
           format: decimal
           type: number
+          minimum: 0.01
         note:
           type: string
         cost_type:
           type: string
         transaction_date:
           type: string
+          format: date-time
+          pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
       example: |-
         {
             "note": "This is a note",
@@ -625,6 +653,16 @@ components:
         type: string
       in: path
       required: true
+    ExpensesList:
+      style: simple
+      explode: false
+      name: expenses_list
+      description: Type of expenses to be returned
+      schema:
+        default: "expenses_creditor_approved"
+        type: string
+      in: query
+      required: false
   requestBodies:
     formData:
       content:
@@ -651,4 +689,3 @@ components:
             controller.write: Read all expense information
       x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope
-      

@@ -1,4 +1,5 @@
 config.py
+.enc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -11,6 +12,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+venv/
 build/
 develop-eggs/
 dist/

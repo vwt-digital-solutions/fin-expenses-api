@@ -3,9 +3,9 @@ import copy
 import json
 import os
 import requests
+import re
 
 import datetime
-import mimetypes
 import tempfile
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as MD
@@ -32,6 +32,7 @@ from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
+from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
 
 from OpenSSL import crypto
 
@@ -105,17 +106,25 @@ class ClaimExpenses:
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
-
         today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
         filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
                    f"-{attachment.name}"
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
-        blob.upload_from_string(
-            base64.b64decode(attachment.content.split(",")[1]),
-            content_type=mimetypes.guess_type(attachment.content)[0],
-        )
+
+        try:
+            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
+            if not content_type:
+                return False
+            blob.upload_from_string(
+                base64.b64decode(attachment.content.split(",")[1]),
+                content_type=content_type.group()
+            )
+            return True
+        except Exception as e:
+            logger.warning(str(e))
+            return False
 
     def delete_attachment(self, expenses_id, attachments_name):
         """
@@ -188,7 +197,9 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
-        if not self._check_attachment_permission(expense):
+        if not expense:
+            return make_response(jsonify('Expense not found'), 404)
+        elif not self._check_attachment_permission(expense):
             return make_response(jsonify(None), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
@@ -211,34 +222,41 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self):
+    def get_all_expenses(self, expenses_list):
         """Get JSON of all the expenses"""
+        if expenses_list == "expenses_all":
+            return make_response(jsonify(None), 204)
 
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        )
+        elif expenses_list == "expenses_creditor_approved":
 
-        expenses_info = self.ds_client.query(kind="Expenses")
+            query_filter: Dict[Any, str] = dict(
+                creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+            )
 
-        expenses_data = expenses_info.fetch()
+            expenses_info = self.ds_client.query(kind="Expenses")
 
-        if expenses_data:
-            results = []
-            for ed in expenses_data:
-                logging.debug(f'get_all_expenses: [{ed}]')
-                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                       query_filter["creditor2"] == ed["status"]["text"]):
-                    results.append({
-                        "id": ed.id,
-                        "amount": ed["amount"],
-                        "note": ed["note"],
-                        "cost_type": ed["cost_type"],
-                        "claim_date": ed["claim_date"],
-                        "transaction_date": ed["transaction_date"],
-                        "employee": ed["employee"]["full_name"],
-                        "status": ed["status"],
-                    })
-            return jsonify(results)
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+
+                for ed in expenses_data:
+                    logging.debug(f'get_all_expenses: [{ed}]')
+                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                           query_filter["creditor2"] == ed["status"]["text"]):
+                        results.append({
+                            "id": ed.id,
+                            "amount": ed["amount"],
+                            "note": ed["note"],
+                            "cost_type": ed["cost_type"],
+                            "claim_date": ed["claim_date"],
+                            "transaction_date": ed["transaction_date"],
+                            "employee": ed["employee"]["full_name"],
+                            "status": ed["status"],
+                        })
+                return jsonify(results)
+            else:
+                return make_response(jsonify(None), 204)
         else:
             return make_response(jsonify(None), 204)
 
@@ -256,33 +274,38 @@ class ClaimExpenses:
                 ready_text = "ready_for_creditor"
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
-                key = self.ds_client.key("Expenses")
-                entity = datastore.Entity(key=key)
-                entity.update(
-                    {
-                        "employee": dict(
-                            afas_data=afas_data,
-                            email=self.employee_info["unique_name"],
-                            family_name=self.employee_info["family_name"],
-                            given_name=self.employee_info["given_name"],
-                            full_name=self.employee_info["name"],
-                        ),
-                        "amount": data.amount,
-                        "note": data.note,
-                        "cost_type": data.cost_type,
-                        "transaction_date": data.transaction_date,
-                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                        "status": dict(export_date="never", text=ready_text),
-                    }
-                )
-                self.ds_client.put(entity)
+                try:
+                    BusinessRulesEngine().process_rules(data, afas_data)
+                except ValueError as exception:
+                    return make_response(jsonify(str(exception)), 400)
+                else:
+                    key = self.ds_client.key("Expenses")
+                    entity = datastore.Entity(key=key)
+                    entity.update(
+                        {
+                            "employee": dict(
+                                afas_data=afas_data,
+                                email=self.employee_info["unique_name"],
+                                family_name=self.employee_info["family_name"],
+                                given_name=self.employee_info["given_name"],
+                                full_name=self.employee_info["name"],
+                            ),
+                            "amount": data.amount,
+                            "note": data.note,
+                            "cost_type": data.cost_type,
+                            "transaction_date": data.transaction_date,
+                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                            "status": dict(export_date="never", text=ready_text),
+                        }
+                    )
+                    self.ds_client.put(entity)
 
-                if ready_text == 'ready_for_manager':
-                    self.send_email_notification(
-                        'add_expense', afas_data,
-                        entity.key.id_or_name)
+                    if ready_text == 'ready_for_manager':
+                        self.send_email_notification(
+                            'add_expense', afas_data,
+                            entity.key.id_or_name)
 
-                return make_response(jsonify(entity.key.id_or_name), 201)
+                    return make_response(jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
@@ -317,9 +340,22 @@ class ClaimExpenses:
             old_expense = copy.deepcopy(expense)
             fields, status = self._prepare_context_update_expense(data, expense)
             if fields and status:
-                self._update_expenses(data, fields, status, expense)
-                self.expense_journal(old_expense, expense)
-                return make_response(jsonify(None), 200)
+                try:
+                    BusinessRulesEngine().process_rules(
+                        data, expense['employee']['afas_data'])
+                except ValueError as exception:
+                    return make_response(jsonify(str(exception)), 400)
+                else:
+                    self._update_expenses(data, fields, status, expense)
+                    self.expense_journal(old_expense, expense)
+
+                    if 'rejected_by_manager' in status or \
+                            'rejected_by_creditor' in status:
+                        self.send_email_notification(
+                            'edit_expense', expense['employee']['afas_data'],
+                            expense.key.id_or_name)
+
+                    return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
 
@@ -625,7 +661,7 @@ class ClaimExpenses:
             if not self.send_to_power2pay(payment_file_name):
                 return (False, None, jsonify({"Info": "Failed to upload payment file"}))
             else:
-                logger.warning("Error sending to Power2Pay")
+                logger.info("Power2Pay upload successful")
         else:
             logger.warning("Sending to Power2Pay is disabled")
 
@@ -755,9 +791,9 @@ class ClaimExpenses:
                 msg_html = mail_template.read()
 
             msg_html = msg_html.replace('$MAIL_TITLE',
-                                        mail_body['mail_title'])
+                                        mail_body['title'])
             msg_html = msg_html.replace('$MAIL_BODY',
-                                        mail_body['mail_body'])
+                                        mail_body['body'])
 
             msg.attach(MIMEText(msg_html, 'html'))
             raw = base64.urlsafe_b64encode(msg.as_bytes())
@@ -776,48 +812,59 @@ class ClaimExpenses:
         if 'GOOGLE_CLOUD_PROJECT' in os.environ and \
                 'vwt-p-' in os.environ['GOOGLE_CLOUD_PROJECT']:
             mail_body = None
-            if mail_type == 'add_expense':
+            recipient = None
+
+            if mail_type == 'add_expense' and \
+                    'Manager_personeelsnummer' in afas_data:
+                query = self.ds_client.query(kind='AFAS_HRM')
+                query.add_filter('Personeelsnummer', '=',
+                                 afas_data['Manager_personeelsnummer'])
+                db_data = list(query.fetch(limit=1))
+
+                if len(db_data) == 1 and 'email_address' in db_data[0]:
+                    recipient = db_data[0]
+
                 mail_body = {
-                    'from': config.GMAIL_SENDER_ADDRESS,
-                    'reply_to': config.GMAIL_ADDEXPENSE_REPLYTO,
                     'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                    'mail_title': 'Nieuwe declaratie',
-                    'mail_body': """Beste {},<br /><br />
-                    Er staat een nieuwe declaratie voor je klaar in de Declaratie-app, log in om deze te beoordelen.
-                    Mochten er nog vragen zijn, mail gerust naar <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                    Met vriendelijke groeten,<br />FSSC"""
+                    'title': 'Nieuwe declaratie',
+                    'text': "Er staat een nieuwe declaratie voor je klaar " +
+                            "in de Declaratie-app, log in om deze " +
+                            "te beoordelen."
+                }
+            elif mail_type == 'edit_expense' and 'email_address' in afas_data:
+                recipient = afas_data
+                mail_body = {
+                    'subject': 'Een declaratie heeft aanpassingen nodig!',
+                    'title': 'Aanpassing vereist',
+                    'text': "Een ingediende declaratie heeft wijzigingen " +
+                            "nodig in de Declaratie-app, log in om deze " +
+                            "aan te passen."
                 }
 
-            if mail_body:
-                if afas_data and 'Manager_personeelsnummer' in afas_data:
-                    query = self.ds_client.query(kind='AFAS_HRM')
-                    query.add_filter('Personeelsnummer', '=',
-                                     afas_data['Manager_personeelsnummer'])
-                    db_data = list(query.fetch(limit=1))
+            if mail_body and recipient:
+                logging.info(f"Creating email for expense '{expense_id}'")
+                recipient_name = recipient['Voornaam'] \
+                    if 'Voornaam' in recipient else 'ontvanger'
 
-                    if db_data and len(db_data) > 0 and \
-                            'email_address' in db_data[0]:
-                        manager = db_data[0]
-                        logging.info(f"Creating email for expense '{expense_id}'")
+                mail_body['body'] = """Beste {},<br /><br />
+                    {}
+                    Mochten er nog vragen zijn, mail gerust naar
+                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                    Met vriendelijke groeten,<br />FSSC""".format(
+                    recipient_name, mail_body['text'],
+                    config.GMAIL_ADDEXPENSE_REPLYTO,
+                    config.GMAIL_ADDEXPENSE_REPLYTO
+                )
 
-                        manager_naam = manager['Voornaam'] \
-                            if 'Voornaam' in manager else 'ontvanger'
+                mail_body['from'] = config.GMAIL_SENDER_ADDRESS
+                mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
 
-                        mail_body['mail_body'] = mail_body['mail_body'].format(
-                            manager_naam, config.GMAIL_ADDEXPENSE_REPLYTO,
-                            config.GMAIL_ADDEXPENSE_REPLYTO
-                        )
-                        self.send_message(expense_id, manager['email_address'],
-                                          mail_body)
-                    else:
-                        logging.info(
-                            "No manager found for employee '" +
-                            afas_data['email_address'] + "', no email sent")
-                else:
-                    logging.info(
-                        f"No employee data found for expense '{expense_id}'")
+                del mail_body['text']
+
+                self.send_message(expense_id, recipient['email_address'],
+                                  mail_body)
             else:
-                logging.info(f"No mail body found for expense '{expense_id}'")
+                logging.info(f"No mail info found for expense '{expense_id}'")
         else:
             logging.info("Dev mode active for sending e-mails")
 
@@ -887,13 +934,15 @@ class EmployeeExpenses(ClaimExpenses):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return make_response(jsonify('Unauthorized'), 403)
 
-        self.create_attachment(
+        creation = self.create_attachment(
             data,
             expense.key.id_or_name,
             self.employee_info["unique_name"]
         )
 
-        return '', 204
+        if not creation:
+            return jsonify('Some data was missing or incorrect'), 400
+        return 201
 
 
 class DepartmentExpenses(ClaimExpenses):
@@ -1013,19 +1062,29 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            return expense_instance.add_expenses(form_data)
+
+            if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
+                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
+                    datetime.timedelta(hours=2):
+                try:
+                    form_data.escape_characters()
+                except AttributeError:
+                    logging.warning("Can't escape html on form_data. Will pass.")
+                return expense_instance.add_expenses(form_data)
+            else:
+                return jsonify('Date needs to be in the past'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
-def get_all_expenses():
+def get_all_expenses(expenses_list):
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses()
+    return expense_instance.get_all_expenses(expenses_list)
 
 
 def get_cost_types():  # noqa: E501
@@ -1070,6 +1129,7 @@ def get_document(document_id, document_type):
         content_response["file"],
         headers={
             "Content-Type": f"{mime_type}",
+            "charset": "utf-8",
             "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
             "Authorization": "",
         },
@@ -1141,6 +1201,18 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
+            if form_data.get('transaction_date'):
+                if datetime.datetime.strptime(form_data.get('transaction_date'),
+                                              '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                        + datetime.timedelta(hours=2):
+                    try:
+                        form_data.escape_characters()
+                    except AttributeError:
+                        logging.warning("Can't escape html on form_data. Will pass.")
+                    return expense_instance.update_expenses(expenses_id, form_data)
+                else:
+                    return jsonify('Date needs to be in de past'), 400
+
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         logging.exception("Update exp")
@@ -1159,6 +1231,7 @@ def update_expenses_manager(expenses_id):
             expense_instance = DepartmentExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
+        logging.exception('Exception on add_expense')
         return jsonify(er.args), 500
 
 
