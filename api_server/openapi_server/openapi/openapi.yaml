@@ -64,6 +64,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UrlArray'
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
       operationId: get_attachment_employee
       security:
@@ -81,6 +89,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UrlArray'
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
       operationId: add_attachment_employee
       security:
@@ -124,6 +140,14 @@ paths:
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28Z
           description: Succesfull response - returns all expenses of a logged in employee
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
         default:
           description: Response Successfully Executed
       security:
@@ -143,6 +167,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExpenseData'
           description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
         default:
           description: Expense Success
       security:
@@ -266,6 +298,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExpenseData'
           description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
         default:
           description: Expense Success
       security:
@@ -286,6 +326,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UrlArray'
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
       operationId: get_attachment_finances_creditor
       security:
@@ -384,6 +432,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UrlArray'
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
       operationId: get_attachment_finances_manager
       security:
@@ -431,6 +487,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UrlArray'
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
       operationId: get_attachment_controllers
       security:
