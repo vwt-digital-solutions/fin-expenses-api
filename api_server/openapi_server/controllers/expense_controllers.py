@@ -870,7 +870,7 @@ class ClaimExpenses:
             else:
                 logging.info("Dev mode active for sending e-mails")
         except Exception as error:
-            logging.warning(
+            logging.exception(
                 f'An exception occurred when sending an email: {error}')
             pass
 
@@ -1315,6 +1315,6 @@ def api_base_url():
     base_url = request.host_url
 
     if 'GAE_INSTANCE' in os.environ:
-        base_url = f"https://{'vwt-d-gew1-fin-expenses'}.appspot.com/"
+        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
