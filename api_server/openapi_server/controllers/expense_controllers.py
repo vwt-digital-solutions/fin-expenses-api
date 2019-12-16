@@ -300,14 +300,13 @@ class ClaimExpenses:
                     )
                     self.ds_client.put(entity)
 
-                    try:
-                        return make_response(
-                            jsonify(entity.key.id_or_name), 201)
-                    finally:
-                        if ready_text == 'ready_for_manager':
-                            self.send_email_notification(
-                                'add_expense', afas_data,
-                                entity.key.id_or_name)
+                    if ready_text == 'ready_for_manager':
+                        self.send_email_notification(
+                            'add_expense', afas_data,
+                            entity.key.id_or_name)
+
+                    return make_response(
+                        jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
@@ -351,15 +350,14 @@ class ClaimExpenses:
                     self._update_expenses(data, fields, status, expense)
                     self.expense_journal(old_expense, expense)
 
-                    try:
-                        return make_response(jsonify(None), 200)
-                    finally:
-                        if 'rejected_by_manager' in data['status'] or \
-                                'rejected_by_creditor' in data['status']:
-                            self.send_email_notification(
-                                'edit_expense',
-                                expense['employee']['afas_data'],
-                                expense.key.id_or_name)
+                    if data['status'] == 'rejected_by_manager' or \
+                            data['status'] == 'rejected_by_creditor':
+                        self.send_email_notification(
+                            'edit_expense',
+                            expense['employee']['afas_data'],
+                            expense.key.id_or_name)
+
+                    return make_response(jsonify(None), 200)
             else:
                 return make_response(jsonify(None), 403)
 
@@ -812,64 +810,69 @@ class ClaimExpenses:
         self.send_message_internal("me", new_message, expense_id)
 
     def send_email_notification(self, mail_type, afas_data, expense_id):
-        # Check if production project for sending emails
-        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
-            mail_body = None
-            recipient = None
+        try:
+            if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
+                mail_body = None
+                recipient = None
 
-            if mail_type == 'add_expense' and \
-                    'Manager_personeelsnummer' in afas_data:
-                query = self.ds_client.query(kind='AFAS_HRM')
-                query.add_filter('Personeelsnummer', '=',
-                                 afas_data['Manager_personeelsnummer'])
-                db_data = list(query.fetch(limit=1))
+                if mail_type == 'add_expense' and \
+                        'Manager_personeelsnummer' in afas_data:
+                    query = self.ds_client.query(kind='AFAS_HRM')
+                    query.add_filter('Personeelsnummer', '=',
+                                     afas_data['Manager_personeelsnummer'])
+                    db_data = list(query.fetch(limit=1))
 
-                if len(db_data) == 1 and 'email_address' in db_data[0]:
-                    recipient = db_data[0]
+                    if len(db_data) == 1 and 'email_address' in db_data[0]:
+                        recipient = db_data[0]
 
-                mail_body = {
-                    'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                    'title': 'Nieuwe declaratie',
-                    'text': "Er staat een nieuwe declaratie voor je klaar " +
-                            "in de Declaratie-app, log in om deze " +
-                            "te beoordelen."
-                }
-            elif mail_type == 'edit_expense' and 'email_address' in afas_data:
-                recipient = afas_data
-                mail_body = {
-                    'subject': 'Een declaratie heeft aanpassingen nodig!',
-                    'title': 'Aanpassing vereist',
-                    'text': "Een ingediende declaratie heeft wijzigingen " +
-                            "nodig in de Declaratie-app, log in om deze " +
-                            "aan te passen."
-                }
+                    mail_body = {
+                        'subject': 'Er staat een nieuwe declaratie voor je klaar!',
+                        'title': 'Nieuwe declaratie',
+                        'text': "Er staat een nieuwe declaratie voor je klaar " +
+                                "in de Declaratie-app, log in om deze " +
+                                "te beoordelen."
+                    }
+                elif mail_type == 'edit_expense' and 'email_address' in afas_data:
+                    recipient = afas_data
+                    mail_body = {
+                        'subject': 'Een declaratie heeft aanpassingen nodig!',
+                        'title': 'Aanpassing vereist',
+                        'text': "Een ingediende declaratie heeft wijzigingen " +
+                                "nodig in de Declaratie-app, log in om deze " +
+                                "aan te passen."
+                    }
 
-            if mail_body and recipient:
-                logging.info(f"Creating email for expense '{expense_id}'")
-                recipient_name = recipient['Voornaam'] \
-                    if 'Voornaam' in recipient else 'ontvanger'
+                if mail_body and recipient:
+                    logging.info(f"Creating email for expense '{expense_id}'")
+                    recipient_name = recipient['Voornaam'] \
+                        if 'Voornaam' in recipient else 'ontvanger'
 
-                mail_body['body'] = """Beste {},<br /><br />
-                    {}
-                    Mochten er nog vragen zijn, mail gerust naar
-                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                    Met vriendelijke groeten,<br />FSSC""".format(
-                    recipient_name, mail_body['text'],
-                    config.GMAIL_ADDEXPENSE_REPLYTO,
-                    config.GMAIL_ADDEXPENSE_REPLYTO
-                )
+                    mail_body['body'] = """Beste {},<br /><br />
+                        {}
+                        Mochten er nog vragen zijn, mail gerust naar
+                        <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                        Met vriendelijke groeten,<br />FSSC""".format(
+                        recipient_name, mail_body['text'],
+                        config.GMAIL_ADDEXPENSE_REPLYTO,
+                        config.GMAIL_ADDEXPENSE_REPLYTO
+                    )
 
-                mail_body['from'] = config.GMAIL_SENDER_ADDRESS
-                mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
+                    mail_body['from'] = config.GMAIL_SENDER_ADDRESS
+                    mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
 
-                del mail_body['text']
+                    del mail_body['text']
 
-                self.send_message(expense_id, recipient['email_address'],
-                                  mail_body)
+                    self.send_message(expense_id, recipient['email_address'],
+                                      mail_body)
+                else:
+                    logging.info(
+                        f"No mail info found for expense '{expense_id}'")
             else:
-                logging.info(f"No mail info found for expense '{expense_id}'")
-        else:
-            logging.info("Dev mode active for sending e-mails")
+                logging.info("Dev mode active for sending e-mails")
+        except Exception as error:
+            logging.warning(
+                f'An exception occurred when sending an email: {error}')
+            pass
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -1312,6 +1315,6 @@ def api_base_url():
     base_url = request.host_url
 
     if 'GAE_INSTANCE' in os.environ:
-        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+        base_url = f"https://{'vwt-d-gew1-fin-expenses'}.appspot.com/"
 
     return base_url
