@@ -1,7 +1,9 @@
 from google.cloud import datastore
 import logging
+import json
 import datetime
 
+from flask import make_response, jsonify
 from utils import shift_to_business_days
 
 logging.basicConfig(level=logging.INFO)
@@ -13,9 +15,11 @@ def process_approve(request):
         query = client.query(kind='Expenses')
         pending = int(request.args['pending'])
         filter_amount = int(request.args['amount'])
+
         logging.info(
             f'Auto-approve claims older than {pending} business days with ' +
             f'amount less than {filter_amount}')
+
         business_pending = shift_to_business_days(pending)
         boundary = (datetime.datetime.now() - datetime.timedelta(
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
@@ -28,11 +32,35 @@ def process_approve(request):
         expenses_to_update = []
         for expense in [exp for exp in query.fetch()
                         if exp['amount'] <= filter_amount]:
-            expense['status']['text'] = 'ready_for_creditor'
-            expense['date_of_transaction'] = int(
-                datetime.datetime.now().timestamp()) * 1000
+            changed = []
+
             logging.info(f'Auto approve {expense}')
+
+            if 'auto_approved' in expense:
+                old_auto_value = expense['auto_approved']
+            else:
+                old_auto_value = 'null'
+            new_auto_value = 'Yes'
+
+            expense['auto_approved'] = new_auto_value
+
+            # Update Expenses_Journal: auto_approved and status
+            changed.append({'auto_approved': {"old": old_auto_value, "new": new_auto_value}})
+            changed.append({'status': {"old": expense['status']['text'], "new": 'ready_for_creditor'}})
+
+            expense['status']['text'] = 'ready_for_creditor'
+
+            key = client.key("Expenses_Journal")
+            expense_journal = datastore.Entity(key=key)
+            expense_journal.update(
+                {
+                    "Expenses_Id": expense.key.id,
+                    "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                    "Attributes_Changed": json.dumps(changed)
+                }
+            )
             expenses_to_update.append(expense)
+            expenses_to_update.append(expense_journal)
 
         client.put_multi(expenses_to_update)
     else:
@@ -48,7 +76,6 @@ if __name__ == '__main__':
     class R:
         def __init__(self):
             self.args = {'pending': 3, 'amount': 200}
-
     r = R()
     logging.warning(r.args)
     # r.args = {'pending': 3}

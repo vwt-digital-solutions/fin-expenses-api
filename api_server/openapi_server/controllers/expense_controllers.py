@@ -300,12 +300,14 @@ class ClaimExpenses:
                     )
                     self.ds_client.put(entity)
 
-                    if ready_text == 'ready_for_manager':
-                        self.send_email_notification(
-                            'add_expense', afas_data,
-                            entity.key.id_or_name)
-
-                    return make_response(jsonify(entity.key.id_or_name), 201)
+                    try:
+                        return make_response(
+                            jsonify(entity.key.id_or_name), 201)
+                    finally:
+                        if ready_text == 'ready_for_manager':
+                            self.send_email_notification(
+                                'add_expense', afas_data,
+                                entity.key.id_or_name)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
@@ -349,13 +351,15 @@ class ClaimExpenses:
                     self._update_expenses(data, fields, status, expense)
                     self.expense_journal(old_expense, expense)
 
-                    if 'rejected_by_manager' in status or \
-                            'rejected_by_creditor' in status:
-                        self.send_email_notification(
-                            'edit_expense', expense['employee']['afas_data'],
-                            expense.key.id_or_name)
-
-                    return make_response(jsonify(None), 200)
+                    try:
+                        return make_response(jsonify(None), 200)
+                    finally:
+                        if 'rejected_by_manager' in data['status'] or \
+                                'rejected_by_creditor' in data['status']:
+                            self.send_email_notification(
+                                'edit_expense',
+                                expense['employee']['afas_data'],
+                                expense.key.id_or_name)
             else:
                 return make_response(jsonify(None), 403)
 
@@ -809,8 +813,7 @@ class ClaimExpenses:
 
     def send_email_notification(self, mail_type, afas_data, expense_id):
         # Check if production project for sending emails
-        if 'GOOGLE_CLOUD_PROJECT' in os.environ and \
-                'vwt-p-' in os.environ['GOOGLE_CLOUD_PROJECT']:
+        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
             mail_body = None
             recipient = None
 

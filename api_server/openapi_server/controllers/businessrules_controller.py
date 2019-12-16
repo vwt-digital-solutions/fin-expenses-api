@@ -22,8 +22,8 @@ class BusinessRulesEngine:
                     employee['Bedrijf'] == config.CONDITION_PAO_COMPANY and \
                     expense['amount'] <= config.CONDITION_PAO_AMOUNT:
                 raise ValueError(
-                    'Het minimale bedrag voor een declaratie is €{},-'.format(
-                        (config.CONDITION_PAO_AMOUNT + 1)))
+                    'Het declaratiebedrag moet hoger zijn dan €{},-'.format(
+                        config.CONDITION_PAO_AMOUNT))
 
     def to_dict(self, obj):
         pr = {}
