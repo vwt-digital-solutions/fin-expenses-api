@@ -14,7 +14,6 @@ from io import BytesIO
 from typing import Dict, Any
 import dateutil
 
-
 import pytz
 
 import config
@@ -222,41 +221,34 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self, expenses_list):
+    def get_all_expenses(self):
         """Get JSON of all the expenses"""
-        if expenses_list == "expenses_all":
-            return make_response(jsonify(None), 204)
+        query_filter: Dict[Any, str] = dict(
+            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
+        )
 
-        elif expenses_list == "expenses_creditor_approved":
+        expenses_info = self.ds_client.query(kind="Expenses")
 
-            query_filter: Dict[Any, str] = dict(
-                creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-            )
+        expenses_data = expenses_info.fetch()
 
-            expenses_info = self.ds_client.query(kind="Expenses")
+        if expenses_data:
+            results = []
 
-            expenses_data = expenses_info.fetch()
-
-            if expenses_data:
-                results = []
-
-                for ed in expenses_data:
-                    logging.debug(f'get_all_expenses: [{ed}]')
-                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                           query_filter["creditor2"] == ed["status"]["text"]):
-                        results.append({
-                            "id": ed.id,
-                            "amount": ed["amount"],
-                            "note": ed["note"],
-                            "cost_type": ed["cost_type"],
-                            "claim_date": ed["claim_date"],
-                            "transaction_date": ed["transaction_date"],
-                            "employee": ed["employee"]["full_name"],
-                            "status": ed["status"],
-                        })
-                return jsonify(results)
-            else:
-                return make_response(jsonify(None), 204)
+            for ed in expenses_data:
+                logging.debug(f'get_all_expenses: [{ed}]')
+                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                       query_filter["creditor2"] == ed["status"]["text"]):
+                    results.append({
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": ed["cost_type"],
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
+                        "employee": ed["employee"]["full_name"],
+                        "status": ed["status"],
+                    })
+            return jsonify(results)
         else:
             return make_response(jsonify(None), 204)
 
@@ -281,6 +273,24 @@ class ClaimExpenses:
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
+
+                    '''new_expense = \
+                        {
+                            "employee": dict(
+                                afas_data=afas_data,
+                                email=self.employee_info["unique_name"],
+                                family_name=self.employee_info["family_name"],
+                                given_name=self.employee_info["given_name"],
+                                full_name=self.employee_info["name"],
+                            ),
+                            "amount": data.amount,
+                            "note": data.note,
+                            "cost_type": data.cost_type,
+                            "transaction_date": data.transaction_date,
+                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
+                            "status": dict(export_date="never", text=ready_text),
+                        }'''
+
                     entity.update(
                         {
                             "employee": dict(
@@ -299,7 +309,6 @@ class ClaimExpenses:
                         }
                     )
                     self.ds_client.put(entity)
-
                     if ready_text == 'ready_for_manager':
                         self.send_email_notification(
                             'add_expense', afas_data,
@@ -311,6 +320,43 @@ class ClaimExpenses:
                 return make_response(jsonify('Employee not found'), 403)
         else:
             return make_response(jsonify('Employee not unique'), 403)
+
+    def get_export_expenses(self, expenses_list):
+        """Get CSV of all the expenses/expenses_journal"""
+
+        bucket = self.cs_client.get_bucket(self.bucket_name)
+        blob = bucket.blob("exports/export2.csv")
+        csv_text = blob.download_to_string("tmp/testbutton.csv")
+        '''with open("blob", newline='') as csv_file:
+            expense_writer = csv.writer(csv_file, delimiter = ' ')'''
+
+        # Collect expenses from csv and check if this is new (datetime)
+
+        if expenses_list == "expenses":
+            '''
+            expenses_info = self.ds_client.query(kind="Expenses")
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+                return csv_text
+            else:'''
+
+            return csv_text
+        elif expenses_list == "expenses_journal":
+
+            '''expenses_info = self.ds_client.query(kind="Expenses_Journal")
+
+            expenses_data = expenses_info.fetch()
+
+            if expenses_data:
+                results = []
+
+            else: csv_text'''
+            return csv_text
+
+        else:
+            return csv_text
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
@@ -1084,13 +1130,22 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def get_all_expenses(expenses_list):
+def get_all_expenses():
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses(expenses_list)
+    return expense_instance.get_all_expenses()
+
+
+def get_export_expenses(expenses_list):
+    """
+    Get all expenses
+    :rtype: None
+    """
+    expense_instance = ClaimExpenses()
+    return expense_instance.get_export_expenses(expenses_list)
 
 
 def get_cost_types():  # noqa: E501

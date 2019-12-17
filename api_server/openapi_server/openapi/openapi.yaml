@@ -342,8 +342,6 @@ paths:
     x-eac-ignore: True
   /finances/expenses:
     get:
-      parameters:
-        - $ref: '#components/parameters/ExpensesList'
       responses:
         '200':
           content:
@@ -370,6 +368,25 @@ paths:
       operationId: get_all_expenses
       summary: Get all expenses
       description: Retrieve all expenses
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /finances/expenses/export:
+    get:
+      parameters:
+      - $ref: '#/components/parameters/ExpensesList'
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                $ref: '#/components/schemas/ExportFile'
+          description: Succesful response - returns export file with all expenses
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [creditor.write]
+      operationId: get_export_expenses
+      summary: Get csv with all expenses
+      description: Retrieve csv with expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses:
     get:
@@ -663,6 +680,13 @@ components:
           "export_date": "2019-10-01T06:07:19.188000+00:00",
           "payment_file": "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
         }
+    ExportFile:
+      title: Export file expenses
+      description: File All Exported Data
+      type: object
+      properties:
+        export_file:
+          type: string
   parameters:
     DocumentDate:
       name: document_date
@@ -723,7 +747,7 @@ components:
       name: expenses_list
       description: Type of expenses to be returned
       schema:
-        default: "expenses_creditor_approved"
+        default: "expenses"
         type: string
       in: query
       required: false
