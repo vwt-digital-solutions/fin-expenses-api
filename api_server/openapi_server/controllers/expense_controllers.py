@@ -330,48 +330,13 @@ class ClaimExpenses:
         with tempfile.NamedTemporaryFile() as temp:
             blob.download_to_filename(temp.name)
 
-        '''with open("blob", newline='') as csv_file:
-            expense_writer = csv.writer(csv_file, delimiter = ' ')'''
-
-        # Collect expenses from csv and check if this is new (datetime)
-
-        if expenses_list == "expenses":
-            '''
-            expenses_info = self.ds_client.query(kind="Expenses")
-            expenses_data = expenses_info.fetch()
-
-            if expenses_data:
-                results = []
-                return csv_text
-            else:'''
-
             return send_file(
                 temp.name,
                 mimetype='text/csv',
                 as_attachment=True,
-                attachment_filename='testbutton.csv')
-        elif expenses_list == "expenses_journal":
+                attachment_filename='testfile.csv')
 
-            '''expenses_info = self.ds_client.query(kind="Expenses_Journal")
-
-            expenses_data = expenses_info.fetch()
-
-            if expenses_data:
-                results = []
-
-            else: csv_text'''
-            return send_file(
-                temp.name,
-                mimetype='text/csv',
-                as_attachment=True,
-                attachment_filename='testbutton.csv')
-
-        else:
-            return send_file(
-                temp.name,
-                mimetype='text/csv',
-                as_attachment=True,
-                attachment_filename='testbutton.csv')
+        # TODO: Collect expenses from csv and check if this is new (datetime)
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
