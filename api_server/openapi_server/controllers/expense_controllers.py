@@ -274,24 +274,7 @@ class ClaimExpenses:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
 
-                    '''new_expense = \
-                        {
-                            "employee": dict(
-                                afas_data=afas_data,
-                                email=self.employee_info["unique_name"],
-                                family_name=self.employee_info["family_name"],
-                                given_name=self.employee_info["given_name"],
-                                full_name=self.employee_info["name"],
-                            ),
-                            "amount": data.amount,
-                            "note": data.note,
-                            "cost_type": data.cost_type,
-                            "transaction_date": data.transaction_date,
-                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                            "status": dict(export_date="never", text=ready_text),
-                        }'''
-
-                    entity.update(
+                    new_expense = \
                         {
                             "employee": dict(
                                 afas_data=afas_data,
@@ -307,8 +290,12 @@ class ClaimExpenses:
                             "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
                             "status": dict(export_date="never", text=ready_text),
                         }
-                    )
+                    empty_expense = dict.fromkeys(new_expense, "null")
+                    entity.update(new_expense)
+
                     self.ds_client.put(entity)
+                    self.expense_journal(empty_expense, new_expense)
+
                     if ready_text == 'ready_for_manager':
                         self.send_email_notification(
                             'add_expense', afas_data,
