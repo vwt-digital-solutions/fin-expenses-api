@@ -326,7 +326,7 @@ class ClaimExpenses:
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob("exports/export2.csv")
-        csv_text = blob.download_to_string("tmp/testbutton.csv")
+        csv_text = blob.download_as_string()
         '''with open("blob", newline='') as csv_file:
             expense_writer = csv.writer(csv_file, delimiter = ' ')'''
 
