@@ -345,7 +345,11 @@ class ClaimExpenses:
                 return csv_text
             else:'''
 
-            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
+            return send_file(
+                temp.name,
+                mimetype='text/csv',
+                as_attachment=True,
+                attachment_filename='testbutton.csv')
         elif expenses_list == "expenses_journal":
 
             '''expenses_info = self.ds_client.query(kind="Expenses_Journal")
@@ -356,10 +360,18 @@ class ClaimExpenses:
                 results = []
 
             else: csv_text'''
-            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
+            return send_file(
+                temp.name,
+                mimetype='text/csv',
+                as_attachment=True,
+                attachment_filename='testbutton.csv')
 
         else:
-            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
+            return send_file(
+                temp.name,
+                mimetype='text/csv',
+                as_attachment=True,
+                attachment_filename='testbutton.csv')
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
