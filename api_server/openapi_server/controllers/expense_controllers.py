@@ -22,7 +22,7 @@ import pandas as pd
 
 import connexion
 import googleapiclient.discovery
-from flask import make_response, jsonify, Response, g, request
+from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
 from google.oauth2 import service_account
 from apiclient import errors
@@ -326,7 +326,10 @@ class ClaimExpenses:
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob("exports/export2.csv")
-        csv_text = blob.download_as_string()
+
+        with tempfile.NamedTemporaryFile() as temp:
+            blob.download_to_filename(temp.name)
+
         '''with open("blob", newline='') as csv_file:
             expense_writer = csv.writer(csv_file, delimiter = ' ')'''
 
@@ -342,7 +345,7 @@ class ClaimExpenses:
                 return csv_text
             else:'''
 
-            return csv_text
+            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
         elif expenses_list == "expenses_journal":
 
             '''expenses_info = self.ds_client.query(kind="Expenses_Journal")
@@ -353,10 +356,10 @@ class ClaimExpenses:
                 results = []
 
             else: csv_text'''
-            return csv_text
+            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
 
         else:
-            return csv_text
+            return send_file(temp.name, mimetype='text/csv', attachment=True, attachment_filename='testbutton.csv')
 
     @abstractmethod
     def _process_status_text_update(self, item, expense):
