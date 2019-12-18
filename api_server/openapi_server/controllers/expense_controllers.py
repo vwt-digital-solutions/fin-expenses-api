@@ -358,7 +358,10 @@ class ClaimExpenses:
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
         need_to_save = False
         for item in items_to_update:
-            if item != "status" and expense.get(item, None) != data[item]:
+            if item == "rnote":
+                need_to_save = True
+                expense["status"]["rnote"] = data[item]
+            elif item != "status" and expense.get(item, None) != data[item]:
                 need_to_save = True
                 expense[item] = data[item]
 
