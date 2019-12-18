@@ -137,7 +137,7 @@ class ClaimExpenses:
         expense = self.ds_client.get(exp_key)
 
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
-            return make_response(jsonify(None), 403)
+            return make_response(jsonify('No match on email'), 403)
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
@@ -173,7 +173,7 @@ class ClaimExpenses:
             if expense:
                 if permission == "employee":
                     if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-                        return make_response(jsonify(None), 403)
+                        return make_response(jsonify('No match on email'), 403)
 
                 results = [
                     {
@@ -199,7 +199,7 @@ class ClaimExpenses:
         if not expense:
             return make_response(jsonify('Expense not found'), 404)
         elif not self._check_attachment_permission(expense):
-            return make_response(jsonify(None), 403)
+            return make_response(jsonify('Unauthorized'), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
 
@@ -351,7 +351,8 @@ class ClaimExpenses:
 
                     return make_response(jsonify(None), 200)
 
-            return make_response(jsonify(None), 403)
+            return make_response(jsonify(
+                'The content of this method is not valid'), 403)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
