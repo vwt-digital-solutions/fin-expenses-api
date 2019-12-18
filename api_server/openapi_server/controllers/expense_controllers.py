@@ -1215,7 +1215,7 @@ def update_expenses_finance(expenses_id):
             expense_instance = ControllerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
-        logging.exception('Exception on add_expense')
+        logging.exception('Exception on update_expenses_finance')
         return jsonify(er.args), 500
 
 
