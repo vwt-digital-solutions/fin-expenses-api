@@ -356,7 +356,12 @@ class ClaimExpenses:
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
-                    self._update_expenses(data, fields, status, expense)
+                    valid_update = self._update_expenses(
+                        data, fields, status, expense)
+                    if not valid_update:
+                        return make_response(jsonify(
+                            'The content of this method is not valid'), 403)
+
                     self.expense_journal(old_expense, expense)
 
                     if data['status'] == 'rejected_by_manager' or \
@@ -380,6 +385,8 @@ class ClaimExpenses:
                 if data[item] in status:
                     need_to_save = True
                     self._process_status_text_update(data[item], expense)
+                else:
+                    return False
             elif item == "rnote":
                 need_to_save = True
                 expense["status"]["rnote"] = data[item]
@@ -393,6 +400,9 @@ class ClaimExpenses:
 
         if need_to_save:
             self.ds_client.put(expense)
+            return True
+
+        return False
 
     def update_exported_expenses(self, expenses_exported, document_time):
         """
@@ -903,6 +913,11 @@ class EmployeeExpenses(ClaimExpenses):
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
+        # Check if status update is not unauthorized
+        if expense['status']['text'] == 'cancelled' or \
+                expense['status']['text'] == 'exported':
+            return {}, {}
+
         # Check if expense is from employee
         if not expense["employee"]["email"] == self.employee_info["unique_name"]:
             return {}, {}
@@ -990,6 +1005,11 @@ class DepartmentExpenses(ClaimExpenses):
         return self._process_expenses_info(expenses_info)
 
     def _prepare_context_update_expense(self, data, expense):
+        # Check if status update is not unauthorized
+        if expense['status']['text'] == 'cancelled' or \
+                expense['status']['text'] == 'exported':
+            return {}, {}
+
         # Check if requesting manager is manager of this employee
         if expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value():
             fields = {
@@ -1047,6 +1067,10 @@ class ControllerExpenses(ClaimExpenses):
             return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, data, expense):
+        # Check if status update is not unauthorized
+        if expense['status']['text'] == 'cancelled' or \
+                expense['status']['text'] == 'exported':
+            return {}, {}
         fields = {
             "status",
             "cost_type",
