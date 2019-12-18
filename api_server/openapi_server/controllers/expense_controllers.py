@@ -299,16 +299,12 @@ class ClaimExpenses:
                                          'rejected_by_manager'] \
                 and item == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], expense)
+                expense['amount'], item)
         else:
             expense["status"]["text"] = item
 
-    def _determine_status_amount_update(self, amount, expense):
-        # If amount is set when employee updates expense check what status it should be
-        # If amount is less then 50 manager can be skipped
-        if expense["status"]["text"] == 'ready_for_manager' and amount < 50:
-            return "ready_for_creditor"
-        return expense["status"]["text"]
+    def _determine_status_amount_update(self, amount, item):
+        return "ready_for_creditor" if amount < 50 else item
 
     @abstractmethod
     def _prepare_context_update_expense(self, expense):
