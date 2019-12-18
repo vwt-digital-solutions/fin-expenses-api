@@ -271,7 +271,7 @@ paths:
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
-      operationId: update_expenses_finance
+      operationId: update_expenses_creditor
       requestBody:
         content:
           'application/json':
@@ -310,7 +310,7 @@ paths:
           description: Expense Success
       security:
         - oauth2: [creditor.write]
-      operationId: get_expenses_finances
+      operationId: get_expenses_creditor
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -335,7 +335,7 @@ paths:
         '404':
           description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
-      operationId: get_attachment_finances_creditor
+      operationId: get_attachment_creditor
       security:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -365,7 +365,7 @@ paths:
           description: Response Successfully Executed
       security:
         - oauth2: [creditor.write]
-      operationId: get_all_expenses
+      operationId: get_all_creditor_expenses
       summary: Get all expenses
       description: Retrieve all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
@@ -458,7 +458,7 @@ paths:
         '404':
           description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
-      operationId: get_attachment_finances_manager
+      operationId: get_attachment_manager
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers

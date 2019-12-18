@@ -975,7 +975,7 @@ class EmployeeExpenses(ClaimExpenses):
         return 201
 
 
-class DepartmentExpenses(ClaimExpenses):
+class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
@@ -1067,10 +1067,53 @@ class ControllerExpenses(ClaimExpenses):
             return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, data, expense):
+        return {}, {}
+
+
+class CreditorExpenses(ClaimExpenses):
+    def _check_attachment_permission(self, expense):
+        return True
+
+    def __init__(self):
+        super().__init__()
+
+    def get_all_expenses(self):
+        """Get JSON of all the expenses"""
+        query_filter: Dict[Any, str] = dict(
+            creditor="ready_for_creditor", creditor2="approved",
+        )
+
+        expenses_info = self.ds_client.query(kind="Expenses")
+
+        expenses_data = expenses_info.fetch()
+
+        if expenses_data:
+            results = []
+
+            for ed in expenses_data:
+                logging.debug(f'get_all_expenses: [{ed}]')
+                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                       query_filter["creditor2"] == ed["status"]["text"]):
+                    results.append({
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": ed["cost_type"],
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
+                        "employee": ed["employee"]["full_name"],
+                        "status": ed["status"],
+                    })
+            return jsonify(results)
+        else:
+            return make_response(jsonify(None), 204)
+
+    def _prepare_context_update_expense(self, data, expense):
         # Check if status update is not unauthorized
         if expense['status']['text'] == 'cancelled' or \
                 expense['status']['text'] == 'exported':
             return {}, {}
+
         fields = {
             "status",
             "cost_type",
@@ -1117,12 +1160,12 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def get_all_expenses():
+def get_all_creditor_expenses():
     """
     Get all expenses
     :rtype: None
     """
-    expense_instance = ClaimExpenses()
+    expense_instance = CreditorExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -1202,7 +1245,7 @@ def create_booking_and_payment_file():
 
 
 def get_managers_expenses():
-    expense_instance = DepartmentExpenses()
+    expense_instance = ManagerExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -1224,7 +1267,7 @@ def get_employee_expenses(employee_id):
     return expense_instance.get_all_expenses()
 
 
-def update_expenses_finance(expenses_id):
+def update_expenses_creditor(expenses_id):
     """
     Update expense by expense_id with creditor permissions
     :rtype: Expenses
@@ -1232,10 +1275,10 @@ def update_expenses_finance(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ControllerExpenses()
+            expense_instance = CreditorExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
-        logging.exception('Exception on update_expenses_finance')
+        logging.exception('Exception on update_expenses_creditor')
         return jsonify(er.args), 500
 
 
@@ -1276,7 +1319,7 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses()
+            expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on add_expense')
@@ -1291,7 +1334,7 @@ def get_expenses_employee(expenses_id):
     return expense_instance.get_expenses(expenses_id, "employee")
 
 
-def get_expenses_finances(expenses_id):
+def get_expenses_creditor(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
     """
@@ -1299,18 +1342,18 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances_creditor(expenses_id):
+def get_attachment_creditor(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
-    expense_instance = ControllerExpenses()
+    expense_instance = CreditorExpenses()
     return expense_instance.get_attachment(expenses_id)
 
 
-def get_attachment_finances_manager(expenses_id):
-    expense_instance = DepartmentExpenses()
+def get_attachment_manager(expenses_id):
+    expense_instance = ManagerExpenses()
     return expense_instance.get_attachment(expenses_id)
 
 
