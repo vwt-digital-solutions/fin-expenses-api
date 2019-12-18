@@ -311,7 +311,7 @@ class ClaimExpenses:
         return expense["status"]["text"]
 
     @abstractmethod
-    def _prepare_context_update_expense(self, data, expense):
+    def _prepare_context_update_expense(self, expense):
         pass
 
     def update_expenses(self, expenses_id, data, note_check=False):
@@ -329,7 +329,8 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
-            allowed_fields, allowed_statuses = self._prepare_context_update_expense(data, expense)
+
+            allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
             if allowed_fields and allowed_statuses:
                 try:
                     BusinessRulesEngine().process_rules(
@@ -353,8 +354,8 @@ class ClaimExpenses:
                             expense.key.id_or_name)
 
                     return make_response(jsonify(None), 200)
-            else:
-                return make_response(jsonify(None), 403)
+
+            return make_response(jsonify(None), 403)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -372,6 +373,10 @@ class ClaimExpenses:
                 need_to_save = True
                 self._process_status_text_update(data['status'], expense)
             else:
+                logging.info(
+                    "Rejected unauthorized status transition for " +
+                    f"{expense.key.id_or_name}: {expense['status']['text']} " +
+                    f"> {data['status']}")
                 return False
 
         if need_to_save:
@@ -888,32 +893,29 @@ class EmployeeExpenses(ClaimExpenses):
         )
         return self._process_expenses_info(expenses_info)
 
-    def _prepare_context_update_expense(self, data, expense):
-        # Check if status update is not unauthorized
-        if expense['status']['text'] == 'cancelled' or \
-                expense['status']['text'] == 'exported':
-            return {}, {}
-
+    def _prepare_context_update_expense(self, expense):
         # Check if expense is from employee
-        if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-            return {}, {}
-        # Check if status is either rejected_by_manager or rejected_by_creditor
-        if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+        if not expense["employee"]["email"] == \
+               self.employee_info["unique_name"]:
             return {}, {}
 
-        fields = {
-            "status",
-            "cost_type",
-            "rnote",
-            "note",
-            "amount"
+        # Check if status update is not unauthorized
+        allowed_status_transitions = {
+            'rejected_by_manager': ['ready_for_manager', 'ready_for_creditor', 'cancelled'],
+            'rejected_by_creditor': ['ready_for_manager', 'ready_for_creditor', 'cancelled']
         }
-        status = {
-            "ready_for_manager",
-            "ready_for_creditor",
-            "cancelled",
-        }
-        return fields, status
+
+        if expense['status']['text'] in allowed_status_transitions:
+            fields = {
+                "status",
+                "cost_type",
+                "rnote",
+                "note",
+                "amount"
+            }
+            return fields, allowed_status_transitions[expense['status']['text']]
+
+        return {}, {}
 
     def add_attachment(self, expense_id, data):
         expense_key = self.ds_client.key("Expenses", expense_id)
@@ -963,28 +965,26 @@ class ManagerExpenses(ClaimExpenses):
         # expenses_data = expenses_info.fetch(limit=10)
         return self._process_expenses_info(expenses_info)
 
-    def _prepare_context_update_expense(self, data, expense):
-        # Check if status update is not unauthorized
-        if expense['status']['text'] == 'cancelled' or \
-                expense['status']['text'] == 'exported':
+    def _prepare_context_update_expense(self, expense):
+        # Check if expense is for manager
+        if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
+               self.get_manager_identifying_value():
             return {}, {}
 
-        # Check if requesting manager is manager of this employee
-        if expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value():
+        # Check if status update is not unauthorized
+        allowed_status_transitions = {
+            'ready_for_manager': ['ready_for_creditor', 'rejected_by_manager']
+        }
+
+        if expense['status']['text'] in allowed_status_transitions:
             fields = {
                 "status",
                 "cost_type",
                 "rnote"
             }
-            status = {
-                "ready_for_creditor",
-                "rejected_by_manager",
-            }
-        else:
-            fields = {}
-            status = {}
+            return fields, allowed_status_transitions[expense['status']['text']]
 
-        return fields, status
+        return {}, {}
 
 
 class ControllerExpenses(ClaimExpenses):
@@ -1019,7 +1019,7 @@ class ControllerExpenses(ClaimExpenses):
         else:
             return make_response(jsonify(None), 204)
 
-    def _prepare_context_update_expense(self, data, expense):
+    def _prepare_context_update_expense(self, expense):
         return {}, {}
 
 
@@ -1061,22 +1061,21 @@ class CreditorExpenses(ClaimExpenses):
         else:
             return make_response(jsonify(None), 204)
 
-    def _prepare_context_update_expense(self, data, expense):
+    def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
-        if expense['status']['text'] == 'cancelled' or \
-                expense['status']['text'] == 'exported':
-            return {}, {}
+        allowed_status_transitions = {
+            'ready_for_creditor': ['rejected_by_creditor', 'approved']
+        }
 
-        fields = {
-            "status",
-            "cost_type",
-            "rnote"
-        }
-        status = {
-            "rejected_by_creditor",
-            "approved",
-        }
-        return fields, status
+        if expense['status']['text'] in allowed_status_transitions:
+            fields = {
+                "status",
+                "cost_type",
+                "rnote"
+            }
+            return fields, allowed_status_transitions[expense['status']['text']]
+
+        return {}, {}
 
 
 def add_expense():
