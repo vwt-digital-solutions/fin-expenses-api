@@ -221,36 +221,9 @@ class ClaimExpenses:
 
         return jsonify(results)
 
+    @abstractmethod
     def get_all_expenses(self):
-        """Get JSON of all the expenses"""
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-        )
-
-        expenses_info = self.ds_client.query(kind="Expenses")
-
-        expenses_data = expenses_info.fetch()
-
-        if expenses_data:
-            results = []
-
-            for ed in expenses_data:
-                logging.debug(f'get_all_expenses: [{ed}]')
-                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                       query_filter["creditor2"] == ed["status"]["text"]):
-                    results.append({
-                        "id": ed.id,
-                        "amount": ed["amount"],
-                        "note": ed["note"],
-                        "cost_type": ed["cost_type"],
-                        "claim_date": ed["claim_date"],
-                        "transaction_date": ed["transaction_date"],
-                        "employee": ed["employee"]["full_name"],
-                        "status": ed["status"],
-                    })
-            return jsonify(results)
-        else:
-            return make_response(jsonify(None), 204)
+        pass
 
     def add_expenses(self, data):
         """
@@ -321,13 +294,21 @@ class ClaimExpenses:
 
         # TODO: Collect expenses from csv and check if this is new (datetime)
 
-    @abstractmethod
     def _process_status_text_update(self, item, expense):
-        pass
+        if expense['status']['text'] in ['rejected_by_creditor',
+                                         'rejected_by_manager'] \
+                and item == 'ready_for_manager':
+            expense["status"]["text"] = self._determine_status_amount_update(
+                expense['amount'], expense)
+        else:
+            expense["status"]["text"] = item
 
-    @abstractmethod
-    def _process_status_amount_update(self, amount, expense):
-        pass
+    def _determine_status_amount_update(self, amount, expense):
+        # If amount is set when employee updates expense check what status it should be
+        # If amount is less then 50 manager can be skipped
+        if expense["status"]["text"] == 'ready_for_manager' and amount < 50:
+            return "ready_for_creditor"
+        return expense["status"]["text"]
 
     @abstractmethod
     def _prepare_context_update_expense(self, data, expense):
@@ -348,8 +329,8 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
-            fields, status = self._prepare_context_update_expense(data, expense)
-            if fields and status:
+            allowed_fields, allowed_statuses = self._prepare_context_update_expense(data, expense)
+            if allowed_fields and allowed_statuses:
                 try:
                     BusinessRulesEngine().process_rules(
                         data, expense['employee']['afas_data'])
@@ -357,7 +338,7 @@ class ClaimExpenses:
                     return make_response(jsonify(str(exception)), 400)
                 else:
                     valid_update = self._update_expenses(
-                        data, fields, status, expense)
+                        data, allowed_fields, allowed_statuses, expense)
                     if not valid_update:
                         return make_response(jsonify(
                             'The content of this method is not valid'), 403)
@@ -375,28 +356,23 @@ class ClaimExpenses:
             else:
                 return make_response(jsonify(None), 403)
 
-    def _update_expenses(self, data, fields, status, expense):
-        items_to_update = list(fields.intersection(set(data.keys())))
+    def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
+        items_to_update = list(allowed_fields.intersection(set(data.keys())))
         need_to_save = False
         for item in items_to_update:
-            if item == "status":
-                logger.debug(f"Employee status to update [{data[item]}] old [{expense['status']['text']}], legal "
-                             f"transition [{status}]")
-                if data[item] in status:
-                    need_to_save = True
-                    self._process_status_text_update(data[item], expense)
-                else:
-                    return False
-            elif item == "rnote":
-                need_to_save = True
-                expense["status"]["rnote"] = data[item]
-            elif item == "amount" and expense[item] != data[item]:
+            if item != "status" and expense.get(item, None) != data[item]:
                 need_to_save = True
                 expense[item] = data[item]
-                self._process_status_amount_update(data[item], expense)
-            elif expense[item] != data[item]:
+
+        if 'status' in items_to_update:
+            logger.debug(
+                f"Employee status to update [{data['status']}] old [{expense['status']['text']}], legal "
+                f"transition [{allowed_statuses}]")
+            if data['status'] in allowed_statuses:
                 need_to_save = True
-                expense[item] = data[item]
+                self._process_status_text_update(data['status'], expense)
+            else:
+                return False
 
         if need_to_save:
             self.ds_client.put(expense)
@@ -939,23 +915,6 @@ class EmployeeExpenses(ClaimExpenses):
         }
         return fields, status
 
-    def _process_status_text_update(self, item, expense):
-        if item == 'cancelled':
-            expense["status"]["text"] = item
-        else:
-            if expense['status']['text'] in ['rejected_by_creditor', 'rejected_by_manager'] \
-                    and item == 'ready_for_manager':
-                self._process_status_amount_update(expense['amount'], expense)
-            pass
-
-    def _process_status_amount_update(self, amount, expense):
-        # If amount is set when employee updates expense check what status it should be
-        # If amount is less then 50 manager can be skipped
-        if amount < 50:
-            expense["status"]["text"] = "ready_for_creditor"
-        else:
-            expense["status"]["text"] = "ready_for_manager"
-
     def add_attachment(self, expense_id, data):
         expense_key = self.ds_client.key("Expenses", expense_id)
         expense = self.ds_client.get(expense_key)
@@ -1026,12 +985,6 @@ class ManagerExpenses(ClaimExpenses):
             status = {}
 
         return fields, status
-
-    def _process_status_text_update(self, item, expense):
-        expense["status"]["text"] = item
-
-    def _process_status_amount_update(self, amount, expense):
-        pass
 
 
 class ControllerExpenses(ClaimExpenses):
@@ -1124,12 +1077,6 @@ class CreditorExpenses(ClaimExpenses):
             "approved",
         }
         return fields, status
-
-    def _process_status_text_update(self, item, expense):
-        expense["status"]["text"] = item
-
-    def _process_status_amount_update(self, amount, expense):
-        pass
 
 
 def add_expense():
