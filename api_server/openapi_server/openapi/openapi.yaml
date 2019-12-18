@@ -22,6 +22,12 @@ paths:
       responses:
         '201':
           description: Succesfully made or updated an expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
         default:
           description: Expense Made/Updated successfully!
       security:
@@ -262,6 +268,8 @@ paths:
           description: A missing parameter or, unsupported parameter value.
         '403':
           description: The Access token does not have the required scope
+        '404':
+          description: Document id or type not found
         default:
           description: Document file successfully retrieved
       security:
