@@ -1150,13 +1150,13 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def get_all_creditor_expenses():
+def get_all_creditor_expenses(expenses_list):
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = CreditorExpenses()
-    return expense_instance.get_all_expenses()
+    return expense_instance.get_all_expenses(expenses_list=expenses_list)
 
 
 def get_export_expenses(expenses_list):
