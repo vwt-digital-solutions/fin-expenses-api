@@ -1307,7 +1307,7 @@ def update_expenses_employee(expenses_id):
                             "}": "&rbrace;"
                         }
                         form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
-                    form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                    form_data['transaction_date'] = form_data['transaction_date'].strftime('%Y-%m-%dT%H:%M:%S.000Z')
                     return expense_instance.update_expenses(expenses_id, form_data)
                 else:
                     return jsonify('Date needs to be in de past'), 400
