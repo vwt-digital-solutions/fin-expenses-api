@@ -248,20 +248,20 @@ class ClaimExpenses:
                     entity = datastore.Entity(key=key)
 
                     entity.update({
-                            "employee": dict(
-                                afas_data=afas_data,
-                                email=self.employee_info["unique_name"],
-                                family_name=self.employee_info["family_name"],
-                                given_name=self.employee_info["given_name"],
-                                full_name=self.employee_info["name"],
-                            ),
-                            "amount": data.amount,
-                            "note": data.note,
-                            "cost_type": data.cost_type,
-                            "transaction_date": data.transaction_date,
-                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                            "status": dict(export_date="never", text=ready_text),
-                        })
+                        "employee": dict(
+                            afas_data=afas_data,
+                            email=self.employee_info["unique_name"],
+                            family_name=self.employee_info["family_name"],
+                            given_name=self.employee_info["given_name"],
+                            full_name=self.employee_info["name"],
+                        ),
+                        "amount": data.amount,
+                        "note": data.note,
+                        "cost_type": data.cost_type,
+                        "transaction_date": data.transaction_date,
+                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                        "status": dict(export_date="never", text=ready_text),
+                    })
 
                     self.ds_client.put(entity)
 
@@ -459,9 +459,9 @@ class ClaimExpenses:
             return {"Info": "Failed to upload payment file"}, 503
 
         retval = {"file_list": [
-                     {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
-                      "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
-                      "export_date": now.isoformat(timespec="seconds")+'Z'}]}
+            {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
+             "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
+             "export_date": now.isoformat(timespec="seconds") + 'Z'}]}
 
         self.update_exported_expenses(expense_claims_to_export, now)
 
@@ -714,7 +714,8 @@ class ClaimExpenses:
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True)
+        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'],
+                                                reverse=True)
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
@@ -755,6 +756,10 @@ class ClaimExpenses:
     def expense_journal(self, old_expense, expense):
         changed = []
 
+        def default(o):
+            if isinstance(o, (datetime.date, datetime.datetime)):
+                return o.isoformat(timespec="seconds") + 'Z'
+
         for attribute in list(set(list(old_expense)) & set(list(expense))):
             if old_expense[attribute] != expense[attribute]:
                 changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
@@ -764,8 +769,8 @@ class ClaimExpenses:
         entity.update(
             {
                 "Expenses_Id": old_expense.key.id,
-                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                "Attributes_Changed": json.dumps(changed),
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                "Attributes_Changed": json.dumps(changed, default=default),
                 "User": self.employee_info["unique_name"],
             }
         )
@@ -911,6 +916,7 @@ class EmployeeExpenses(ClaimExpenses):
                 "cost_type",
                 "rnote",
                 "note",
+                "transaction_date",
                 "amount"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
@@ -1091,13 +1097,19 @@ def add_expense():
                 connexion.request.get_json()
             )  # noqa: E501
 
-            if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
-                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
-                    datetime.timedelta(hours=2):
-                try:
-                    form_data.escape_characters()
-                except AttributeError:
-                    logging.warning("Can't escape html on form_data. Will pass.")
+            if form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
+                    (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
+                if form_data.to_dict().get('note'):  # Check if note exists. If it doesn't, let if pass.
+                    html = {
+                        '"': "&quot;",
+                        "&": "&amp;",
+                        "'": "&apos;",
+                        ">": "&gt;",
+                        "<": "&lt;",
+                        "{": "&lbrace;",
+                        "}": "&rbrace;"
+                    }
+                    form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
                 return expense_instance.add_expenses(form_data)
             else:
                 return jsonify('Date needs to be in the past'), 400
@@ -1185,7 +1197,6 @@ def get_document_list():
 
 
 def create_booking_and_payment_file():
-
     expense_instance = ClaimExpenses()
     return expense_instance.create_booking_and_payment_file()
 
@@ -1238,14 +1249,21 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            if form_data.get('transaction_date'):
+            if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
                 if datetime.datetime.strptime(form_data.get('transaction_date'),
                                               '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
                         + datetime.timedelta(hours=2):
-                    try:
-                        form_data.escape_characters()
-                    except AttributeError:
-                        logging.warning("Can't escape html on form_data. Will pass.")
+                    if form_data.get('note'):  # Check if note exists. If it doesn't, let if pass.
+                        html = {
+                            '"': "&quot;",
+                            "&": "&amp;",
+                            "'": "&apos;",
+                            ">": "&gt;",
+                            "<": "&lt;",
+                            "{": "&lbrace;",
+                            "}": "&rbrace;"
+                        }
+                        form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
                     return expense_instance.update_expenses(expenses_id, form_data)
                 else:
                     return jsonify('Date needs to be in de past'), 400
@@ -1268,7 +1286,7 @@ def update_expenses_manager(expenses_id):
             expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
-        logging.exception('Exception on add_expense')
+        logging.exception('Exception on update_expense')
         return jsonify(er.args), 500
 
 
@@ -1338,7 +1356,7 @@ def add_attachment_employee(expenses_id):
             )  # noqa: E501
             return expense_instance.add_attachment(expenses_id, form_data)
     except Exception as er:
-        logging.exception('Exception on add_expense')
+        logging.exception('Exception on add_attachment')
         return jsonify(er.args), 500
 
 
