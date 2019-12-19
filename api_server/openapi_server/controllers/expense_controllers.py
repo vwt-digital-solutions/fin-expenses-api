@@ -488,8 +488,7 @@ class ClaimExpenses:
             # )
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-
-            trans_date = expense_detail['transaction_date']
+            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
 
             boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
@@ -1141,20 +1140,19 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-
             if form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
                     (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
-                if form_data.to_dict().get('note'):  # Check if note exists. If it doesn't, let if pass.
-                    html = {
-                        '"': "&quot;",
-                        "&": "&amp;",
-                        "'": "&apos;",
-                        ">": "&gt;",
-                        "<": "&lt;",
-                        "{": "&lbrace;",
-                        "}": "&rbrace;"
-                    }
-                    form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
+                html = {
+                    '"': "&quot;",
+                    "&": "&amp;",
+                    "'": "&apos;",
+                    ">": "&gt;",
+                    "<": "&lt;",
+                    "{": "&lbrace;",
+                    "}": "&rbrace;"
+                }
+                form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
+                form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                 return expense_instance.add_expenses(form_data)
             else:
                 return jsonify('Date needs to be in the past'), 400
@@ -1309,6 +1307,7 @@ def update_expenses_employee(expenses_id):
                             "}": "&rbrace;"
                         }
                         form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
+                    form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                     return expense_instance.update_expenses(expenses_id, form_data)
                 else:
                     return jsonify('Date needs to be in de past'), 400
