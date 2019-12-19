@@ -1157,7 +1157,7 @@ def add_expense():
                 return expense_instance.add_expenses(form_data)
             else:
                 return jsonify('Date needs to be in the past'), 400
-    except Exception as er:
+    except Exception:
         logging.exception('Exception on add_expense')
         return jsonify("Something went wrong. Please try again later"), 500
 
@@ -1278,7 +1278,7 @@ def update_expenses_creditor(expenses_id):
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = CreditorExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception as er:
+    except Exception:
         logging.exception('Exception on update_expenses_creditor')
         return jsonify("Something went wrong. Please try again later"), 500
 
@@ -1313,7 +1313,7 @@ def update_expenses_employee(expenses_id):
                     return jsonify('Date needs to be in de past'), 400
 
             return expense_instance.update_expenses(expenses_id, form_data)
-    except Exception as er:
+    except Exception:
         logging.exception("Update exp")
         return jsonify("Something went wrong. Please try again later"), 500
 
@@ -1329,7 +1329,7 @@ def update_expenses_manager(expenses_id):
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception as er:
+    except Exception:
         logging.exception('Exception on update_expense')
         return jsonify("Something went wrong. Please try again later"), 500
 
@@ -1399,7 +1399,7 @@ def add_attachment_employee(expenses_id):
                 connexion.request.get_json()
             )  # noqa: E501
             return expense_instance.add_attachment(expenses_id, form_data)
-    except Exception as er:
+    except Exception:
         logging.exception('Exception on add_attachment')
         return jsonify("Something went wrong. Please try again later"), 500
 
