@@ -4,6 +4,7 @@ import json
 import os
 import requests
 import re
+import csv
 
 import datetime
 import tempfile
@@ -1036,34 +1037,77 @@ class CreditorExpenses(ClaimExpenses):
     def __init__(self):
         super().__init__()
 
-    def get_all_expenses(self):
-        """Get JSON of all the expenses"""
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved",
-        )
-
-        expenses_info = self.ds_client.query(kind="Expenses")
-
-        expenses_data = expenses_info.fetch()
-
+    def get_all_expenses(self, expenses_list):
+        """Get JSON/CSV of all the expenses"""
+        expenses_ds = self.ds_client.query(kind="Expenses")
+        expenses_data = expenses_ds.fetch()
         if expenses_data:
-            results = []
+            if expenses_list == "expenses_creditor":
 
-            for ed in expenses_data:
-                logging.debug(f'get_all_expenses: [{ed}]')
-                if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                       query_filter["creditor2"] == ed["status"]["text"]):
-                    results.append({
-                        "id": ed.id,
-                        "amount": ed["amount"],
-                        "note": ed["note"],
-                        "cost_type": ed["cost_type"],
-                        "claim_date": ed["claim_date"],
-                        "transaction_date": ed["transaction_date"],
-                        "employee": ed["employee"]["full_name"],
-                        "status": ed["status"],
-                    })
-            return jsonify(results)
+                query_filter: Dict[Any, str] = dict(
+                    creditor="ready_for_creditor", creditor2="approved"
+                )
+                results = []
+                for ed in expenses_data:
+                    logging.debug(f'get_all_expenses: [{ed}]')
+                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
+                                           query_filter["creditor2"] == ed["status"]["text"]):
+                        results.append({
+                            "id": ed.id,
+                            "amount": ed["amount"],
+                            "note": ed["note"],
+                            "cost_type": ed["cost_type"],
+                            "claim_date": ed["claim_date"],
+                            "transaction_date": ed["transaction_date"],
+                            "employee": ed["employee"]["full_name"],
+                            "status": ed["status"],
+                        })
+                return jsonify(results)
+
+            elif expenses_list == "expenses_all":
+
+                with tempfile.NamedTemporaryFile(mode="w") as csv_file:
+                    count = 0
+                    # Hard-coded properties Expenses
+                    for expense in expenses_data:
+                        expense_row = {
+                            "Expense ID": expense.id,
+                            "Amount": expense["amount"],
+                            "Cost type": expense["cost_type"],
+                            "Claim date": expense["claim_date"],
+                            "Employee": expense["employee"]["afas_data"]["Personeelsnummer"],
+                            "Note": expense["note"],
+                            "Status": expense["status"]["text"],
+                            "Transaction date": expense["transaction_date"]
+                        }
+
+                        if count == 0:
+                            field_names = list(expense_row.keys()) + ["Manager", "Auto-approved", "Rejection note"]
+                            csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
+                            csv_writer.writeheader()
+
+                        if "auto_approved" in expense:
+                            expense_row["Auto-approved"] = expense["auto_approved"]
+
+                        if "rnote" in expense["status"]:
+                            expense_row["Rejection note"] = expense["status"]["rnote"]
+
+                        if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
+                            expense_row["Manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
+                        else:
+                            expense_row["Manager"] = "Manager not found: check expense"
+
+                        csv_writer.writerow(expense_row)
+                        count += 1
+
+                    return send_file(
+                        csv_file,
+                        mimetype='text/csv',
+                        as_attachment=True,
+                        attachment_filename='export_expenses_creditor.csv')
+
+            else:
+                return make_response(jsonify("No valid query parameter"), 400)
         else:
             return make_response(jsonify(None), 204)
 
@@ -1118,13 +1162,13 @@ def add_expense():
         return jsonify(er.args), 500
 
 
-def get_all_creditor_expenses():
+def get_all_creditor_expenses(expenses_list):
     """
     Get all expenses
     :rtype: None
     """
     expense_instance = CreditorExpenses()
-    return expense_instance.get_all_expenses()
+    return expense_instance.get_all_expenses(expenses_list=expenses_list)
 
 
 def get_export_expenses(expenses_list):
