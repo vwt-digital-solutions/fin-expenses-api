@@ -1408,6 +1408,9 @@ def api_base_url():
     base_url = request.host_url
 
     if 'GAE_INSTANCE' in os.environ:
-        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+        if hasattr(config, 'BASE_URL'):
+            base_url = config.BASE_URL
+        else:
+            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
