@@ -1159,7 +1159,7 @@ def add_expense():
                 return jsonify('Date needs to be in the past'), 400
     except Exception as er:
         logging.exception('Exception on add_expense')
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def get_all_creditor_expenses(expenses_list):
@@ -1280,7 +1280,7 @@ def update_expenses_creditor(expenses_id):
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on update_expenses_creditor')
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def update_expenses_employee(expenses_id):
@@ -1315,7 +1315,7 @@ def update_expenses_employee(expenses_id):
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception as er:
         logging.exception("Update exp")
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def update_expenses_manager(expenses_id):
@@ -1331,7 +1331,7 @@ def update_expenses_manager(expenses_id):
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception as er:
         logging.exception('Exception on update_expense')
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def get_expenses_employee(expenses_id):
@@ -1401,7 +1401,7 @@ def add_attachment_employee(expenses_id):
             return expense_instance.add_attachment(expenses_id, form_data)
     except Exception as er:
         logging.exception('Exception on add_attachment')
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def api_base_url():
