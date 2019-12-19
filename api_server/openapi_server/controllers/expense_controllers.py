@@ -488,7 +488,8 @@ class ClaimExpenses:
             # )
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+
+            trans_date = expense_detail['transaction_date']
 
             boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
