@@ -1065,47 +1065,51 @@ class CreditorExpenses(ClaimExpenses):
                 return jsonify(results)
 
             elif expenses_list == "expenses_all":
+                try:
+                    with tempfile.NamedTemporaryFile("w") as csv_file:
+                        count = 0
 
-                with tempfile.NamedTemporaryFile(mode="w") as csv_file:
-                    count = 0
-                    # Hard-coded properties Expenses
-                    for expense in expenses_data:
-                        expense_row = {
-                            "Expense ID": expense.id,
-                            "Amount": expense["amount"],
-                            "Cost type": expense["cost_type"],
-                            "Claim date": expense["claim_date"],
-                            "Employee": expense["employee"]["afas_data"]["Personeelsnummer"],
-                            "Note": expense["note"],
-                            "Status": expense["status"]["text"],
-                            "Transaction date": expense["transaction_date"]
-                        }
+                        # Hard-coded properties Expenses
+                        for expense in expenses_data:
+                            expense_row = {
+                                "Expense ID": expense.id,
+                                "Amount": expense["amount"],
+                                "Cost type": expense["cost_type"],
+                                "Claim date": expense["claim_date"],
+                                "Employee": expense["employee"]["afas_data"]["Personeelsnummer"],
+                                "Note": expense["note"],
+                                "Status": expense["status"]["text"],
+                                "Transaction date": expense["transaction_date"]
+                            }
 
-                        if count == 0:
-                            field_names = list(expense_row.keys()) + ["Manager", "Auto-approved", "Rejection note"]
-                            csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
-                            csv_writer.writeheader()
+                            if count == 0:
+                                field_names = list(expense_row.keys()) + ["Manager", "Auto-approved", "Rejection note"]
+                                csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
+                                csv_writer.writeheader()
 
-                        if "auto_approved" in expense:
-                            expense_row["Auto-approved"] = expense["auto_approved"]
+                            if "auto_approved" in expense:
+                                expense_row["Auto-approved"] = expense["auto_approved"]
 
-                        if "rnote" in expense["status"]:
-                            expense_row["Rejection note"] = expense["status"]["rnote"]
+                            if "rnote" in expense["status"]:
+                                expense_row["Rejection note"] = expense["status"]["rnote"]
 
-                        if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
-                            expense_row["Manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
-                        else:
-                            expense_row["Manager"] = "Manager not found: check expense"
+                            if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
+                                expense_row["Manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
+                            else:
+                                expense_row["Manager"] = "Manager not found: check expense"
 
-                        csv_writer.writerow(expense_row)
-                        count += 1
+                            csv_writer.writerow(expense_row)
+                            count += 1
 
-                    return send_file(
-                        csv_file,
-                        mimetype='text/csv',
-                        as_attachment=True,
-                        attachment_filename='export_expenses_creditor.csv')
+                        return send_file(
+                            csv_file.name,
+                            mimetype='text/csv',
+                            as_attachment=True,
+                            attachment_filename='tmp.csv')
 
+                except Exception as er:
+                    logging.exception('Exception on writing/sending CSV in get_all_expenses')
+                    return jsonify(er.args), 500
             else:
                 return make_response(jsonify("No valid query parameter"), 400)
         else:
