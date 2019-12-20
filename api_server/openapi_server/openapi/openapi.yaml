@@ -385,7 +385,7 @@ paths:
   /finances/expenses/export:
     get:
       parameters:
-      - $ref: '#/components/parameters/ExpensesList'
+        - $ref: '#/components/parameters/ExpensesList'
       responses:
         '200':
           content:
