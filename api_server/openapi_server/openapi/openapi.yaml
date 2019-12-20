@@ -108,7 +108,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
@@ -122,7 +121,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: true
   /employees/{employee_id}/expenses:
     get:
       parameters:
@@ -208,7 +206,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   '/finances/documents':
     get:
       operationId: get_document_list
@@ -275,7 +272,6 @@ paths:
       security:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
@@ -322,7 +318,6 @@ paths:
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -347,7 +342,6 @@ paths:
       security:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /finances/expenses:
     get:
       parameters:
@@ -450,7 +444,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /managers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -475,7 +468,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /controllers/expenses:
     get:
       responses:
@@ -505,7 +497,6 @@ paths:
       summary: Get all expenses
       description: Get all expenses for controllers
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -530,7 +521,6 @@ paths:
       security:
         - oauth2: [controller.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
 components:
   schemas:
     Url:
