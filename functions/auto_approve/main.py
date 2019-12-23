@@ -42,7 +42,10 @@ def process_approve(request):
 
             # Update Expenses_Journal: auto_approved and status
             changed.append({'auto_approved': {"old": old_auto_value, "new": new_auto_value}})
-            changed.append({'status': {"old": expense['status']['text'], "new": 'ready_for_creditor'}})
+            changed.append({'status': {
+                "old": {'text': expense['status']['text']},
+                "new": {'text': 'ready_for_creditor'}}
+            })
 
             expense['status']['text'] = 'ready_for_creditor'
 
@@ -72,6 +75,7 @@ if __name__ == '__main__':
     class R:
         def __init__(self):
             self.args = {'pending': 3}
+
     r = R()
     logging.warning(r.args)
     # r.args = {'pending': 3}

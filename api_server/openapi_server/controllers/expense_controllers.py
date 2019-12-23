@@ -1123,6 +1123,37 @@ class CreditorExpenses(ClaimExpenses):
         if expenses_data:
             try:
                 with tempfile.NamedTemporaryFile("w") as csv_file:
+                    # Hard-coded properties Expenses_Journal
+                    count = 0
+
+                    for expense in expenses_data:
+                        expense_row = {
+                            "Expense ID": expense["Expenses_Id"],
+                            "Modification date": expense["Time"],
+                            "Status Old": "No change",
+                            "Status New": "No change"
+                        }
+
+                        if count == 0:
+                            field_names = list(expense_row.keys()) + ["User"]
+                            csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
+                            csv_writer.writeheader()
+
+                        count += 1
+
+                        if "User" in expense:
+                            expense_row["User"] = expense["User"]
+
+                        if expense["Attributes_Changed"]:
+                            list_attributes = json.loads(expense["Attributes_Changed"])
+                            for attribute in list_attributes:
+                                for name in attribute:
+                                    expense_row["Status Old"] = name + ": " + str(attribute[name]["old"])
+                                    expense_row["Status New"] = name + ": " + str(attribute[name]["new"])
+
+                                    csv_writer.writerow(expense_row)
+                        else:
+                            csv_writer.writerow(expense_row)
 
                     return send_file(
                         csv_file.name,
@@ -1133,9 +1164,8 @@ class CreditorExpenses(ClaimExpenses):
             except Exception:
                 logging.exception('Exception on writing/sending CSV in get_all_expenses_journal')
                 return jsonify("Something went wrong"), 500
-
         else:
-            return make_response(jsonify("Not a valid query parameter"), 400)
+            return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
@@ -1198,7 +1228,7 @@ def get_all_creditor_expenses(expenses_list):
 
 def get_all_creditor_expenses_journal():
     """
-    Get all expenses
+    Get all expenses journal
     :rtype: None
     """
     expense_instance = CreditorExpenses()
