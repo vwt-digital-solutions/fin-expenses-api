@@ -1107,11 +1107,11 @@ class CreditorExpenses(ClaimExpenses):
                             as_attachment=True,
                             attachment_filename='tmp.csv')
 
-                except Exception as er:
+                except Exception:
                     logging.exception('Exception on writing/sending CSV in get_all_expenses')
-                    return jsonify(er.args), 500
+                    return jsonify("Something went wrong"), 500
             else:
-                return make_response(jsonify("No valid query parameter"), 400)
+                return make_response(jsonify("Not a valid query parameter"), 400)
         else:
             return make_response(jsonify(None), 204)
 
