@@ -376,24 +376,22 @@ paths:
       summary: Get all expenses
       description: Retrieve all expenses meant for creditor or retrieve file with all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /finances/expenses/export:
+  /finances/expenses/journal:
     get:
-      parameters:
-        - $ref: '#/components/parameters/ExpensesList'
       responses:
         '200':
           content:
             text/csv:
               schema:
                 $ref: '#/components/schemas/ExportFile'
-          description: Succesful response - returns export file with all expenses
+          description: Succesful response - returns export file with all journal expenses
         default:
           description: Response Successfully Executed
       security:
         - oauth2: [creditor.write]
-      operationId: get_export_expenses
-      summary: Get csv with all expenses
-      description: Retrieve csv with expenses
+      operationId: get_all_creditor_expenses_journal
+      summary: Get csv with all expenses from expenses_journal
+      description: Retrieve csv with expenses from expenses_journal
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /managers/expenses:
     get:
@@ -745,7 +743,7 @@ components:
       in: path
       required: true
     ExpensesList:
-      style: simple
+      style: form
       explode: false
       name: expenses_list
       description: Type of expenses to be returned

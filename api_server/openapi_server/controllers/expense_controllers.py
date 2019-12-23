@@ -1115,6 +1115,28 @@ class CreditorExpenses(ClaimExpenses):
         else:
             return make_response(jsonify(None), 204)
 
+    def get_all_expenses_journal(self):
+        """Get CSV of all the expenses from Expenses_Journal"""
+        expenses_ds = self.ds_client.query(kind="Expenses_Journal")
+        expenses_data = expenses_ds.fetch()
+
+        if expenses_data:
+            try:
+                with tempfile.NamedTemporaryFile("w") as csv_file:
+
+                    return send_file(
+                        csv_file.name,
+                        mimetype='text/csv',
+                        as_attachment=True,
+                        attachment_filename='tmp.csv')
+
+            except Exception:
+                logging.exception('Exception on writing/sending CSV in get_all_expenses_journal')
+                return jsonify("Something went wrong"), 500
+
+        else:
+            return make_response(jsonify("Not a valid query parameter"), 400)
+
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
         allowed_status_transitions = {
@@ -1174,13 +1196,13 @@ def get_all_creditor_expenses(expenses_list):
     return expense_instance.get_all_expenses(expenses_list=expenses_list)
 
 
-def get_export_expenses(expenses_list):
+def get_all_creditor_expenses_journal():
     """
     Get all expenses
     :rtype: None
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_export_expenses(expenses_list)
+    expense_instance = CreditorExpenses()
+    return expense_instance.get_all_expenses_journal()
 
 
 def get_cost_types():  # noqa: E501
