@@ -1130,8 +1130,8 @@ class CreditorExpenses(ClaimExpenses):
                         expense_row = {
                             "Expense ID": expense["Expenses_Id"],
                             "Modification date": expense["Time"],
-                            "Status Old": "No change",
-                            "Status New": "No change"
+                            "Attribute Old": "No change",
+                            "Attribute New": "No change"
                         }
 
                         if count == 0:
@@ -1148,10 +1148,25 @@ class CreditorExpenses(ClaimExpenses):
                             list_attributes = json.loads(expense["Attributes_Changed"])
                             for attribute in list_attributes:
                                 for name in attribute:
-                                    expense_row["Status Old"] = name + ": " + str(attribute[name]["old"])
-                                    expense_row["Status New"] = name + ": " + str(attribute[name]["new"])
+                                    # Handle 'status' components: different row per component
+                                    if name == "status":
+                                        try:
+                                            for component in attribute[name]["old"]:
+                                                expense_row["Attribute Old"] = "status: " + component + ": " + \
+                                                                               attribute[name]["old"][component]
+                                                expense_row["Attribute New"] = "status: " + component + ": " + \
+                                                                               attribute[name]["new"][component]
 
-                                    csv_writer.writerow(expense_row)
+                                                csv_writer.writerow(expense_row)
+
+                                        except (TypeError, KeyError):
+                                            logging.warning("Expense does not have the right format: {}".
+                                                            format(expense_row["Expense ID"]))
+                                    else:
+                                        expense_row["Attribute Old"] = name + ": " + str(attribute[name]["old"])
+                                        expense_row["Attribute New"] = name + ": " + str(attribute[name]["new"])
+
+                                        csv_writer.writerow(expense_row)
                         else:
                             csv_writer.writerow(expense_row)
 
@@ -1363,7 +1378,8 @@ def update_expenses_employee(expenses_id):
                             "}": "&rbrace;"
                         }
                         form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
-                    form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'], '%Y-%m-%dT%H:%M:%S.000Z')
+                    form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'],
+                                                                               '%Y-%m-%dT%H:%M:%S.000Z')
                     return expense_instance.update_expenses(expenses_id, form_data)
                 else:
                     return jsonify('Date needs to be in de past'), 400
