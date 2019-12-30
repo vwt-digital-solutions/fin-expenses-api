@@ -1137,10 +1137,11 @@ class CreditorExpenses(ClaimExpenses):
                             if name == "status":
                                 try:
                                     for component in attribute[name]["old"]:
-                                        expense_row["Attribute old"] = "status: " + component + ": " + \
-                                                                       attribute[name]["old"][component]
-                                        expense_row["Attribute new"] = "status: " + component + ": " + \
-                                                                       attribute[name]["new"][component]
+                                        if attribute[name]["new"][component] != attribute[name]["old"][component]:
+                                            expense_row["Attribute old"] = "status: " + component + ": " + \
+                                                                           attribute[name]["old"][component]
+                                            expense_row["Attribute new"] = "status: " + component + ": " + \
+                                                                           attribute[name]["new"][component]
 
                                         results.append(expense_row)
 
