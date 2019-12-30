@@ -1041,75 +1041,70 @@ class CreditorExpenses(ClaimExpenses):
         """Get JSON/CSV of all the expenses"""
         expenses_ds = self.ds_client.query(kind="Expenses")
         expenses_data = expenses_ds.fetch()
-        if expenses_data:
-            if expenses_list == "expenses_creditor":
 
-                query_filter: Dict[Any, str] = dict(
-                    creditor="ready_for_creditor", creditor2="approved"
-                )
-                results = []
-                for ed in expenses_data:
-                    logging.debug(f'get_all_expenses: [{ed}]')
-                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                           query_filter["creditor2"] == ed["status"]["text"]):
-                        results.append({
-                            "id": ed.id,
-                            "amount": ed["amount"],
-                            "note": ed["note"],
-                            "cost_type": ed["cost_type"],
-                            "claim_date": ed["claim_date"],
-                            "transaction_date": ed["transaction_date"],
-                            "employee": ed["employee"]["full_name"],
-                            "status": ed["status"],
-                        })
-                return jsonify(results)
+        query_filter: Dict[Any, str] = dict(
+            creditor="ready_for_creditor", creditor2="approved"
+        )
+
+        if expenses_data:
+            results = []
+            extra_fields = []
+            format_expense = connexion.request.headers['Accept']
+
+            if expenses_list == "expenses_creditor":
+                for expense in expenses_data:
+                    logging.debug(f'get_all_expenses expenses_creditor: [{expense}]')
+
+                    if 'status' in expense and \
+                            (query_filter["creditor"] == expense["status"]["text"] or
+                             query_filter["creditor2"] == expense["status"]["text"]):
+
+                        expense_row = {
+                            "id": expense.id,
+                            "amount": expense["amount"],
+                            "note": expense["note"],
+                            "cost_type": expense["cost_type"],
+                            "claim_date": expense["claim_date"],
+                            "transaction_date": expense["transaction_date"],
+                            "employee": expense["employee"]["full_name"],
+                            "status": expense["status"],
+                        }
+
+                        results.append(expense_row)
+                return get_expenses_format(results, format_expense, extra_fields)
 
             elif expenses_list == "expenses_all":
-                try:
-                    with tempfile.NamedTemporaryFile("w") as csv_file:
-                        count = 0
+                extra_fields = ["manager", "auto_approved", "rnote", "export_date"]
+                for expense in expenses_data:
+                    logging.debug(f'get_all_expenses expenses_all: [{expense}]')
+                    expense_row = {
+                        "id": expense.id,
+                        "amount": expense["amount"],
+                        "cost_type": expense["cost_type"],
+                        "claim_date": expense["claim_date"],
+                        "employee": expense["employee"]["afas_data"]["Personeelsnummer"],
+                        "note": expense["note"],
+                        "status": expense["status"]["text"],
+                        "transaction_date": expense["transaction_date"]
+                    }
 
-                        # Hard-coded properties Expenses
-                        for expense in expenses_data:
-                            expense_row = {
-                                "Expense ID": expense.id,
-                                "Amount": expense["amount"],
-                                "Cost type": expense["cost_type"],
-                                "Claim date": expense["claim_date"],
-                                "Employee": expense["employee"]["afas_data"]["Personeelsnummer"],
-                                "Note": expense["note"],
-                                "Status": expense["status"]["text"],
-                                "Transaction date": expense["transaction_date"]
-                            }
+                    if "auto_approved" in expense:
+                        expense_row["auto_approved"] = expense["auto_approved"]
 
-                            if count == 0:
-                                field_names = list(expense_row.keys()) + ["Manager", "Auto-approved", "Rejection note"]
-                                csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
-                                csv_writer.writeheader()
+                    if "rnote" in expense["status"]:
+                        expense_row["rnote"] = expense["status"]["rnote"]
 
-                            if "auto_approved" in expense:
-                                expense_row["Auto-approved"] = expense["auto_approved"]
+                    if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
+                        expense_row["manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
+                    else:
+                        expense_row["manager"] = "Manager not found: check expense"
 
-                            if "rnote" in expense["status"]:
-                                expense_row["Rejection note"] = expense["status"]["rnote"]
+                    if "export_date" in expense["status"] and expense["status"]["export_date"] != "never":
+                        expense_row["export_date"] = expense["status"]["export_date"]
 
-                            if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
-                                expense_row["Manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
-                            else:
-                                expense_row["Manager"] = "Manager not found: check expense"
+                    results.append(expense_row)
 
-                            csv_writer.writerow(expense_row)
-                            count += 1
-
-                        return send_file(
-                            csv_file.name,
-                            mimetype='text/csv',
-                            as_attachment=True,
-                            attachment_filename='tmp.csv')
-
-                except Exception:
-                    logging.exception('Exception on writing/sending CSV in get_all_expenses')
-                    return jsonify("Something went wrong"), 500
+                return get_expenses_format(results, format_expense, extra_fields)
             else:
                 return make_response(jsonify("Not a valid query parameter"), 400)
         else:
@@ -1121,64 +1116,45 @@ class CreditorExpenses(ClaimExpenses):
         expenses_data = expenses_ds.fetch()
 
         if expenses_data:
-            try:
-                with tempfile.NamedTemporaryFile("w") as csv_file:
-                    # Hard-coded properties Expenses_Journal
-                    count = 0
+            results = []
+            extra_fields = ["User"]
+            format_expense = connexion.request.headers["Accept"]
+            for expense in expenses_data:
+                expense_row = {
+                    "Expenses_Id": expense["Expenses_Id"],
+                    "Time": expense["Time"],
+                    "Attribute old": "No change",
+                    "Attribute new": "No change"
+                }
+                if "User" in expense:
+                    expense_row["User"] = expense["User"]
 
-                    for expense in expenses_data:
-                        expense_row = {
-                            "Expense ID": expense["Expenses_Id"],
-                            "Modification date": expense["Time"],
-                            "Attribute Old": "No change",
-                            "Attribute New": "No change"
-                        }
+                if expense["Attributes_Changed"]:
+                    list_attributes = json.loads(expense["Attributes_Changed"])
+                    for attribute in list_attributes:
+                        for name in attribute:
+                            # Handle 'status' components: different row per component
+                            if name == "status":
+                                try:
+                                    for component in attribute[name]["old"]:
+                                        expense_row["Attribute old"] = "status: " + component + ": " + \
+                                                                       attribute[name]["old"][component]
+                                        expense_row["Attribute new"] = "status: " + component + ": " + \
+                                                                       attribute[name]["new"][component]
 
-                        if count == 0:
-                            field_names = list(expense_row.keys()) + ["User"]
-                            csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
-                            csv_writer.writeheader()
+                                        results.append(expense_row)
 
-                        count += 1
+                                except (TypeError, KeyError):
+                                    logging.warning("Expense from Expense_Journal does not have the right format: {}".
+                                                    format(expense_row["Expenses_Id"]))
+                            else:
+                                expense_row["Attribute old"] = name + ": " + str(attribute[name]["old"])
+                                expense_row["Attribute new"] = name + ": " + str(attribute[name]["new"])
 
-                        if "User" in expense:
-                            expense_row["User"] = expense["User"]
-
-                        if expense["Attributes_Changed"]:
-                            list_attributes = json.loads(expense["Attributes_Changed"])
-                            for attribute in list_attributes:
-                                for name in attribute:
-                                    # Handle 'status' components: different row per component
-                                    if name == "status":
-                                        try:
-                                            for component in attribute[name]["old"]:
-                                                expense_row["Attribute Old"] = "status: " + component + ": " + \
-                                                                               attribute[name]["old"][component]
-                                                expense_row["Attribute New"] = "status: " + component + ": " + \
-                                                                               attribute[name]["new"][component]
-
-                                                csv_writer.writerow(expense_row)
-
-                                        except (TypeError, KeyError):
-                                            logging.warning("Expense does not have the right format: {}".
-                                                            format(expense_row["Expense ID"]))
-                                    else:
-                                        expense_row["Attribute Old"] = name + ": " + str(attribute[name]["old"])
-                                        expense_row["Attribute New"] = name + ": " + str(attribute[name]["new"])
-
-                                        csv_writer.writerow(expense_row)
-                        else:
-                            csv_writer.writerow(expense_row)
-
-                    return send_file(
-                        csv_file.name,
-                        mimetype='text/csv',
-                        as_attachment=True,
-                        attachment_filename='tmp.csv')
-
-            except Exception:
-                logging.exception('Exception on writing/sending CSV in get_all_expenses_journal')
-                return jsonify("Something went wrong"), 500
+                                results.append(expense_row)
+                else:
+                    results.append(expense_row)
+            return get_expenses_format(results, format_expense, extra_fields)
         else:
             return make_response(jsonify(None), 204)
 
@@ -1297,6 +1273,49 @@ def get_document(document_id, document_type):
             "Authorization": "",
         },
     )
+
+
+def get_expenses_format(expenses_data, format_expense, extra_fields):
+    """
+    Get format of expenses export: csv/json
+    :param expenses_data:
+    :param format_expense:
+    :param extra_fields:
+    :return:
+    """
+    if "application/json" in format_expense:
+        logging.debug("Creating json table")
+        return jsonify(expenses_data)
+
+    elif "text/csv" in format_expense:
+        logging.debug("Creating csv file")
+        try:
+            with tempfile.NamedTemporaryFile("w") as csv_file:
+                count = 0
+                for expense in expenses_data:
+                    if count == 0:
+
+                        field_names = list(expense.keys())
+
+                        for field in extra_fields:
+                            logging.warning(field)
+                            if field not in field_names:
+                                field_names += [field]
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
+                        csv_writer.writeheader()
+                        count = 1
+
+                    csv_writer.writerow(expense)
+
+                return send_file(csv_file.name,
+                                 mimetype='text/csv',
+                                 as_attachment=True,
+                                 attachment_filename='tmp.csv')
+        except Exception:
+            logging.exception('Exception on writing/sending CSV in get_all_expenses')
+            return jsonify("Something went wrong"), 500
+    else:
+        return jsonify("Something went wrong"), 500
 
 
 def get_document_list():
