@@ -1299,7 +1299,6 @@ def get_expenses_format(expenses_data, format_expense, extra_fields):
                         field_names = list(expense.keys())
 
                         for field in extra_fields:
-                            logging.warning(field)
                             if field not in field_names:
                                 field_names += [field]
                         csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
