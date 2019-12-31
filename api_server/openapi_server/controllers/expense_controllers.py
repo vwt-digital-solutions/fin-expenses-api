@@ -247,8 +247,7 @@ class ClaimExpenses:
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
-
-                    entity.update({
+                    new_expense = {
                         "employee": dict(
                             afas_data=afas_data,
                             email=self.employee_info["unique_name"],
@@ -262,9 +261,11 @@ class ClaimExpenses:
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
-                    })
+                    }
 
+                    entity.update(new_expense)
                     self.ds_client.put(entity)
+                    self.expense_journal({}, entity)
 
                     if ready_text == 'ready_for_manager':
                         self.send_email_notification(
@@ -277,23 +278,6 @@ class ClaimExpenses:
                 return make_response(jsonify('Employee not found'), 403)
         else:
             return make_response(jsonify('Employee not unique'), 403)
-
-    def get_export_expenses(self, expenses_list):
-        """Get CSV of all the expenses/expenses_journal"""
-
-        bucket = self.cs_client.get_bucket(self.bucket_name)
-        blob = bucket.blob("exports/export2.csv")
-
-        with tempfile.NamedTemporaryFile() as temp:
-            blob.download_to_filename(temp.name)
-
-            return send_file(
-                temp.name,
-                mimetype='text/csv',
-                as_attachment=True,
-                attachment_filename='testfile.csv')
-
-        # TODO: Collect expenses from csv and check if this is new (datetime)
 
     def _process_status_text_update(self, item, expense):
         if expense['status']['text'] in ['rejected_by_creditor',
@@ -761,15 +745,19 @@ class ClaimExpenses:
             if isinstance(o, (datetime.date, datetime.datetime)):
                 return o.isoformat(timespec="seconds") + 'Z'
 
-        for attribute in list(set(list(old_expense)) & set(list(expense))):
-            if old_expense[attribute] != expense[attribute]:
+        for attribute in list(set(old_expense) | set(expense)):
+            if attribute not in old_expense:
+                changed.append({attribute: {"new": expense[attribute]}})
+            elif old_expense[attribute] != expense[attribute]:
                 changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+            elif attribute not in expense:
+                changed.append({attribute: {"old": old_expense[attribute], "new": None}})
 
         key = self.ds_client.key("Expenses_Journal")
         entity = datastore.Entity(key=key)
         entity.update(
             {
-                "Expenses_Id": old_expense.key.id,
+                "Expenses_Id": expense.key.id,
                 "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                 "Attributes_Changed": json.dumps(changed, default=default),
                 "User": self.employee_info["unique_name"],
@@ -1058,7 +1046,6 @@ class CreditorExpenses(ClaimExpenses):
                     if 'status' in expense and \
                             (query_filter["creditor"] == expense["status"]["text"] or
                              query_filter["creditor2"] == expense["status"]["text"]):
-
                         expense_row = {
                             "id": expense.id,
                             "amount": expense["amount"],
@@ -1120,41 +1107,75 @@ class CreditorExpenses(ClaimExpenses):
             extra_fields = ["User"]
             format_expense = connexion.request.headers["Accept"]
             for expense in expenses_data:
-                expense_row = {
-                    "Expenses_Id": expense["Expenses_Id"],
-                    "Time": expense["Time"],
-                    "Attribute old": "No change",
-                    "Attribute new": "No change"
-                }
+                expense_id = expense["Expenses_Id"]
+                expense_time = expense["Time"]
+                user = ""
+
                 if "User" in expense:
-                    expense_row["User"] = expense["User"]
+                    user = expense["User"]
 
                 if expense["Attributes_Changed"]:
                     list_attributes = json.loads(expense["Attributes_Changed"])
                     for attribute in list_attributes:
                         for name in attribute:
-                            # Handle 'status' components: different row per component
-                            if name == "status":
+                            # Handle nested components: different row per component
+                            if type(attribute[name]["new"]) is dict:
                                 try:
-                                    for component in attribute[name]["old"]:
-                                        if attribute[name]["new"][component] != attribute[name]["old"][component]:
-                                            expense_row["Attribute old"] = "status: " + component + ": " + \
-                                                                           attribute[name]["old"][component]
-                                            expense_row["Attribute new"] = "status: " + component + ": " + \
-                                                                           attribute[name]["new"][component]
-
-                                        results.append(expense_row)
+                                    if "old" in attribute[name] and type(attribute[name]["old"]) is dict:
+                                        for component in attribute[name]["new"]:
+                                            # Expense has a new component which does not have a 'new' value
+                                            if component not in attribute[name]["old"]:
+                                                results.append({
+                                                    "Expenses_Id": expense_id,
+                                                    "Time": expense_time,
+                                                    "Attribute old": "",
+                                                    "Attribute new": name + ": " + component + ": " +
+                                                                     str(attribute[name]["new"][component]),
+                                                    "User": user
+                                                })
+                                            # Expense has an old value which differs from the new value
+                                            elif attribute[name]["new"][component] != attribute[name]["old"][component]:
+                                                results.append({
+                                                    "Expenses_Id": expense_id,
+                                                    "Time": expense_time,
+                                                    "Attribute old": name + ": " + component + ": " + str(
+                                                        attribute[name]["old"][component]),
+                                                    "Attribute new": name + ": " + component + ": " + str(
+                                                        attribute[name]["new"][component]),
+                                                    "User": user
+                                                })
+                                    # Expense is completely new
+                                    else:
+                                        for component in attribute[name]["new"]:
+                                            results.append({
+                                                "Expenses_Id": expense_id,
+                                                "Time": expense_time,
+                                                "Attribute old": "",
+                                                "Attribute new": name + ": " + component + ": " +
+                                                                 str(attribute[name]["new"][component]),
+                                                "User": user
+                                            })
 
                                 except (TypeError, KeyError):
                                     logging.warning("Expense from Expense_Journal does not have the right format: {}".
-                                                    format(expense_row["Expenses_Id"]))
+                                                    format(expense["Expenses_Id"]))
+                            # Expense has an old value which differs from the new value and no nested components
                             else:
-                                expense_row["Attribute old"] = name + ": " + str(attribute[name]["old"])
-                                expense_row["Attribute new"] = name + ": " + str(attribute[name]["new"])
+                                old_value = ""
+                                if "old" in attribute[name]:
+                                    old_value = name + ": " + str(attribute[name]["old"])
 
-                                results.append(expense_row)
+                                results.append({
+                                    "Expenses_Id": expense_id,
+                                    "Time": expense_time,
+                                    "Attribute old": old_value,
+                                    "Attribute new": name + ": " + str(attribute[name]["new"]),
+                                    "User": user
+                                })
                 else:
-                    results.append(expense_row)
+                    logging.warning("Expense from Expense_Journal did not change: {}".
+                                    format(expense["Expenses_Id"]))
+
             return get_expenses_format(results, format_expense, extra_fields)
         else:
             return make_response(jsonify(None), 204)
