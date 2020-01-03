@@ -1025,96 +1025,80 @@ class CreditorExpenses(ClaimExpenses):
     def __init__(self):
         super().__init__()
 
-    def get_all_expenses(self, expenses_list):
+    def get_all_expenses(self, expenses_list, date_from, date_to):
         """Get JSON/CSV of all the expenses"""
         expenses_ds = self.ds_client.query(kind="Expenses")
         expenses_data = expenses_ds.fetch()
+        query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
 
-        query_filter: Dict[Any, str] = dict(
-            creditor="ready_for_creditor", creditor2="approved"
-        )
+        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
+        day_to = datetime.datetime.utcnow()
+
+        if date_from != '':
+            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
+
+        if date_to != '':
+            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d") + datetime.timedelta(days=1)
 
         if expenses_data:
             results = []
-            extra_fields = []
-            format_expense = connexion.request.headers['Accept']
 
-            if expenses_list == "expenses_creditor":
-                for expense in expenses_data:
-                    logging.debug(f'get_all_expenses expenses_creditor: [{expense}]')
+            for expense in expenses_data:
+                expense_date = dateutil.parser.parse(expense["claim_date"]).date()
 
-                    if 'status' in expense and \
-                            (query_filter["creditor"] == expense["status"]["text"] or
-                             query_filter["creditor2"] == expense["status"]["text"]):
-                        expense_row = {
-                            "id": expense.id,
-                            "amount": expense["amount"],
-                            "note": expense["note"],
-                            "cost_type": expense["cost_type"],
-                            "claim_date": expense["claim_date"],
-                            "transaction_date": expense["transaction_date"],
-                            "employee": expense["employee"]["full_name"],
-                            "status": expense["status"],
-                        }
+                if day_from.date() <= expense_date < day_to.date():
 
-                        results.append(expense_row)
-                return get_expenses_format(results, format_expense, extra_fields)
-
-            elif expenses_list == "expenses_all":
-                extra_fields = ["manager", "auto_approved", "rnote", "export_date"]
-                for expense in expenses_data:
-                    logging.debug(f'get_all_expenses expenses_all: [{expense}]')
                     expense_row = {
                         "id": expense.id,
                         "amount": expense["amount"],
+                        "note": expense["note"],
                         "cost_type": expense["cost_type"],
                         "claim_date": expense["claim_date"],
-                        "employee": expense["employee"]["afas_data"]["Personeelsnummer"],
-                        "note": expense["note"],
-                        "status": expense["status"]["text"],
-                        "transaction_date": expense["transaction_date"]
+                        "transaction_date": expense["transaction_date"],
+                        "employee": expense["employee"]["full_name"],
+                        "status": expense["status"],
+                        "auto_approved": expense.get("auto_approved", ""),
+                        "rnote": expense.get("rnote", ""),
+                        "manager": expense.get("employee", {}).get("afas_data", {}).get(
+                            "Manager_personeelsnummer", "Manager not found: check expense"),
+                        "export_date": expense.get("status", {}).get("export_date", "")
                     }
 
-                    if "auto_approved" in expense:
-                        expense_row["auto_approved"] = expense["auto_approved"]
+                    expense_row["export_date"] = ("", "")[expense_row["export_date"] == "never"]
 
-                    if "rnote" in expense["status"]:
-                        expense_row["rnote"] = expense["status"]["rnote"]
+                    if expenses_list == "expenses_creditor":
+                        if (query_filter["creditor"] == expense["status"]["text"] or
+                                query_filter["creditor2"] == expense["status"]["text"]):
 
-                    if "Manager_personeelsnummer" in expense["employee"]["afas_data"]:
-                        expense_row["manager"] = expense["employee"]["afas_data"]["Manager_personeelsnummer"]
-                    else:
-                        expense_row["manager"] = "Manager not found: check expense"
+                            results.append(expense_row)
 
-                    if "export_date" in expense["status"] and expense["status"]["export_date"] != "never":
-                        expense_row["export_date"] = expense["status"]["export_date"]
+                    if expenses_list == "expenses_all":
+                        results.append(expense_row)
 
-                    results.append(expense_row)
+            return results
 
-                return get_expenses_format(results, format_expense, extra_fields)
-            else:
-                return make_response(jsonify("Not a valid query parameter"), 400)
         else:
             return make_response(jsonify(None), 204)
 
-    def get_all_expenses_journal(self):
+    def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
         expenses_ds = self.ds_client.query(kind="Expenses_Journal")
         expenses_data = expenses_ds.fetch()
 
+        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
+        day_to = datetime.datetime.utcnow()
+
+        if date_from != '':
+            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
+
+        if date_to != '':
+            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d") + datetime.timedelta(days=1)
+
         if expenses_data:
             results = []
-            extra_fields = ["User"]
-            format_expense = connexion.request.headers["Accept"]
             for expense in expenses_data:
-                expense_id = expense["Expenses_Id"]
-                expense_time = expense["Time"]
-                user = ""
-
-                if "User" in expense:
-                    user = expense["User"]
-
-                if expense["Attributes_Changed"]:
+                expense_date = dateutil.parser.parse(expense["Time"]).date()
+                if expense["Attributes_Changed"] and (day_from.date() <= expense_date <= day_to.date()):
                     list_attributes = json.loads(expense["Attributes_Changed"])
                     for attribute in list_attributes:
                         for name in attribute:
@@ -1126,34 +1110,34 @@ class CreditorExpenses(ClaimExpenses):
                                             # Expense has a new component which does not have a 'new' value
                                             if component not in attribute[name]["old"]:
                                                 results.append({
-                                                    "Expenses_Id": expense_id,
-                                                    "Time": expense_time,
+                                                    "Expenses_Id": expense["Expenses_Id"],
+                                                    "Time": expense["Time"],
                                                     "Attribute old": "",
                                                     "Attribute new": name + ": " + component + ": " +
                                                                      str(attribute[name]["new"][component]),
-                                                    "User": user
+                                                    "User": expense.get("User", "")
                                                 })
                                             # Expense has an old value which differs from the new value
                                             elif attribute[name]["new"][component] != attribute[name]["old"][component]:
                                                 results.append({
-                                                    "Expenses_Id": expense_id,
-                                                    "Time": expense_time,
+                                                    "Expenses_Id": expense["Expenses_Id"],
+                                                    "Time": expense["Time"],
                                                     "Attribute old": name + ": " + component + ": " + str(
                                                         attribute[name]["old"][component]),
                                                     "Attribute new": name + ": " + component + ": " + str(
                                                         attribute[name]["new"][component]),
-                                                    "User": user
+                                                    "User": expense.get("User", "")
                                                 })
                                     # Expense is completely new
                                     else:
                                         for component in attribute[name]["new"]:
                                             results.append({
-                                                "Expenses_Id": expense_id,
-                                                "Time": expense_time,
+                                                "Expenses_Id": expense["Expenses_Id"],
+                                                "Time": expense["Time"],
                                                 "Attribute old": "",
                                                 "Attribute new": name + ": " + component + ": " +
                                                                  str(attribute[name]["new"][component]),
-                                                "User": user
+                                                "User": expense.get("User", "")
                                             })
 
                                 except (TypeError, KeyError):
@@ -1166,17 +1150,17 @@ class CreditorExpenses(ClaimExpenses):
                                     old_value = name + ": " + str(attribute[name]["old"])
 
                                 results.append({
-                                    "Expenses_Id": expense_id,
-                                    "Time": expense_time,
+                                    "Expenses_Id": expense["Expenses_Id"],
+                                    "Time": expense["Time"],
                                     "Attribute old": old_value,
                                     "Attribute new": name + ": " + str(attribute[name]["new"]),
-                                    "User": user
+                                    "User": expense.get("User", "")
                                 })
                 else:
-                    logging.warning("Expense from Expense_Journal did not change: {}".
+                    logging.warning("Expense from Expense_Journal had no change or was outside date limit: {}".
                                     format(expense["Expenses_Id"]))
 
-            return get_expenses_format(results, format_expense, extra_fields)
+            return results
         else:
             return make_response(jsonify(None), 204)
 
@@ -1230,22 +1214,33 @@ def add_expense():
         return jsonify("Something went wrong. Please try again later"), 500
 
 
-def get_all_creditor_expenses(expenses_list):
+def get_all_creditor_expenses(expenses_list, date_from, date_to):
     """
     Get all expenses
     :rtype: None
     """
+    if expenses_list not in ["expenses_creditor", "expenses_all"]:
+        return make_response(jsonify("Not a valid query parameter"), 400)
+
     expense_instance = CreditorExpenses()
-    return expense_instance.get_all_expenses(expenses_list=expenses_list)
+    expenses_data = expense_instance.get_all_expenses(expenses_list=expenses_list, date_from=date_from, date_to=date_to)
+
+    format_expense = connexion.request.headers['Accept']
+
+    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
 
 
-def get_all_creditor_expenses_journal():
+def get_all_creditor_expenses_journal(date_from, date_to):
     """
     Get all expenses journal
     :rtype: None
     """
     expense_instance = CreditorExpenses()
-    return expense_instance.get_all_expenses_journal()
+    expenses_data = expense_instance.get_all_expenses_journal(date_from=date_from, date_to=date_to)
+
+    format_expense = connexion.request.headers["Accept"]
+
+    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
 
 
 def get_cost_types():  # noqa: E501
@@ -1297,7 +1292,7 @@ def get_document(document_id, document_type):
     )
 
 
-def get_expenses_format(expenses_data, format_expense, extra_fields):
+def get_expenses_format(expenses_data, format_expense):
     """
     Get format of expenses export: csv/json
     :param expenses_data:
@@ -1318,10 +1313,6 @@ def get_expenses_format(expenses_data, format_expense, extra_fields):
                     if count == 0:
 
                         field_names = list(expense.keys())
-
-                        for field in extra_fields:
-                            if field not in field_names:
-                                field_names += [field]
                         csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
                         csv_writer.writeheader()
                         count = 1

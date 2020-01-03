@@ -347,6 +347,8 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/ExpensesList'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
       responses:
         '200':
           content:
@@ -379,6 +381,9 @@ paths:
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
   /finances/expenses/journal:
     get:
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
       responses:
         '200':
           content:
@@ -722,6 +727,26 @@ components:
         type: string
       in: path
       required: true
+    DateFrom:
+      style: form
+      explode: false
+      name: date_from
+      schema:
+        type: string
+        format: date
+        default: ''
+      in: query
+      required: false
+    DateTo:
+      style: form
+      explode: false
+      name: date_to
+      schema:
+        type: string
+        format: date
+        default: ''
+      in: query
+      required: false
     DepartmentId:
       style: simple
       explode: false
