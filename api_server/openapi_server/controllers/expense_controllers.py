@@ -1112,9 +1112,9 @@ class CreditorExpenses(ClaimExpenses):
                                                 results.append({
                                                     "Expenses_Id": expense["Expenses_Id"],
                                                     "Time": expense["Time"],
-                                                    "Attribute old": "",
-                                                    "Attribute new": name + ": " + component + ": " +
-                                                                     str(attribute[name]["new"][component]),
+                                                    "Attribute": name + ": " + component,
+                                                    "Old value": "",
+                                                    "New value": str(attribute[name]["new"][component]),
                                                     "User": expense.get("User", "")
                                                 })
                                             # Expense has an old value which differs from the new value
@@ -1122,10 +1122,9 @@ class CreditorExpenses(ClaimExpenses):
                                                 results.append({
                                                     "Expenses_Id": expense["Expenses_Id"],
                                                     "Time": expense["Time"],
-                                                    "Attribute old": name + ": " + component + ": " + str(
-                                                        attribute[name]["old"][component]),
-                                                    "Attribute new": name + ": " + component + ": " + str(
-                                                        attribute[name]["new"][component]),
+                                                    "Attribute": name + ": " + component,
+                                                    "Old value": str(attribute[name]["old"][component]),
+                                                    "New value": str(attribute[name]["new"][component]),
                                                     "User": expense.get("User", "")
                                                 })
                                     # Expense is completely new
@@ -1134,9 +1133,9 @@ class CreditorExpenses(ClaimExpenses):
                                             results.append({
                                                 "Expenses_Id": expense["Expenses_Id"],
                                                 "Time": expense["Time"],
-                                                "Attribute old": "",
-                                                "Attribute new": name + ": " + component + ": " +
-                                                                 str(attribute[name]["new"][component]),
+                                                "Attribute": name + ": " + component,
+                                                "Old value": "",
+                                                "New value": str(attribute[name]["new"][component]),
                                                 "User": expense.get("User", "")
                                             })
 
@@ -1147,13 +1146,14 @@ class CreditorExpenses(ClaimExpenses):
                             else:
                                 old_value = ""
                                 if "old" in attribute[name]:
-                                    old_value = name + ": " + str(attribute[name]["old"])
+                                    old_value = str(attribute[name]["old"])
 
                                 results.append({
                                     "Expenses_Id": expense["Expenses_Id"],
                                     "Time": expense["Time"],
-                                    "Attribute old": old_value,
-                                    "Attribute new": name + ": " + str(attribute[name]["new"]),
+                                    "Attribute": name,
+                                    "Old value": old_value,
+                                    "New value": str(attribute[name]["new"]),
                                     "User": expense.get("User", "")
                                 })
                 else:
