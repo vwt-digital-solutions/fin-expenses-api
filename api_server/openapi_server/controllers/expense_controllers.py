@@ -65,7 +65,7 @@ class ClaimExpenses:
             cache_discovery=False)
 
         self.ds_client = datastore.Client()  # Datastore
-        self.cs_client = storage.Client()  # CloudStore
+        self.cs_client = storage.Client()  # CloudStores
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
@@ -314,21 +314,17 @@ class ClaimExpenses:
             allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
             if allowed_fields and allowed_statuses:
                 try:
-                    BusinessRulesEngine().process_rules(
-                        data, expense['employee']['afas_data'])
+                    BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
-                    valid_update = self._update_expenses(
-                        data, allowed_fields, allowed_statuses, expense)
+                    valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
                     if not valid_update:
-                        return make_response(jsonify(
-                            'The content of this method is not valid'), 403)
+                        return make_response(jsonify('The content of this method is not valid'), 403)
 
                     self.expense_journal(old_expense, expense)
 
-                    if data['status'] == 'rejected_by_manager' or \
-                            data['status'] == 'rejected_by_creditor':
+                    if data['status'] == 'rejected_by_manager' or data['status'] == 'rejected_by_creditor':
                         self.send_email_notification(
                             'edit_expense',
                             expense['employee']['afas_data'],
@@ -336,8 +332,7 @@ class ClaimExpenses:
 
                     return make_response(jsonify(None), 200)
 
-            return make_response(jsonify(
-                'The content of this method is not valid'), 403)
+            return make_response(jsonify('The content of this method is not valid'), 403)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -1103,9 +1098,9 @@ class CreditorExpenses(ClaimExpenses):
                     for attribute in list_attributes:
                         for name in attribute:
                             # Handle nested components: different row per component
-                            if type(attribute[name]["new"]) is dict:
+                            if isinstance((attribute[name]["new"]), dict):
                                 try:
-                                    if "old" in attribute[name] and type(attribute[name]["old"]) is dict:
+                                    if "old" in attribute[name] and isinstance(attribute[name]["old"], dict):
                                         for component in attribute[name]["new"]:
                                             # Expense has a new component which does not have a 'new' value
                                             if component not in attribute[name]["old"]:
@@ -1161,8 +1156,8 @@ class CreditorExpenses(ClaimExpenses):
                                     format(expense["Expenses_Id"]))
 
             return results
-        else:
-            return make_response(jsonify(None), 204)
+
+        return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
@@ -1207,8 +1202,7 @@ def add_expense():
                 form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
                 form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                 return expense_instance.add_expenses(form_data)
-            else:
-                return jsonify('Date needs to be in the past'), 400
+            return jsonify('Date needs to be in the past'), 400
     except Exception:
         logging.exception('Exception on add_expense')
         return jsonify("Something went wrong. Please try again later"), 500
@@ -1304,7 +1298,7 @@ def get_expenses_format(expenses_data, format_expense):
         logging.debug("Creating json table")
         return jsonify(expenses_data)
 
-    elif "text/csv" in format_expense:
+    if "text/csv" in format_expense:
         logging.debug("Creating csv file")
         try:
             with tempfile.NamedTemporaryFile("w") as csv_file:
@@ -1326,8 +1320,8 @@ def get_expenses_format(expenses_data, format_expense):
         except Exception:
             logging.exception('Exception on writing/sending CSV in get_all_expenses')
             return jsonify("Something went wrong"), 500
-    else:
-        return jsonify("Something went wrong"), 500
+
+    return jsonify("Something went wrong"), 500
 
 
 def get_document_list():
