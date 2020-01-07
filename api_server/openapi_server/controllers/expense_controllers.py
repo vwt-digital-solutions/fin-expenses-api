@@ -1041,8 +1041,7 @@ class CreditorExpenses(ClaimExpenses):
             for expense in expenses_data:
                 expense_date = dateutil.parser.parse(expense["claim_date"]).date()
 
-                if day_from.date() <= expense_date < day_to.date():
-
+                if day_from.date() <= expense_date <= day_to.date():
                     expense_row = {
                         "id": expense.id,
                         "amount": expense["amount"],
@@ -1297,8 +1296,7 @@ def get_expenses_format(expenses_data, format_expense):
     if "application/json" in format_expense:
         logging.debug("Creating json table")
         return jsonify(expenses_data)
-
-    if "text/csv" in format_expense:
+    elif "text/csv" in format_expense:
         logging.debug("Creating csv file")
         try:
             with tempfile.NamedTemporaryFile("w") as csv_file:
@@ -1320,8 +1318,8 @@ def get_expenses_format(expenses_data, format_expense):
         except Exception:
             logging.exception('Exception on writing/sending CSV in get_all_expenses')
             return jsonify("Something went wrong"), 500
-
-    return jsonify("Something went wrong"), 500
+    else:
+        return jsonify("Request missing an Accept header"), 400
 
 
 def get_document_list():
