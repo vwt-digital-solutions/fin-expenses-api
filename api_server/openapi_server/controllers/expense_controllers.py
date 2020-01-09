@@ -465,9 +465,14 @@ class ClaimExpenses:
             #         "Departments", department_number_aka_afdeling_code
             #     )
             # )
-            logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+            logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
+            try:
+                trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+
+            except TypeError:
+                logging.warning(f"expense {expense_detail.id}: transaction_date not in string format")
+                trans_date = expense_detail['transaction_date'].strftime('%d-%m-%Y')
 
             boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
@@ -500,7 +505,6 @@ class ClaimExpenses:
                     "BTW-Bedrag": "0,00",
                 }
             )
-
         booking_file = pd.DataFrame(booking_file_data).to_csv(
             sep=";", index=False, decimal=","
         )
