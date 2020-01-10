@@ -3,7 +3,7 @@
 import sys
 from setuptools import setup, find_packages
 
-NAME = "api_server"
+NAME = "openapi_server"
 VERSION = "1.0.0"
 
 # To install the library, run the following
@@ -14,9 +14,9 @@ VERSION = "1.0.0"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "connexion==2.0.0",
-    "swagger-ui-bundle==0.0.2",
-    "python_dateutil==2.6.0"
+    "connexion>=2.0.2",
+    "swagger-ui-bundle>=0.0.2",
+    "python_dateutil>=2.6.0"
 ]
 
 setup(
@@ -31,8 +31,9 @@ setup(
     package_data={'': ['openapi/openapi.yaml']},
     include_package_data=True,
     entry_points={
-        'console_scripts': ['api_server=openapi_server.__main__:main']},
+        'console_scripts': ['openapi_server=openapi_server.__main__:main']},
     long_description="""\
     An API for the expenses app
     """
 )
+

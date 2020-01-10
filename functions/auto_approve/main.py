@@ -14,11 +14,9 @@ def process_approve(request):
         client = datastore.Client()
         query = client.query(kind='Expenses')
         pending = int(request.args['pending'])
-        filter_amount = int(request.args['amount'])
 
         logging.info(
-            f'Auto-approve claims older than {pending} business days with ' +
-            f'amount less than {filter_amount}')
+            f'Auto-approve claims older than {pending} business days')
 
         business_pending = shift_to_business_days(pending)
         boundary = (datetime.datetime.now() - datetime.timedelta(
@@ -27,11 +25,9 @@ def process_approve(request):
         query.add_filter('claim_date', '<=', boundary)
         query.add_filter('status.text', '=', 'ready_for_manager')
         # only single une-quality criteria, must check programmatically after
-        # query.add_filter('amount', '<=', filter_amount)
 
         expenses_to_update = []
-        for expense in [exp for exp in query.fetch()
-                        if exp['amount'] <= filter_amount]:
+        for expense in query.fetch():
             changed = []
 
             logging.info(f'Auto approve {expense}')
@@ -46,7 +42,10 @@ def process_approve(request):
 
             # Update Expenses_Journal: auto_approved and status
             changed.append({'auto_approved': {"old": old_auto_value, "new": new_auto_value}})
-            changed.append({'status': {"old": expense['status']['text'], "new": 'ready_for_creditor'}})
+            changed.append({'status': {
+                "old": {'text': expense['status']['text']},
+                "new": {'text': 'ready_for_creditor'}}
+            })
 
             expense['status']['text'] = 'ready_for_creditor'
 
@@ -75,7 +74,8 @@ def process_approve(request):
 if __name__ == '__main__':
     class R:
         def __init__(self):
-            self.args = {'pending': 3, 'amount': 200}
+            self.args = {'pending': 3}
+
     r = R()
     logging.warning(r.args)
     # r.args = {'pending': 3}

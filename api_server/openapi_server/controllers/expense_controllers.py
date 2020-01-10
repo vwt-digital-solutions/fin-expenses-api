@@ -4,6 +4,7 @@ import json
 import os
 import requests
 import re
+import csv
 
 import datetime
 import tempfile
@@ -14,7 +15,6 @@ from io import BytesIO
 from typing import Dict, Any
 import dateutil
 
-
 import pytz
 
 import config
@@ -23,7 +23,7 @@ import pandas as pd
 
 import connexion
 import googleapiclient.discovery
-from flask import make_response, jsonify, Response, g, request
+from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
 from google.oauth2 import service_account
 from apiclient import errors
@@ -65,7 +65,7 @@ class ClaimExpenses:
             cache_discovery=False)
 
         self.ds_client = datastore.Client()  # Datastore
-        self.cs_client = storage.Client()  # CloudStore
+        self.cs_client = storage.Client()  # CloudStores
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
 
@@ -138,7 +138,7 @@ class ClaimExpenses:
         expense = self.ds_client.get(exp_key)
 
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
-            return make_response(jsonify(None), 403)
+            return make_response(jsonify('No match on email'), 403)
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
@@ -174,7 +174,7 @@ class ClaimExpenses:
             if expense:
                 if permission == "employee":
                     if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-                        return make_response(jsonify(None), 403)
+                        return make_response(jsonify('No match on email'), 403)
 
                 results = [
                     {
@@ -200,7 +200,7 @@ class ClaimExpenses:
         if not expense:
             return make_response(jsonify('Expense not found'), 404)
         elif not self._check_attachment_permission(expense):
-            return make_response(jsonify(None), 403)
+            return make_response(jsonify('Unauthorized'), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
 
@@ -222,43 +222,9 @@ class ClaimExpenses:
 
         return jsonify(results)
 
-    def get_all_expenses(self, expenses_list):
-        """Get JSON of all the expenses"""
-        if expenses_list == "expenses_all":
-            return make_response(jsonify(None), 204)
-
-        elif expenses_list == "expenses_creditor_approved":
-
-            query_filter: Dict[Any, str] = dict(
-                creditor="ready_for_creditor", creditor2="approved", manager="ready_for_manager",
-            )
-
-            expenses_info = self.ds_client.query(kind="Expenses")
-
-            expenses_data = expenses_info.fetch()
-
-            if expenses_data:
-                results = []
-
-                for ed in expenses_data:
-                    logging.debug(f'get_all_expenses: [{ed}]')
-                    if 'status' in ed and (query_filter["creditor"] == ed["status"]["text"] or
-                                           query_filter["creditor2"] == ed["status"]["text"]):
-                        results.append({
-                            "id": ed.id,
-                            "amount": ed["amount"],
-                            "note": ed["note"],
-                            "cost_type": ed["cost_type"],
-                            "claim_date": ed["claim_date"],
-                            "transaction_date": ed["transaction_date"],
-                            "employee": ed["employee"]["full_name"],
-                            "status": ed["status"],
-                        })
-                return jsonify(results)
-            else:
-                return make_response(jsonify(None), 204)
-        else:
-            return make_response(jsonify(None), 204)
+    @abstractmethod
+    def get_all_expenses(self):
+        pass
 
     def add_expenses(self, data):
         """
@@ -281,48 +247,52 @@ class ClaimExpenses:
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
-                    entity.update(
-                        {
-                            "employee": dict(
-                                afas_data=afas_data,
-                                email=self.employee_info["unique_name"],
-                                family_name=self.employee_info["family_name"],
-                                given_name=self.employee_info["given_name"],
-                                full_name=self.employee_info["name"],
-                            ),
-                            "amount": data.amount,
-                            "note": data.note,
-                            "cost_type": data.cost_type,
-                            "transaction_date": data.transaction_date,
-                            "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                            "status": dict(export_date="never", text=ready_text),
-                        }
-                    )
-                    self.ds_client.put(entity)
+                    new_expense = {
+                        "employee": dict(
+                            afas_data=afas_data,
+                            email=self.employee_info["unique_name"],
+                            family_name=self.employee_info["family_name"],
+                            given_name=self.employee_info["given_name"],
+                            full_name=self.employee_info["name"],
+                        ),
+                        "amount": data.amount,
+                        "note": data.note,
+                        "cost_type": data.cost_type,
+                        "transaction_date": data.transaction_date,
+                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                        "status": dict(export_date="never", text=ready_text),
+                    }
 
-                    try:
-                        return make_response(
-                            jsonify(entity.key.id_or_name), 201)
-                    finally:
-                        if ready_text == 'ready_for_manager':
-                            self.send_email_notification(
-                                'add_expense', afas_data,
-                                entity.key.id_or_name)
+                    entity.update(new_expense)
+                    self.ds_client.put(entity)
+                    self.expense_journal({}, entity)
+
+                    if ready_text == 'ready_for_manager':
+                        self.send_email_notification(
+                            'add_expense', afas_data,
+                            entity.key.id_or_name)
+
+                    return make_response(
+                        jsonify(entity.key.id_or_name), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
             return make_response(jsonify('Employee not unique'), 403)
 
-    @abstractmethod
     def _process_status_text_update(self, item, expense):
-        pass
+        if expense['status']['text'] in ['rejected_by_creditor',
+                                         'rejected_by_manager'] \
+                and item == 'ready_for_manager':
+            expense["status"]["text"] = self._determine_status_amount_update(
+                expense['amount'], item)
+        else:
+            expense["status"]["text"] = item
+
+    def _determine_status_amount_update(self, amount, item):
+        return "ready_for_creditor" if amount < 50 else item
 
     @abstractmethod
-    def _process_status_amount_update(self, amount, expense):
-        pass
-
-    @abstractmethod
-    def _prepare_context_update_expense(self, data, expense):
+    def _prepare_context_update_expense(self, expense):
         pass
 
     def update_expenses(self, expenses_id, data, note_check=False):
@@ -336,56 +306,67 @@ class ClaimExpenses:
         if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
+
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
-            fields, status = self._prepare_context_update_expense(data, expense)
-            if fields and status:
-                try:
-                    BusinessRulesEngine().process_rules(
-                        data, expense['employee']['afas_data'])
-                except ValueError as exception:
-                    return make_response(jsonify(str(exception)), 400)
-                else:
-                    self._update_expenses(data, fields, status, expense)
-                    self.expense_journal(old_expense, expense)
 
-                    try:
-                        return make_response(jsonify(None), 200)
-                    finally:
-                        if 'rejected_by_manager' in data['status'] or \
-                                'rejected_by_creditor' in data['status']:
-                            self.send_email_notification(
-                                'edit_expense',
-                                expense['employee']['afas_data'],
-                                expense.key.id_or_name)
-            else:
-                return make_response(jsonify(None), 403)
+            allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
 
-    def _update_expenses(self, data, fields, status, expense):
-        items_to_update = list(fields.intersection(set(data.keys())))
+            if not allowed_fields and allowed_statuses:
+                return make_response(jsonify('The content of this method is not valid'), 403)
+
+            try:
+                BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
+            except ValueError as exception:
+                return make_response(jsonify(str(exception)), 400)
+
+            valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
+
+            if not valid_update:
+                return make_response(jsonify('The content of this method is not valid'), 403)
+
+            self.expense_journal(old_expense, expense)
+
+            if data['status'] == 'rejected_by_manager' or data['status'] == 'rejected_by_creditor':
+                self.send_notification('mail',
+                                       'edit_expense',
+                                       expense['employee']['afas_data'],
+                                       expense.key.id_or_name)
+
+            return make_response(jsonify(None), 200)
+
+    def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
+        items_to_update = list(allowed_fields.intersection(set(data.keys())))
         need_to_save = False
         for item in items_to_update:
-            if item == "status":
-                logger.debug(f"Employee status to update [{data[item]}] old [{expense['status']['text']}], legal "
-                             f"transition [{status}]")
-                if data[item] in status:
-                    need_to_save = True
-                    self._process_status_text_update(data[item], expense)
-            elif item == "rnote":
+            if item == "rnote":
                 need_to_save = True
                 expense["status"]["rnote"] = data[item]
-            elif item == "amount" and expense[item] != data[item]:
+            elif item != "status" and expense.get(item, None) != data[item]:
                 need_to_save = True
                 expense[item] = data[item]
-                self._process_status_amount_update(data[item], expense)
-            elif expense[item] != data[item]:
+
+        if 'status' in items_to_update:
+            logger.debug(
+                f"Employee status to update [{data['status']}] old [{expense['status']['text']}], legal "
+                f"transition [{allowed_statuses}]")
+            if data['status'] in allowed_statuses:
                 need_to_save = True
-                expense[item] = data[item]
+                self._process_status_text_update(data['status'], expense)
+            else:
+                logging.info(
+                    "Rejected unauthorized status transition for " +
+                    f"{expense.key.id_or_name}: {expense['status']['text']} " +
+                    f"> {data['status']}")
+                return False
 
         if need_to_save:
             self.ds_client.put(expense)
+            return True
+
+        return False
 
     def update_exported_expenses(self, expenses_exported, document_time):
         """
@@ -461,9 +442,9 @@ class ClaimExpenses:
             return {"Info": "Failed to upload payment file"}, 503
 
         retval = {"file_list": [
-                     {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
-                      "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
-                      "export_date": now.isoformat(timespec="seconds")+'Z'}]}
+            {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
+             "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
+             "export_date": now.isoformat(timespec="seconds") + 'Z'}]}
 
         self.update_exported_expenses(expense_claims_to_export, now)
 
@@ -716,7 +697,8 @@ class ClaimExpenses:
                 "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
             })
 
-        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'], reverse=True)
+        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'],
+                                                reverse=True)
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
@@ -757,17 +739,25 @@ class ClaimExpenses:
     def expense_journal(self, old_expense, expense):
         changed = []
 
-        for attribute in list(set(list(old_expense)) & set(list(expense))):
-            if old_expense[attribute] != expense[attribute]:
+        def default(o):
+            if isinstance(o, (datetime.date, datetime.datetime)):
+                return o.isoformat(timespec="seconds") + 'Z'
+
+        for attribute in list(set(old_expense) | set(expense)):
+            if attribute not in old_expense:
+                changed.append({attribute: {"new": expense[attribute]}})
+            elif old_expense[attribute] != expense[attribute]:
                 changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+            elif attribute not in expense:
+                changed.append({attribute: {"old": old_expense[attribute], "new": None}})
 
         key = self.ds_client.key("Expenses_Journal")
         entity = datastore.Entity(key=key)
         entity.update(
             {
-                "Expenses_Id": old_expense.key.id,
-                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds")+'Z',
-                "Attributes_Changed": json.dumps(changed),
+                "Expenses_Id": expense.key.id,
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                "Attributes_Changed": json.dumps(changed, default=default),
                 "User": self.employee_info["unique_name"],
             }
         )
@@ -811,65 +801,76 @@ class ClaimExpenses:
         new_message = self.create_message(to, mail_body)
         self.send_message_internal("me", new_message, expense_id)
 
-    def send_email_notification(self, mail_type, afas_data, expense_id):
-        # Check if production project for sending emails
-        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
-            mail_body = None
-            recipient = None
-
-            if mail_type == 'add_expense' and \
-                    'Manager_personeelsnummer' in afas_data:
-                query = self.ds_client.query(kind='AFAS_HRM')
-                query.add_filter('Personeelsnummer', '=',
-                                 afas_data['Manager_personeelsnummer'])
-                db_data = list(query.fetch(limit=1))
-
-                if len(db_data) == 1 and 'email_address' in db_data[0]:
-                    recipient = db_data[0]
-
-                mail_body = {
-                    'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                    'title': 'Nieuwe declaratie',
-                    'text': "Er staat een nieuwe declaratie voor je klaar " +
-                            "in de Declaratie-app, log in om deze " +
-                            "te beoordelen."
-                }
-            elif mail_type == 'edit_expense' and 'email_address' in afas_data:
-                recipient = afas_data
-                mail_body = {
-                    'subject': 'Een declaratie heeft aanpassingen nodig!',
-                    'title': 'Aanpassing vereist',
-                    'text': "Een ingediende declaratie heeft wijzigingen " +
-                            "nodig in de Declaratie-app, log in om deze " +
-                            "aan te passen."
-                }
-
-            if mail_body and recipient:
-                logging.info(f"Creating email for expense '{expense_id}'")
-                recipient_name = recipient['Voornaam'] \
-                    if 'Voornaam' in recipient else 'ontvanger'
-
-                mail_body['body'] = """Beste {},<br /><br />
-                    {}
-                    Mochten er nog vragen zijn, mail gerust naar
-                    <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                    Met vriendelijke groeten,<br />FSSC""".format(
-                    recipient_name, mail_body['text'],
-                    config.GMAIL_ADDEXPENSE_REPLYTO,
-                    config.GMAIL_ADDEXPENSE_REPLYTO
-                )
-
-                mail_body['from'] = config.GMAIL_SENDER_ADDRESS
-                mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
-
-                del mail_body['text']
-
-                self.send_message(expense_id, recipient['email_address'],
-                                  mail_body)
-            else:
-                logging.info(f"No mail info found for expense '{expense_id}'")
+    def send_notification(self, notification_type, message_type, afas_data, expense_id):
+        if notification_type == 'mail':
+            self.send_email_notification(message_type, afas_data, expense_id)
         else:
-            logging.info("Dev mode active for sending e-mails")
+            logging.warning("No notification type specified")
+
+    def send_email_notification(self, mail_type, afas_data, expense_id):
+        try:
+            if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
+                mail_body = None
+                recipient = None
+
+                if mail_type == 'add_expense' and \
+                        'Manager_personeelsnummer' in afas_data:
+                    query = self.ds_client.query(kind='AFAS_HRM')
+                    query.add_filter('Personeelsnummer', '=',
+                                     afas_data['Manager_personeelsnummer'])
+                    db_data = list(query.fetch(limit=1))
+
+                    if len(db_data) == 1 and 'email_address' in db_data[0]:
+                        recipient = db_data[0]
+
+                    mail_body = {
+                        'subject': 'Er staat een nieuwe declaratie voor je klaar!',
+                        'title': 'Nieuwe declaratie',
+                        'text': "Er staat een nieuwe declaratie voor je klaar " +
+                                "in de Declaratie-app, log in om deze " +
+                                "te beoordelen."
+                    }
+                elif mail_type == 'edit_expense' and 'email_address' in afas_data:
+                    recipient = afas_data
+                    mail_body = {
+                        'subject': 'Een declaratie heeft aanpassingen nodig!',
+                        'title': 'Aanpassing vereist',
+                        'text': "Een ingediende declaratie heeft wijzigingen " +
+                                "nodig in de Declaratie-app, log in om deze " +
+                                "aan te passen."
+                    }
+
+                if mail_body and recipient:
+                    logging.info(f"Creating email for expense '{expense_id}'")
+                    recipient_name = recipient['Voornaam'] \
+                        if 'Voornaam' in recipient else 'ontvanger'
+
+                    mail_body['body'] = """Beste {},<br /><br />
+                        {}
+                        Mochten er nog vragen zijn, mail gerust naar
+                        <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
+                        Met vriendelijke groeten,<br />FSSC""".format(
+                        recipient_name, mail_body['text'],
+                        config.GMAIL_ADDEXPENSE_REPLYTO,
+                        config.GMAIL_ADDEXPENSE_REPLYTO
+                    )
+
+                    mail_body['from'] = config.GMAIL_SENDER_ADDRESS
+                    mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
+
+                    del mail_body['text']
+
+                    self.send_message(expense_id, recipient['email_address'],
+                                      mail_body)
+                else:
+                    logging.info(
+                        f"No mail info found for expense '{expense_id}'")
+            else:
+                logging.info("Dev mode active for sending e-mails")
+        except Exception as error:
+            logging.exception(
+                f'An exception occurred when sending an email: {error}')
+            pass
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -890,44 +891,30 @@ class EmployeeExpenses(ClaimExpenses):
         )
         return self._process_expenses_info(expenses_info)
 
-    def _prepare_context_update_expense(self, data, expense):
+    def _prepare_context_update_expense(self, expense):
         # Check if expense is from employee
-        if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-            return {}, {}
-        # Check if status is either rejected_by_manager or rejected_by_creditor
-        if expense["status"]["text"] != "rejected_by_manager" and expense["status"]["text"] != "rejected_by_creditor":
+        if not expense["employee"]["email"] == \
+               self.employee_info["unique_name"]:
             return {}, {}
 
-        fields = {
-            "status",
-            "cost_type",
-            "rnote",
-            "note",
-            "amount"
+        # Check if status update is not unauthorized
+        allowed_status_transitions = {
+            'rejected_by_manager': ['ready_for_manager', 'ready_for_creditor', 'cancelled'],
+            'rejected_by_creditor': ['ready_for_manager', 'ready_for_creditor', 'cancelled']
         }
-        status = {
-            "ready_for_manager",
-            "ready_for_creditor",
-            "cancelled",
-        }
-        return fields, status
 
-    def _process_status_text_update(self, item, expense):
-        if item == 'cancelled':
-            expense["status"]["text"] = item
-        else:
-            if expense['status']['text'] in ['rejected_by_creditor', 'rejected_by_manager'] \
-                    and item == 'ready_for_manager':
-                self._process_status_amount_update(expense['amount'], expense)
-            pass
+        if expense['status']['text'] in allowed_status_transitions:
+            fields = {
+                "status",
+                "cost_type",
+                "rnote",
+                "note",
+                "transaction_date",
+                "amount"
+            }
+            return fields, allowed_status_transitions[expense['status']['text']]
 
-    def _process_status_amount_update(self, amount, expense):
-        # If amount is set when employee updates expense check what status it should be
-        # If amount is less then 50 manager can be skipped
-        if amount < 50:
-            expense["status"]["text"] = "ready_for_creditor"
-        else:
-            expense["status"]["text"] = "ready_for_manager"
+        return {}, {}
 
     def add_attachment(self, expense_id, data):
         expense_key = self.ds_client.key("Expenses", expense_id)
@@ -948,7 +935,7 @@ class EmployeeExpenses(ClaimExpenses):
         return 201
 
 
-class DepartmentExpenses(ClaimExpenses):
+class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
@@ -977,29 +964,26 @@ class DepartmentExpenses(ClaimExpenses):
         # expenses_data = expenses_info.fetch(limit=10)
         return self._process_expenses_info(expenses_info)
 
-    def _prepare_context_update_expense(self, data, expense):
-        # Check if requesting manager is manager of this employee
-        if expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value():
+    def _prepare_context_update_expense(self, expense):
+        # Check if expense is for manager
+        if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
+               self.get_manager_identifying_value():
+            return {}, {}
+
+        # Check if status update is not unauthorized
+        allowed_status_transitions = {
+            'ready_for_manager': ['ready_for_creditor', 'rejected_by_manager']
+        }
+
+        if expense['status']['text'] in allowed_status_transitions:
             fields = {
                 "status",
                 "cost_type",
                 "rnote"
             }
-            status = {
-                "ready_for_creditor",
-                "rejected_by_manager",
-            }
-        else:
-            fields = {}
-            status = {}
+            return fields, allowed_status_transitions[expense['status']['text']]
 
-        return fields, status
-
-    def _process_status_text_update(self, item, expense):
-        expense["status"]["text"] = item
-
-    def _process_status_amount_update(self, amount, expense):
-        pass
+        return {}, {}
 
 
 class ControllerExpenses(ClaimExpenses):
@@ -1034,23 +1018,170 @@ class ControllerExpenses(ClaimExpenses):
         else:
             return make_response(jsonify(None), 204)
 
-    def _prepare_context_update_expense(self, data, expense):
-        fields = {
-            "status",
-            "cost_type",
-            "rnote"
-        }
-        status = {
-            "rejected_by_creditor",
-            "approved",
-        }
-        return fields, status
+    def _prepare_context_update_expense(self, expense):
+        return {}, {}
 
-    def _process_status_text_update(self, item, expense):
-        expense["status"]["text"] = item
 
-    def _process_status_amount_update(self, amount, expense):
-        pass
+class CreditorExpenses(ClaimExpenses):
+    def _check_attachment_permission(self, expense):
+        return True
+
+    def __init__(self):
+        super().__init__()
+
+    def get_all_expenses(self, expenses_list, date_from, date_to):
+        """Get JSON/CSV of all the expenses"""
+        expenses_ds = self.ds_client.query(kind="Expenses")
+        expenses_data = expenses_ds.fetch()
+        query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
+
+        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
+        day_to = datetime.datetime.utcnow()
+
+        if date_from != '':
+            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
+
+        if date_to != '':
+            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d")
+
+        if expenses_data:
+            results = []
+
+            for expense in expenses_data:
+                expense_date = dateutil.parser.parse(expense["claim_date"]).date()
+
+                if day_from.date() <= expense_date <= day_to.date():
+                    expense_row = {
+                        "id": expense.id,
+                        "amount": expense["amount"],
+                        "note": expense["note"],
+                        "cost_type": expense["cost_type"],
+                        "claim_date": expense["claim_date"],
+                        "transaction_date": expense["transaction_date"],
+                        "employee": expense["employee"]["full_name"],
+                        "status": expense["status"],
+                        "auto_approved": expense.get("auto_approved", ""),
+                        "rnote": expense.get("rnote", ""),
+                        "manager": expense.get("employee", {}).get("afas_data", {}).get(
+                            "Manager_personeelsnummer", "Manager not found: check expense"),
+                        "export_date": expense.get("status", {}).get("export_date", "")
+                    }
+
+                    expense_row["export_date"] = ("", "")[expense_row["export_date"] == "never"]
+
+                    if expenses_list == "expenses_creditor":
+                        if (query_filter["creditor"] == expense["status"]["text"] or
+                                query_filter["creditor2"] == expense["status"]["text"]):
+
+                            results.append(expense_row)
+
+                    if expenses_list == "expenses_all":
+                        results.append(expense_row)
+
+            return results
+
+        else:
+            return make_response(jsonify(None), 204)
+
+    def get_all_expenses_journal(self, date_from, date_to):
+        """Get CSV of all the expenses from Expenses_Journal"""
+        expenses_ds = self.ds_client.query(kind="Expenses_Journal")
+        expenses_data = expenses_ds.fetch()
+
+        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
+        day_to = datetime.datetime.utcnow()
+
+        if date_from != '':
+            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
+
+        if date_to != '':
+            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d") + datetime.timedelta(days=1)
+
+        if expenses_data:
+            results = []
+            for expense in expenses_data:
+                expense_date = dateutil.parser.parse(expense["Time"]).date()
+                if expense["Attributes_Changed"] and (day_from.date() <= expense_date <= day_to.date()):
+                    list_attributes = json.loads(expense["Attributes_Changed"])
+                    for attribute in list_attributes:
+                        for name in attribute:
+                            # Handle nested components: different row per component
+                            if isinstance((attribute[name]["new"]), dict):
+                                try:
+                                    if "old" in attribute[name] and isinstance(attribute[name]["old"], dict):
+                                        for component in attribute[name]["new"]:
+                                            # Expense has a new component which does not have a 'new' value
+                                            if component not in attribute[name]["old"]:
+                                                results.append({
+                                                    "Expenses_Id": expense["Expenses_Id"],
+                                                    "Time": expense["Time"],
+                                                    "Attribute": name + ": " + component,
+                                                    "Old value": "",
+                                                    "New value": str(attribute[name]["new"][component]),
+                                                    "User": expense.get("User", "")
+                                                })
+                                            # Expense has an old value which differs from the new value
+                                            elif attribute[name]["new"][component] != attribute[name]["old"][component]:
+                                                results.append({
+                                                    "Expenses_Id": expense["Expenses_Id"],
+                                                    "Time": expense["Time"],
+                                                    "Attribute": name + ": " + component,
+                                                    "Old value": str(attribute[name]["old"][component]),
+                                                    "New value": str(attribute[name]["new"][component]),
+                                                    "User": expense.get("User", "")
+                                                })
+                                    # Expense is completely new
+                                    else:
+                                        for component in attribute[name]["new"]:
+                                            results.append({
+                                                "Expenses_Id": expense["Expenses_Id"],
+                                                "Time": expense["Time"],
+                                                "Attribute": name + ": " + component,
+                                                "Old value": "",
+                                                "New value": str(attribute[name]["new"][component]),
+                                                "User": expense.get("User", "")
+                                            })
+
+                                except (TypeError, KeyError):
+                                    logging.warning("Expense from Expense_Journal does not have the right format: {}".
+                                                    format(expense["Expenses_Id"]))
+                            # Expense has an old value which differs from the new value and no nested components
+                            else:
+                                old_value = ""
+                                if "old" in attribute[name]:
+                                    old_value = str(attribute[name]["old"])
+
+                                results.append({
+                                    "Expenses_Id": expense["Expenses_Id"],
+                                    "Time": expense["Time"],
+                                    "Attribute": name,
+                                    "Old value": old_value,
+                                    "New value": str(attribute[name]["new"]),
+                                    "User": expense.get("User", "")
+                                })
+                else:
+                    logging.warning("Expense from Expense_Journal had no change or was outside date limit: {}".
+                                    format(expense["Expenses_Id"]))
+
+            return results
+
+        return make_response(jsonify(None), 204)
+
+    def _prepare_context_update_expense(self, expense):
+        # Check if status update is not unauthorized
+        allowed_status_transitions = {
+            'ready_for_creditor': ['rejected_by_creditor', 'approved']
+        }
+
+        if expense['status']['text'] in allowed_status_transitions:
+            fields = {
+                "status",
+                "cost_type",
+                "rnote"
+            }
+            return fields, allowed_status_transitions[expense['status']['text']]
+
+        return {}, {}
 
 
 def add_expense():
@@ -1065,29 +1196,53 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-
-            if datetime.datetime.strptime(form_data.to_dict().get('transaction_date'),
-                                          '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() + \
-                    datetime.timedelta(hours=2):
-                try:
-                    form_data.escape_characters()
-                except AttributeError:
-                    logging.warning("Can't escape html on form_data. Will pass.")
+            if form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
+                    (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
+                html = {
+                    '"': "&quot;",
+                    "&": "&amp;",
+                    "'": "&apos;",
+                    ">": "&gt;",
+                    "<": "&lt;",
+                    "{": "&lbrace;",
+                    "}": "&rbrace;"
+                }
+                form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
+                form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                 return expense_instance.add_expenses(form_data)
-            else:
-                return jsonify('Date needs to be in the past'), 400
-    except Exception as er:
+            return jsonify('Date needs to be in the past'), 400
+    except Exception:
         logging.exception('Exception on add_expense')
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
-def get_all_expenses(expenses_list):
+def get_all_creditor_expenses(expenses_list, date_from, date_to):
     """
     Get all expenses
     :rtype: None
     """
-    expense_instance = ClaimExpenses()
-    return expense_instance.get_all_expenses(expenses_list)
+    if expenses_list not in ["expenses_creditor", "expenses_all"]:
+        return make_response(jsonify("Not a valid query parameter"), 400)
+
+    expense_instance = CreditorExpenses()
+    expenses_data = expense_instance.get_all_expenses(expenses_list=expenses_list, date_from=date_from, date_to=date_to)
+
+    format_expense = connexion.request.headers['Accept']
+
+    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
+
+
+def get_all_creditor_expenses_journal(date_from, date_to):
+    """
+    Get all expenses journal
+    :rtype: None
+    """
+    expense_instance = CreditorExpenses()
+    expenses_data = expense_instance.get_all_expenses_journal(date_from=date_from, date_to=date_to)
+
+    format_expense = connexion.request.headers["Accept"]
+
+    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
 
 
 def get_cost_types():  # noqa: E501
@@ -1139,6 +1294,43 @@ def get_document(document_id, document_type):
     )
 
 
+def get_expenses_format(expenses_data, format_expense):
+    """
+    Get format of expenses export: csv/json
+    :param expenses_data:
+    :param format_expense:
+    :param extra_fields:
+    :return:
+    """
+    if "application/json" in format_expense:
+        logging.debug("Creating json table")
+        return jsonify(expenses_data)
+    if "text/csv" in format_expense:
+        logging.debug("Creating csv file")
+        try:
+            with tempfile.NamedTemporaryFile("w") as csv_file:
+                count = 0
+                for expense in expenses_data:
+                    if count == 0:
+
+                        field_names = list(expense.keys())
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
+                        csv_writer.writeheader()
+                        count = 1
+
+                    csv_writer.writerow(expense)
+
+                return send_file(csv_file.name,
+                                 mimetype='text/csv',
+                                 as_attachment=True,
+                                 attachment_filename='tmp.csv')
+        except Exception:
+            logging.exception('Exception on writing/sending CSV in get_all_expenses')
+            return jsonify("Something went wrong"), 500
+
+    return jsonify("Request missing an Accept header"), 400
+
+
 def get_document_list():
     """
     Get a list of all documents ever created
@@ -1151,13 +1343,12 @@ def get_document_list():
 
 
 def create_booking_and_payment_file():
-
     expense_instance = ClaimExpenses()
     return expense_instance.create_booking_and_payment_file()
 
 
 def get_managers_expenses():
-    expense_instance = DepartmentExpenses()
+    expense_instance = ManagerExpenses()
     return expense_instance.get_all_expenses()
 
 
@@ -1179,7 +1370,7 @@ def get_employee_expenses(employee_id):
     return expense_instance.get_all_expenses()
 
 
-def update_expenses_finance(expenses_id):
+def update_expenses_creditor(expenses_id):
     """
     Update expense by expense_id with creditor permissions
     :rtype: Expenses
@@ -1187,11 +1378,11 @@ def update_expenses_finance(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ControllerExpenses()
+            expense_instance = CreditorExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception as er:
-        logging.exception('Exception on add_expense')
-        return jsonify(er.args), 500
+    except Exception:
+        logging.exception('Exception on update_expenses_creditor')
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def update_expenses_employee(expenses_id):
@@ -1204,22 +1395,28 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            if form_data.get('transaction_date'):
+            if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
                 if datetime.datetime.strptime(form_data.get('transaction_date'),
-                                              '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                                              '%Y-%m-%dT%H:%M:%S.%fZ') > datetime.datetime.today() \
                         + datetime.timedelta(hours=2):
-                    try:
-                        form_data.escape_characters()
-                    except AttributeError:
-                        logging.warning("Can't escape html on form_data. Will pass.")
-                    return expense_instance.update_expenses(expenses_id, form_data)
-                else:
                     return jsonify('Date needs to be in de past'), 400
 
+            if form_data.get('note'):  # Check if note exists. If it doesn't, let if pass.
+                html = {
+                    '"': "&quot;",
+                    "&": "&amp;",
+                    "'": "&apos;",
+                    ">": "&gt;",
+                    "<": "&lt;",
+                    "{": "&lbrace;",
+                    "}": "&rbrace;"
+                }
+                form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
+
             return expense_instance.update_expenses(expenses_id, form_data)
-    except Exception as er:
+    except Exception:
         logging.exception("Update exp")
-        return jsonify(er.args), 500
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def update_expenses_manager(expenses_id):
@@ -1231,11 +1428,11 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = DepartmentExpenses()
+            expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception as er:
-        logging.exception('Exception on add_expense')
-        return jsonify(er.args), 500
+    except Exception:
+        logging.exception('Exception on update_expense')
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def get_expenses_employee(expenses_id):
@@ -1246,7 +1443,7 @@ def get_expenses_employee(expenses_id):
     return expense_instance.get_expenses(expenses_id, "employee")
 
 
-def get_expenses_finances(expenses_id):
+def get_expenses_creditor(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
     """
@@ -1254,18 +1451,18 @@ def get_expenses_finances(expenses_id):
     return expense_instance.get_expenses(expenses_id, "creditor")
 
 
-def get_attachment_finances_creditor(expenses_id):
+def get_attachment_creditor(expenses_id):
     """
     Get attachment by expenses id
     :param expenses_id:
     :return:
     """
-    expense_instance = ControllerExpenses()
+    expense_instance = CreditorExpenses()
     return expense_instance.get_attachment(expenses_id)
 
 
-def get_attachment_finances_manager(expenses_id):
-    expense_instance = DepartmentExpenses()
+def get_attachment_manager(expenses_id):
+    expense_instance = ManagerExpenses()
     return expense_instance.get_attachment(expenses_id)
 
 
@@ -1303,15 +1500,18 @@ def add_attachment_employee(expenses_id):
                 connexion.request.get_json()
             )  # noqa: E501
             return expense_instance.add_attachment(expenses_id, form_data)
-    except Exception as er:
-        logging.exception('Exception on add_expense')
-        return jsonify(er.args), 500
+    except Exception:
+        logging.exception('Exception on add_attachment')
+        return jsonify("Something went wrong. Please try again later"), 500
 
 
 def api_base_url():
     base_url = request.host_url
 
     if 'GAE_INSTANCE' in os.environ:
-        base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
+        if hasattr(config, 'BASE_URL'):
+            base_url = config.BASE_URL
+        else:
+            base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url

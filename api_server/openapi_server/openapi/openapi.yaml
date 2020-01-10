@@ -22,6 +22,12 @@ paths:
       responses:
         '201':
           description: Succesfully made or updated an expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
         default:
           description: Expense Made/Updated successfully!
       security:
@@ -102,7 +108,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
@@ -116,7 +121,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: true
   /employees/{employee_id}/expenses:
     get:
       parameters:
@@ -202,7 +206,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   '/finances/documents':
     get:
       operationId: get_document_list
@@ -262,6 +265,8 @@ paths:
           description: A missing parameter or, unsupported parameter value.
         '403':
           description: The Access token does not have the required scope
+        '404':
+          description: Document id or type not found
         default:
           description: Document file successfully retrieved
       security:
@@ -271,7 +276,7 @@ paths:
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
-      operationId: update_expenses_finance
+      operationId: update_expenses_creditor
       requestBody:
         content:
           'application/json':
@@ -310,11 +315,10 @@ paths:
           description: Expense Success
       security:
         - oauth2: [creditor.write]
-      operationId: get_expenses_finances
+      operationId: get_expenses_creditor
       summary: Get information from expenses by id
       description: Retrieve an expense
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -335,15 +339,16 @@ paths:
         '404':
           description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
-      operationId: get_attachment_finances_creditor
+      operationId: get_attachment_creditor
       security:
         - oauth2: [creditor.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /finances/expenses:
     get:
       parameters:
-        - $ref: '#components/parameters/ExpensesList'
+        - $ref: '#/components/parameters/ExpensesList'
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
       responses:
         '200':
           content:
@@ -362,15 +367,39 @@ paths:
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-22T17:32:28Z
-          description: Succesfull response - returns all expenses
+            text/csv:
+              schema:
+                $ref: '#/components/schemas/ExportFile'
+          description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
       security:
         - oauth2: [creditor.write]
-      operationId: get_all_expenses
+      operationId: get_all_creditor_expenses
       summary: Get all expenses
-      description: Retrieve all expenses
+      description: Retrieve all expenses meant for creditor or retrieve file with all expenses
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+  /finances/expenses/journal:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                $ref: '#/components/schemas/ExportFile'
+          description: Succesful response - returns export file with all journal expenses
+        default:
+          description: Response Successfully Executed
+      security:
+        - oauth2: [creditor.write]
+      operationId: get_all_creditor_expenses_journal
+      summary: Get csv with all expenses from expenses_journal
+      description: Retrieve csv with expenses from expenses_journal
+      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /managers/expenses:
     get:
       responses:
@@ -420,7 +449,6 @@ paths:
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /managers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -441,11 +469,10 @@ paths:
         '404':
           description: 'Non-existing expenses_id'
       summary: Get attachments by expense id
-      operationId: get_attachment_finances_manager
+      operationId: get_attachment_manager
       security:
         - oauth2: [finance.expenses]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /controllers/expenses:
     get:
       responses:
@@ -663,6 +690,13 @@ components:
           "export_date": "2019-10-01T06:07:19.188000+00:00",
           "payment_file": "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
         }
+    ExportFile:
+      title: Export file expenses
+      description: File All Exported Data
+      type: object
+      properties:
+        export_file:
+          type: string
   parameters:
     DocumentDate:
       name: document_date
@@ -693,6 +727,26 @@ components:
         type: string
       in: path
       required: true
+    DateFrom:
+      style: form
+      explode: false
+      name: date_from
+      schema:
+        type: string
+        format: date
+        default: ''
+      in: query
+      required: false
+    DateTo:
+      style: form
+      explode: false
+      name: date_to
+      schema:
+        type: string
+        format: date
+        default: ''
+      in: query
+      required: false
     DepartmentId:
       style: simple
       explode: false
@@ -718,12 +772,12 @@ components:
       in: path
       required: true
     ExpensesList:
-      style: simple
+      style: form
       explode: false
       name: expenses_list
       description: Type of expenses to be returned
       schema:
-        default: "expenses_creditor_approved"
+        default: "expenses_creditor"
         type: string
       in: query
       required: false

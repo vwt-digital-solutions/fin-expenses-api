@@ -15,26 +15,31 @@ class BookingFile(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, date_exported=None, file_name=None):  # noqa: E501
+    def __init__(self, export_date=None, booking_file=None, payment_file=None):  # noqa: E501
         """BookingFile - a model defined in OpenAPI
 
-        :param date_exported: The date_exported of this BookingFile.  # noqa: E501
-        :type date_exported: str
-        :param file_name: The file_name of this BookingFile.  # noqa: E501
-        :type file_name: str
+        :param export_date: The export_date of this BookingFile.  # noqa: E501
+        :type export_date: str
+        :param booking_file: The booking_file of this BookingFile.  # noqa: E501
+        :type booking_file: str
+        :param payment_file: The payment_file of this BookingFile.  # noqa: E501
+        :type payment_file: str
         """
         self.openapi_types = {
-            'date_exported': str,
-            'file_name': str
+            'export_date': str,
+            'booking_file': str,
+            'payment_file': str
         }
 
         self.attribute_map = {
-            'date_exported': 'date_exported',
-            'file_name': 'file_name'
+            'export_date': 'export_date',
+            'booking_file': 'booking_file',
+            'payment_file': 'payment_file'
         }
 
-        self._date_exported = date_exported
-        self._file_name = file_name
+        self._export_date = export_date
+        self._booking_file = booking_file
+        self._payment_file = payment_file
 
     @classmethod
     def from_dict(cls, dikt) -> 'BookingFile':
@@ -48,43 +53,64 @@ class BookingFile(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
-    def date_exported(self):
-        """Gets the date_exported of this BookingFile.
+    def export_date(self):
+        """Gets the export_date of this BookingFile.
 
 
-        :return: The date_exported of this BookingFile.
+        :return: The export_date of this BookingFile.
         :rtype: str
         """
-        return self._date_exported
+        return self._export_date
 
-    @date_exported.setter
-    def date_exported(self, date_exported):
-        """Sets the date_exported of this BookingFile.
+    @export_date.setter
+    def export_date(self, export_date):
+        """Sets the export_date of this BookingFile.
 
 
-        :param date_exported: The date_exported of this BookingFile.
-        :type date_exported: str
+        :param export_date: The export_date of this BookingFile.
+        :type export_date: str
         """
 
-        self._date_exported = date_exported
+        self._export_date = export_date
 
     @property
-    def file_name(self):
-        """Gets the file_name of this BookingFile.
+    def booking_file(self):
+        """Gets the booking_file of this BookingFile.
 
 
-        :return: The file_name of this BookingFile.
+        :return: The booking_file of this BookingFile.
         :rtype: str
         """
-        return self._file_name
+        return self._booking_file
 
-    @file_name.setter
-    def file_name(self, file_name):
-        """Sets the file_name of this BookingFile.
+    @booking_file.setter
+    def booking_file(self, booking_file):
+        """Sets the booking_file of this BookingFile.
 
 
-        :param file_name: The file_name of this BookingFile.
-        :type file_name: str
+        :param booking_file: The booking_file of this BookingFile.
+        :type booking_file: str
         """
 
-        self._file_name = file_name
+        self._booking_file = booking_file
+
+    @property
+    def payment_file(self):
+        """Gets the payment_file of this BookingFile.
+
+
+        :return: The payment_file of this BookingFile.
+        :rtype: str
+        """
+        return self._payment_file
+
+    @payment_file.setter
+    def payment_file(self, payment_file):
+        """Sets the payment_file of this BookingFile.
+
+
+        :param payment_file: The payment_file of this BookingFile.
+        :type payment_file: str
+        """
+
+        self._payment_file = payment_file
