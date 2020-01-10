@@ -1085,87 +1085,90 @@ class CreditorExpenses(ClaimExpenses):
 
     def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
-        expenses_ds = self.ds_client.query(kind="Expenses_Journal")
-        expenses_data = expenses_ds.fetch()
-
-        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
-        day_to = datetime.datetime.utcnow()
+        day_from = "1970-01-01T00:00:00Z"
+        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
         if date_from != '':
-            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
-
+            day_from = date_from + "T00:00:00Z"
         if date_to != '':
-            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d") + datetime.timedelta(days=1)
+            day_to = date_to + "T23:59:59Z"
+
+        expenses_ds = self.ds_client.query(kind="Expenses_Journal")
+        expenses_ds.add_filter("Time", ">=", day_from)
+        expenses_ds.add_filter("Time", "<=", day_to)
+        expenses_data = expenses_ds.fetch()
 
         if expenses_data:
             results = []
+
             for expense in expenses_data:
-                expense_date = dateutil.parser.parse(expense["Time"]).date()
-                if expense["Attributes_Changed"] and (day_from.date() <= expense_date <= day_to.date()):
-                    list_attributes = json.loads(expense["Attributes_Changed"])
-                    for attribute in list_attributes:
-                        for name in attribute:
-                            # Handle nested components: different row per component
-                            if isinstance((attribute[name]["new"]), dict):
-                                try:
-                                    if "old" in attribute[name] and isinstance(attribute[name]["old"], dict):
-                                        for component in attribute[name]["new"]:
-                                            # Expense has a new component which does not have a 'new' value
-                                            if component not in attribute[name]["old"]:
-                                                results.append({
-                                                    "Expenses_Id": expense["Expenses_Id"],
-                                                    "Time": expense["Time"],
-                                                    "Attribute": name + ": " + component,
-                                                    "Old value": "",
-                                                    "New value": str(attribute[name]["new"][component]),
-                                                    "User": expense.get("User", "")
-                                                })
-                                            # Expense has an old value which differs from the new value
-                                            elif attribute[name]["new"][component] != attribute[name]["old"][component]:
-                                                results.append({
-                                                    "Expenses_Id": expense["Expenses_Id"],
-                                                    "Time": expense["Time"],
-                                                    "Attribute": name + ": " + component,
-                                                    "Old value": str(attribute[name]["old"][component]),
-                                                    "New value": str(attribute[name]["new"][component]),
-                                                    "User": expense.get("User", "")
-                                                })
-                                    # Expense is completely new
-                                    else:
-                                        for component in attribute[name]["new"]:
-                                            results.append({
-                                                "Expenses_Id": expense["Expenses_Id"],
-                                                "Time": expense["Time"],
-                                                "Attribute": name + ": " + component,
-                                                "Old value": "",
-                                                "New value": str(attribute[name]["new"][component]),
-                                                "User": expense.get("User", "")
-                                            })
-
-                                except (TypeError, KeyError):
-                                    logging.warning("Expense from Expense_Journal does not have the right format: {}".
-                                                    format(expense["Expenses_Id"]))
-                            # Expense has an old value which differs from the new value and no nested components
-                            else:
-                                old_value = ""
-                                if "old" in attribute[name]:
-                                    old_value = str(attribute[name]["old"])
-
-                                results.append({
-                                    "Expenses_Id": expense["Expenses_Id"],
-                                    "Time": expense["Time"],
-                                    "Attribute": name,
-                                    "Old value": old_value,
-                                    "New value": str(attribute[name]["new"]),
-                                    "User": expense.get("User", "")
-                                })
-                else:
-                    logging.warning("Expense from Expense_Journal had no change or was outside date limit: {}".
-                                    format(expense["Expenses_Id"]))
-
+                if expense["Attributes_Changed"] != "[]":
+                    results.append(self.expense_changes(expense))
             return results
 
         return make_response(jsonify(None), 204)
+
+    def expense_changes(self, expense):
+        change = {}
+        list_attributes = json.loads(expense["Attributes_Changed"])
+        for attribute in list_attributes:
+            for name in attribute:
+                # Handle nested components: different row per component
+                if isinstance((attribute[name]["new"]), dict):
+                    try:
+                        if "old" in attribute[name] and isinstance(attribute[name]["old"], dict):
+                            for component in attribute[name]["new"]:
+                                # Expense has a new component which does not have a 'new' value
+                                if component not in attribute[name]["old"]:
+                                    change = {
+                                        "Expenses_Id": expense["Expenses_Id"],
+                                        "Time": expense["Time"],
+                                        "Attribute": name + ": " + component,
+                                        "Old value": "",
+                                        "New value": str(attribute[name]["new"][component]),
+                                        "User": expense.get("User", "")
+                                    }
+                                # Expense has an old value which differs from the new value
+                                elif attribute[name]["new"][component] != attribute[name]["old"][component]:
+                                    change = {
+                                        "Expenses_Id": expense["Expenses_Id"],
+                                        "Time": expense["Time"],
+                                        "Attribute": name + ": " + component,
+                                        "Old value": str(attribute[name]["old"][component]),
+                                        "New value": str(attribute[name]["new"][component]),
+                                        "User": expense.get("User", "")
+                                    }
+                        # Expense is completely new
+                        else:
+                            for component in attribute[name]["new"]:
+                                change = {
+                                    "Expenses_Id": expense["Expenses_Id"],
+                                    "Time": expense["Time"],
+                                    "Attribute": name + ": " + component,
+                                    "Old value": "",
+                                    "New value": str(attribute[name]["new"][component]),
+                                    "User": expense.get("User", "")
+                                }
+
+                    except (TypeError, KeyError):
+                        logging.warning("Expense from Expense_Journal does not have the right format: {}".
+                                        format(expense["Expenses_Id"]))
+                # Expense has an old value which differs from the new value and no nested components
+                else:
+                    old_value = ""
+                    if "old" in attribute[name]:
+                        old_value = str(attribute[name]["old"])
+
+                    change = {
+                        "Expenses_Id": expense["Expenses_Id"],
+                        "Time": expense["Time"],
+                        "Attribute": name,
+                        "Old value": old_value,
+                        "New value": str(attribute[name]["new"]),
+                        "User": expense.get("User", "")
+                    }
+
+        return change
 
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
@@ -1310,6 +1313,7 @@ def get_expenses_format(expenses_data, format_expense):
         try:
             with tempfile.NamedTemporaryFile("w") as csv_file:
                 count = 0
+
                 for expense in expenses_data:
                     if count == 0:
 
@@ -1319,7 +1323,7 @@ def get_expenses_format(expenses_data, format_expense):
                         count = 1
 
                     csv_writer.writerow(expense)
-
+                csv_file.flush()
                 return send_file(csv_file.name,
                                  mimetype='text/csv',
                                  as_attachment=True,
