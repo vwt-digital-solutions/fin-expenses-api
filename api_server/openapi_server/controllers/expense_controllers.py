@@ -306,33 +306,36 @@ class ClaimExpenses:
         if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
+
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
 
             allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
-            if allowed_fields and allowed_statuses:
-                try:
-                    BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
-                except ValueError as exception:
-                    return make_response(jsonify(str(exception)), 400)
-                else:
-                    valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
-                    if not valid_update:
-                        return make_response(jsonify('The content of this method is not valid'), 403)
 
-                    self.expense_journal(old_expense, expense)
+            if not allowed_fields and allowed_statuses:
+                return make_response(jsonify('The content of this method is not valid'), 403)
 
-                    if data['status'] == 'rejected_by_manager' or data['status'] == 'rejected_by_creditor':
-                        self.send_email_notification(
-                            'edit_expense',
-                            expense['employee']['afas_data'],
-                            expense.key.id_or_name)
+            try:
+                BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
+            except ValueError as exception:
+                return make_response(jsonify(str(exception)), 400)
 
-                    return make_response(jsonify(None), 200)
+            valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
 
-            return make_response(jsonify('The content of this method is not valid'), 403)
+            if not valid_update:
+                return make_response(jsonify('The content of this method is not valid'), 403)
+
+            self.expense_journal(old_expense, expense)
+
+            if data['status'] == 'rejected_by_manager' or data['status'] == 'rejected_by_creditor':
+                self.send_notification('mail',
+                                       'edit_expense',
+                                       expense['employee']['afas_data'],
+                                       expense.key.id_or_name)
+
+            return make_response(jsonify(None), 200)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -797,6 +800,12 @@ class ClaimExpenses:
     def send_message(self, expense_id, to, mail_body):
         new_message = self.create_message(to, mail_body)
         self.send_message_internal("me", new_message, expense_id)
+
+    def send_notification(self, notification_type, message_type, afas_data, expense_id):
+        if notification_type == 'mail':
+            self.send_email_notification(message_type, afas_data, expense_id)
+        else:
+            logging.warning("No notification type specified")
 
     def send_email_notification(self, mail_type, afas_data, expense_id):
         try:
