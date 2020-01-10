@@ -465,14 +465,9 @@ class ClaimExpenses:
             #         "Departments", department_number_aka_afdeling_code
             #     )
             # )
-
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
-            try:
-                trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
 
-            except TypeError:
-                logging.warning(f"expense {expense_detail.id}: transaction_date not in string format")
-                trans_date = expense_detail['transaction_date'].strftime('%d-%m-%Y')
+            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
 
             boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
@@ -505,6 +500,7 @@ class ClaimExpenses:
                     "BTW-Bedrag": "0,00",
                 }
             )
+
         booking_file = pd.DataFrame(booking_file_data).to_csv(
             sep=";", index=False, decimal=","
         )
@@ -1373,6 +1369,9 @@ def update_expenses_creditor(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
+            if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
+                form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'],
+                                                                           '%Y-%m-%dT%H:%M:%S.000Z')
             expense_instance = CreditorExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception:
@@ -1392,24 +1391,22 @@ def update_expenses_employee(expenses_id):
             expense_instance = EmployeeExpenses(None)
             if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
                 if datetime.datetime.strptime(form_data.get('transaction_date'),
-                                              '%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.datetime.today() \
+                                              '%Y-%m-%dT%H:%M:%S.%fZ') > datetime.datetime.today() \
                         + datetime.timedelta(hours=2):
-                    if form_data.get('note'):  # Check if note exists. If it doesn't, let if pass.
-                        html = {
-                            '"': "&quot;",
-                            "&": "&amp;",
-                            "'": "&apos;",
-                            ">": "&gt;",
-                            "<": "&lt;",
-                            "{": "&lbrace;",
-                            "}": "&rbrace;"
-                        }
-                        form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
-                    form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'],
-                                                                               '%Y-%m-%dT%H:%M:%S.000Z')
-                    return expense_instance.update_expenses(expenses_id, form_data)
-                else:
                     return jsonify('Date needs to be in de past'), 400
+                form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'],
+                                                                           '%Y-%m-%dT%H:%M:%S.000Z')
+            if form_data.get('note'):  # Check if note exists. If it doesn't, let if pass.
+                html = {
+                    '"': "&quot;",
+                    "&": "&amp;",
+                    "'": "&apos;",
+                    ">": "&gt;",
+                    "<": "&lt;",
+                    "{": "&lbrace;",
+                    "}": "&rbrace;"
+                }
+                form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
 
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception:
@@ -1426,6 +1423,9 @@ def update_expenses_manager(expenses_id):
     try:
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
+            if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
+                form_data['transaction_date'] = datetime.datetime.strptime(form_data['transaction_date'],
+                                                                           '%Y-%m-%dT%H:%M:%S.000Z')
             expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception:
