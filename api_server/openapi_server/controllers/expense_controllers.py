@@ -1109,6 +1109,11 @@ class CreditorExpenses(ClaimExpenses):
         return make_response(jsonify(None), 204)
 
     def expense_changes(self, expense):
+        """
+
+        :param expense:
+        :return: all changes of an expense
+        """
         changes = []
         list_attributes = json.loads(expense["Attributes_Changed"])
         for attribute in list_attributes:
