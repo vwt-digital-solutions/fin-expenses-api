@@ -1103,13 +1103,13 @@ class CreditorExpenses(ClaimExpenses):
 
             for expense in expenses_data:
                 if expense["Attributes_Changed"] != "[]":
-                    results.append(self.expense_changes(expense))
+                    results += self.expense_changes(expense)
             return results
 
         return make_response(jsonify(None), 204)
 
     def expense_changes(self, expense):
-        change = {}
+        changes = []
         list_attributes = json.loads(expense["Attributes_Changed"])
         for attribute in list_attributes:
             for name in attribute:
@@ -1120,35 +1120,37 @@ class CreditorExpenses(ClaimExpenses):
                             for component in attribute[name]["new"]:
                                 # Expense has a new component which does not have a 'new' value
                                 if component not in attribute[name]["old"]:
-                                    change = {
+                                    changes.append({
                                         "Expenses_Id": expense["Expenses_Id"],
                                         "Time": expense["Time"],
                                         "Attribute": name + ": " + component,
                                         "Old value": "",
                                         "New value": str(attribute[name]["new"][component]),
                                         "User": expense.get("User", "")
-                                    }
+                                    })
                                 # Expense has an old value which differs from the new value
                                 elif attribute[name]["new"][component] != attribute[name]["old"][component]:
-                                    change = {
+                                    changes.append({
                                         "Expenses_Id": expense["Expenses_Id"],
                                         "Time": expense["Time"],
                                         "Attribute": name + ": " + component,
                                         "Old value": str(attribute[name]["old"][component]),
                                         "New value": str(attribute[name]["new"][component]),
                                         "User": expense.get("User", "")
-                                    }
+                                    })
                         # Expense is completely new
                         else:
                             for component in attribute[name]["new"]:
-                                change = {
+                                if component == "afas_data":
+                                    continue
+                                changes.append({
                                     "Expenses_Id": expense["Expenses_Id"],
                                     "Time": expense["Time"],
                                     "Attribute": name + ": " + component,
                                     "Old value": "",
                                     "New value": str(attribute[name]["new"][component]),
                                     "User": expense.get("User", "")
-                                }
+                                })
 
                     except (TypeError, KeyError):
                         logging.warning("Expense from Expense_Journal does not have the right format: {}".
@@ -1159,16 +1161,16 @@ class CreditorExpenses(ClaimExpenses):
                     if "old" in attribute[name]:
                         old_value = str(attribute[name]["old"])
 
-                    change = {
+                    changes.append({
                         "Expenses_Id": expense["Expenses_Id"],
                         "Time": expense["Time"],
                         "Attribute": name,
                         "Old value": old_value,
                         "New value": str(attribute[name]["new"]),
                         "User": expense.get("User", "")
-                    }
+                    })
 
-        return change
+        return changes
 
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
@@ -1305,15 +1307,18 @@ def get_expenses_format(expenses_data, format_expense):
     :param extra_fields:
     :return:
     """
+    if not expenses_data:
+        return jsonify("No results with current filter"), 204
+
     if "application/json" in format_expense:
         logging.debug("Creating json table")
         return jsonify(expenses_data)
+
     if "text/csv" in format_expense:
         logging.debug("Creating csv file")
         try:
             with tempfile.NamedTemporaryFile("w") as csv_file:
                 count = 0
-
                 for expense in expenses_data:
                     if count == 0:
 
