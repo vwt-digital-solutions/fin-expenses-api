@@ -1,7 +1,6 @@
 from google.cloud import datastore
 import logging
 import json
-import os
 import datetime
 
 from flask import make_response, jsonify
@@ -57,7 +56,7 @@ def process_approve(request):
                     "Expenses_Id": expense.key.id,
                     "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                     "Attributes_Changed": json.dumps(changed),
-                    "User": os.environ['GOOGLE_CLOUD_PROJECT'] + "@appspot.gserviceaccount.com"
+                    "User": "auto_approved"
                 }
             )
             expenses_to_update.append(expense)
