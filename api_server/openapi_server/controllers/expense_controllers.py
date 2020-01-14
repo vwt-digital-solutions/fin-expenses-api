@@ -1030,6 +1030,7 @@ class CreditorExpenses(ClaimExpenses):
         super().__init__()
 
     def get_all_expenses(self, expenses_list, date_from, date_to):
+
         """Get JSON/CSV of all the expenses"""
         expenses_ds = self.ds_client.query(kind="Expenses")
         expenses_data = expenses_ds.fetch()
@@ -1049,7 +1050,6 @@ class CreditorExpenses(ClaimExpenses):
 
             for expense in expenses_data:
                 expense_date = dateutil.parser.parse(expense["claim_date"]).date()
-
                 if day_from.date() <= expense_date <= day_to.date():
                     expense_row = {
                         "id": expense.id,
@@ -1061,13 +1061,13 @@ class CreditorExpenses(ClaimExpenses):
                         "employee": expense["employee"]["full_name"],
                         "status": expense["status"],
                         "auto_approved": expense.get("auto_approved", ""),
-                        "rnote": expense.get("rnote", ""),
+                        "rnote": expense.get("status", {}).get("rnote", ""),
                         "manager": expense.get("employee", {}).get("afas_data", {}).get(
                             "Manager_personeelsnummer", "Manager not found: check expense"),
-                        "export_date": expense.get("status", {}).get("export_date", "")
+                        "export_date": expense["status"].get("export_date", "")
                     }
 
-                    expense_row["export_date"] = ("", "")[expense_row["export_date"] == "never"]
+                    expense_row["export_date"] = (expense_row["export_date"], "")[expense_row["export_date"] == "never"]
 
                     if expenses_list == "expenses_creditor":
                         if (query_filter["creditor"] == expense["status"]["text"] or
@@ -1331,6 +1331,9 @@ def get_expenses_format(expenses_data, format_expense):
                         csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
                         csv_writer.writeheader()
                         count = 1
+
+                    if "status" in expense:
+                        expense["status"] = expense["status"]["text"]
 
                     csv_writer.writerow(expense)
                 csv_file.flush()
