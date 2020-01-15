@@ -9,7 +9,7 @@ import csv
 import datetime
 import tempfile
 import xml.etree.cElementTree as ET
-import xml.dom.minidom as MD
+import defusedxml.minidom as MD
 from abc import abstractmethod
 from io import BytesIO
 from typing import Dict, Any
@@ -622,37 +622,31 @@ class ClaimExpenses:
             remittance_info = ET.SubElement(transfer, "RmtInf")
             ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
 
-        payment_file_string = ET.tostring(root, encoding="utf8", method="xml")
-        payment_file_name = f"/tmp/payment_file_{export_filename}"
-        open(payment_file_name, "w").write(str(payment_file_string, 'utf-8'))
+        payment_xml_string = ET.tostring(root, encoding="utf8", method="xml")
 
         # Save File to CloudStorage
         bucket = self.cs_client.get_bucket(self.bucket_name)
-
         blob = bucket.blob(
             f"exports/payment_file/{document_time.year}/{document_time.month}/{document_time.day}/{export_filename}"
         )
+        blob.upload_from_string(payment_xml_string, content_type="application/xml")
 
-        # Upload file to Blob Storage
-        blob.upload_from_string(payment_file_string, content_type="application/xml")
-
-        #  Do some sanity routine
-
-        payment_file = MD.parseString(payment_file_string).toprettyxml(
+        payment_file = MD.parseString(payment_xml_string).toprettyxml(
             encoding="utf-8"
         )
 
         if config.POWER2PAY_URL:
-            if not self.send_to_power2pay(payment_file_name):
-                return (False, None, jsonify({"Info": "Failed to upload payment file"}))
+            if not self.send_to_power2pay(payment_xml_string):
+                return False, None, jsonify({"Info": "Failed to upload payment file"})
 
             logger.info("Power2Pay upload successful")
+            logging.warning("Power2Pay upload success")
         else:
             logger.warning("Sending to Power2Pay is disabled")
 
-        return (True, export_filename, payment_file)
+        return True, export_filename, payment_file
 
-    def send_to_power2pay(self, payment_file_name):
+    def send_to_power2pay(self, payment_xml_string):
         # Upload file to Power2Pay
         client = kms_v1.KeyManagementServiceClient()
         # Get the passphrase for the private key
@@ -667,15 +661,16 @@ class ClaimExpenses:
         response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
         # Write un-encrypted key to file (for requests library)
         pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
-        key_file_path = "/tmp/key.pem"
-        open(key_file_path, "w").write(
-            str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+
+        temp_key_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+        temp_key_file.write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+        temp_key_file.close()
+
         # Create the HTTP POST request
         cert_file_path = "power2pay-cert.pem"
-        cert = (cert_file_path, key_file_path)
-        xml_file = payment_file_name
-        with open(xml_file) as xml:
-            r = requests.post(config.POWER2PAY_URL, data=xml, cert=cert, verify=True)
+        cert = (cert_file_path, temp_key_file.name)
+
+        r = requests.post(config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True)
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
         return r.ok
