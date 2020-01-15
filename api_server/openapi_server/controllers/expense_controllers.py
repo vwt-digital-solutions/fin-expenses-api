@@ -640,7 +640,6 @@ class ClaimExpenses:
                 return False, None, jsonify({"Info": "Failed to upload payment file"})
 
             logger.info("Power2Pay upload successful")
-            logging.warning("Power2Pay upload success")
         else:
             logger.warning("Sending to Power2Pay is disabled")
 
@@ -1078,8 +1077,7 @@ class CreditorExpenses(ClaimExpenses):
 
             return results
 
-        else:
-            return make_response(jsonify("No expenses to return"), 204)
+        return make_response(jsonify("No expenses to return"), 204)
 
     def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
@@ -1309,8 +1307,8 @@ def get_document(document_id, document_type):
                     "Authorization": "",
                 },
             )
-        else:
-            return make_response('Document not found', 404)
+
+        return make_response('Document not found', 404)
 
 
 def get_expenses_format(expenses_data, format_expense):
