@@ -94,15 +94,15 @@ class ClaimExpenses:
         # Fake AFAS data for E2E:
         if unique_name == 'opensource.e2e@vwtelecom.com':
             return config.e2e_afas_data
-        else:
-            employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
-            employee_afas_query = self.ds_client.get(employee_afas_key)
-            if employee_afas_query:
-                data = dict(employee_afas_query.items())
-                return data
-            else:
-                logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
-                return None
+
+        employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
+        employee_afas_query = self.ds_client.get(employee_afas_key)
+        if employee_afas_query:
+            data = dict(employee_afas_query.items())
+            return data
+
+        logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
+        return None
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
@@ -184,8 +184,8 @@ class ClaimExpenses:
                     }
                 ]
                 return jsonify(results)
-            else:
-                return make_response(jsonify(None), 204)
+
+            return make_response(jsonify(None), 204)
 
     @abstractmethod
     def _check_attachment_permission(self, expense):
@@ -199,7 +199,7 @@ class ClaimExpenses:
 
         if not expense:
             return make_response(jsonify('Expense not found'), 404)
-        elif not self._check_attachment_permission(expense):
+        if not self._check_attachment_permission(expense):
             return make_response(jsonify('Unauthorized'), 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
@@ -401,10 +401,10 @@ class ClaimExpenses:
 
         if bic:
             return bic
-        else:
-            return (
-                "NOTPROVIDED"
-            )  # Bank will determine the BIC based on the Debtor Account
+
+        return (
+            "NOTPROVIDED"
+        )  # Bank will determine the BIC based on the Debtor Account
 
     def filter_expenses_to_export(self):
         """
@@ -645,8 +645,8 @@ class ClaimExpenses:
         if config.POWER2PAY_URL:
             if not self.send_to_power2pay(payment_file_name):
                 return (False, None, jsonify({"Info": "Failed to upload payment file"}))
-            else:
-                logger.info("Power2Pay upload successful")
+
+            logger.info("Power2Pay upload successful")
         else:
             logger.warning("Sending to Power2Pay is disabled")
 
@@ -735,8 +735,8 @@ class ClaimExpenses:
                 }
                 for ed in expenses_data
             ])
-        else:
-            return make_response(jsonify(None), 204)
+
+        return make_response(jsonify(None), 204)
 
     def expense_journal(self, old_expense, expense):
         changed = []
@@ -872,7 +872,6 @@ class ClaimExpenses:
         except Exception as error:
             logging.exception(
                 f'An exception occurred when sending an email: {error}')
-            pass
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -883,8 +882,8 @@ class EmployeeExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return False
-        else:
-            return True
+
+        return True
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -948,8 +947,8 @@ class ManagerExpenses(ClaimExpenses):
         afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
         if afas_data:
             return afas_data["Personeelsnummer"]
-        else:
-            return None
+
+        return None
 
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
@@ -1017,8 +1016,8 @@ class ControllerExpenses(ClaimExpenses):
                     "status": ed["status"],
                 })
             return jsonify(results)
-        else:
-            return make_response(jsonify(None), 204)
+
+        return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, expense):
         return {}, {}

@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import sys
 from setuptools import setup, find_packages
 
 NAME = "openapi_server"
@@ -36,4 +35,3 @@ setup(
     An API for the expenses app
     """
 )
-

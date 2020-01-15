@@ -68,7 +68,7 @@ def process_approve(request):
                    'title': 'Expected time interval for pending approvals not found',
                    'status': 400}
         response = make_response(jsonify(problem), 400)
-        response.headers['Content-Type'] = 'application/problem+json',
+        response.headers['Content-Type'] = 'application/problem+json'
         return response
 
 
