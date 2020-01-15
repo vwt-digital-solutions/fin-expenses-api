@@ -1030,58 +1030,60 @@ class CreditorExpenses(ClaimExpenses):
         super().__init__()
 
     def get_all_expenses(self, expenses_list, date_from, date_to):
-
         """Get JSON/CSV of all the expenses"""
-        expenses_ds = self.ds_client.query(kind="Expenses")
-        expenses_data = expenses_ds.fetch()
-        query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
-
-        day_from = datetime.datetime.strptime("1970-01-01", "%Y-%m-%d")
-        day_to = datetime.datetime.utcnow()
+        day_from = "1970-01-01T00:00:00Z"
+        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
         if date_from != '':
-            day_from = datetime.datetime.strptime(date_from, "%Y-%m-%d")
-
+            day_from = date_from + "T00:00:00Z"
         if date_to != '':
-            day_to = datetime.datetime.strptime(date_to, "%Y-%m-%d")
+            day_to = date_to + "T23:59:59Z"
+
+        if date_from > date_to:
+            return make_response(jsonify("Start date is later than end date"), 403)
+
+        expenses_ds = self.ds_client.query(kind="Expenses")
+        expenses_ds.add_filter("claim_date", ">=", day_from)
+        expenses_ds.add_filter("claim_date", "<=", day_to)
+        expenses_data = expenses_ds.fetch()
+
+        query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
 
         if expenses_data:
             results = []
 
             for expense in expenses_data:
-                expense_date = dateutil.parser.parse(expense["claim_date"]).date()
-                if day_from.date() <= expense_date <= day_to.date():
-                    expense_row = {
-                        "id": expense.id,
-                        "amount": expense["amount"],
-                        "note": expense["note"],
-                        "cost_type": expense["cost_type"],
-                        "claim_date": expense["claim_date"],
-                        "transaction_date": expense["transaction_date"],
-                        "employee": expense["employee"]["full_name"],
-                        "status": expense["status"],
-                        "auto_approved": expense.get("auto_approved", ""),
-                        "rnote": expense.get("status", {}).get("rnote", ""),
-                        "manager": expense.get("employee", {}).get("afas_data", {}).get(
-                            "Manager_personeelsnummer", "Manager not found: check expense"),
-                        "export_date": expense["status"].get("export_date", "")
-                    }
+                expense_row = {
+                    "id": expense.id,
+                    "amount": expense["amount"],
+                    "note": expense["note"],
+                    "cost_type": expense["cost_type"],
+                    "claim_date": expense["claim_date"],
+                    "transaction_date": expense["transaction_date"],
+                    "employee": expense["employee"]["full_name"],
+                    "status": expense["status"],
+                    "auto_approved": expense.get("auto_approved", ""),
+                    "rnote": expense.get("status", {}).get("rnote", ""),
+                    "manager": expense.get("employee", {}).get("afas_data", {}).get(
+                        "Manager_personeelsnummer", "Manager not found: check expense"),
+                    "export_date": expense["status"].get("export_date", "")
+                }
 
-                    expense_row["export_date"] = (expense_row["export_date"], "")[expense_row["export_date"] == "never"]
+                expense_row["export_date"] = (expense_row["export_date"], "")[expense_row["export_date"] == "never"]
 
-                    if expenses_list == "expenses_creditor":
-                        if (query_filter["creditor"] == expense["status"]["text"] or
-                                query_filter["creditor2"] == expense["status"]["text"]):
+                if expenses_list == "expenses_creditor":
+                    if (query_filter["creditor"] == expense["status"]["text"] or
+                            query_filter["creditor2"] == expense["status"]["text"]):
 
-                            results.append(expense_row)
-
-                    if expenses_list == "expenses_all":
                         results.append(expense_row)
+
+                if expenses_list == "expenses_all":
+                    results.append(expense_row)
 
             return results
 
         else:
-            return make_response(jsonify(None), 204)
+            return make_response(jsonify("No expenses to return"), 204)
 
     def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
@@ -1092,6 +1094,9 @@ class CreditorExpenses(ClaimExpenses):
             day_from = date_from + "T00:00:00Z"
         if date_to != '':
             day_to = date_to + "T23:59:59Z"
+
+        if date_from > date_to:
+            return make_response(jsonify("Start date is later than end date"), 403)
 
         expenses_ds = self.ds_client.query(kind="Expenses_Journal")
         expenses_ds.add_filter("Time", ">=", day_from)
@@ -1106,7 +1111,7 @@ class CreditorExpenses(ClaimExpenses):
                     results += self.expense_changes(expense)
             return results
 
-        return make_response(jsonify(None), 204)
+        return make_response(jsonify("No expenses to return"), 204)
 
     def expense_changes(self, expense):
         """
@@ -1314,6 +1319,9 @@ def get_expenses_format(expenses_data, format_expense):
     """
     if not expenses_data:
         return jsonify("No results with current filter"), 204
+
+    if isinstance(expenses_data, Response):
+        return expenses_data
 
     if "application/json" in format_expense:
         logging.debug("Creating json table")
