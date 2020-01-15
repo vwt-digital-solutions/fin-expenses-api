@@ -702,15 +702,17 @@ class ClaimExpenses:
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
-
         document_date = datetime.datetime.strptime(document_id, '%Y%m%d%H%M%S')
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        with tempfile.NamedTemporaryFile(delete=False) as export_file:
-            expenses_bucket.blob(
-                f"exports/{document_type}/{document_date.year}/{document_date.month}/{document_date.day}/{document_id}"
-            ).download_to_file(export_file)
-            export_file.close()
+        blob = expenses_bucket.blob(
+            f"exports/{document_type}/{document_date.year}/{document_date.month}/{document_date.day}/{document_id}"
+        )
+
+        if blob.exists():
+            with tempfile.NamedTemporaryFile(delete=False) as export_file:
+                blob.download_to_file(export_file)
+                export_file.close()
             return export_file
 
     def _create_expenses_query(self):
@@ -1279,39 +1281,42 @@ def get_document(document_id, document_type):
 
     expense_instance = ClaimExpenses()
     try:
-        export_file = expense_instance.get_single_document_reference(document_id=document_id, document_type=document_type)
-    except ValueError:
-        return make_response(
-            f'Invalid document id format [{document_id}]', 400)
-
-    # Separate Content
-
-    if document_type == 'payment_file':
-        content_response = {
-            "content_type": "application/xml",
-            "file": MD.parse(export_file.name).toprettyxml(encoding="utf-8").decode()
-        }
-    elif document_type == 'booking_file':
-        with open(export_file.name, "r") as file_in:
-            content_response = {
-                "content_type": "text/csv",
-                "file": file_in.read()
-            }
-            file_in.close()
+        export_file = expense_instance.get_single_document_reference(
+            document_id=document_id, document_type=document_type)
+    except ValueError as e:
+        return make_response(str(e), 400)
+    except Exception as error:
+        logging.exception(
+            f'An exception occurred when retrieving a document: {error}')
+        return make_response('Something went wrong', 500)
     else:
-        logger.error(f'Invalid document type requested [{document_type}]')
-        return make_response(f'Invalid document type requested [{document_type}]', 400)
+        if export_file:
+            if document_type == 'payment_file':
+                content_response = {
+                    "content_type": "application/xml",
+                    "file": MD.parse(export_file.name).toprettyxml(
+                        encoding="utf-8").decode()
+                }
+            elif document_type == 'booking_file':
+                with open(export_file.name, "r") as file_in:
+                    content_response = {
+                        "content_type": "text/csv",
+                        "file": file_in.read()
+                    }
+                    file_in.close()
 
-    mime_type = content_response['content_type']
-    return Response(
-        content_response["file"],
-        headers={
-            "Content-Type": f"{mime_type}",
-            "charset": "utf-8",
-            "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
-            "Authorization": "",
-        },
-    )
+            mime_type = content_response['content_type']
+            return Response(
+                content_response["file"],
+                headers={
+                    "Content-Type": f"{mime_type}",
+                    "charset": "utf-8",
+                    "Content-Disposition": f"attachment; filename={document_id}.{mime_type.split('/')[1]}",
+                    "Authorization": "",
+                },
+            )
+        else:
+            return make_response('Document not found', 404)
 
 
 def get_expenses_format(expenses_data, format_expense):

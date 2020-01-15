@@ -772,6 +772,9 @@ components:
       name: document_type
       schema:
         type: string
+        enum:
+          - payment_file
+          - booking_file
       in: path
       required: true
     ExpensesList:
