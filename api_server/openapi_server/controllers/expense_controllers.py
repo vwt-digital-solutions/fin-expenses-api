@@ -1273,7 +1273,12 @@ def get_document(document_id, document_type):
     :return"""
 
     expense_instance = ClaimExpenses()
-    export_file = expense_instance.get_single_document_reference(document_id=document_id, document_type=document_type)
+    try:
+        export_file = expense_instance.get_single_document_reference(document_id=document_id, document_type=document_type)
+    except ValueError:
+        return make_response(
+            f'Invalid document id format [{document_id}]', 400)
+
     # Separate Content
 
     if document_type == 'payment_file':
