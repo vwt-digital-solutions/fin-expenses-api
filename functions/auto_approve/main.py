@@ -2,6 +2,7 @@ from google.cloud import datastore
 import logging
 import json
 import datetime
+import re
 
 from flask import make_response, jsonify
 from utils import shift_to_business_days
@@ -13,6 +14,7 @@ def process_approve(request):
     if request.args and 'pending' in request.args:
         client = datastore.Client()
         query = client.query(kind='Expenses')
+        query_cost_type = client.query(kind="CostTypes")
         pending = int(request.args['pending'])
 
         logging.info(
@@ -22,13 +24,25 @@ def process_approve(request):
         boundary = (datetime.datetime.now() - datetime.timedelta(
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
 
+        query_cost_type.add_filter('AutoApprove', '=', True)
+        cost_types = query_cost_type.fetch()
+        grootboek_numbers = []
+        for cost_types in cost_types:
+            grootboek_numbers.append(cost_types['Grootboek'])
+
         query.add_filter('claim_date', '<=', boundary)
         query.add_filter('status.text', '=', 'ready_for_manager')
-        # only single une-quality criteria, must check programmatically after
 
         expenses_to_update = []
+
         for expense in query.fetch():
             changed = []
+
+            # Only approve those expenses with concurrent cost-types
+            grootboek_number = re.search("[0-9]{6}", expense['cost_type']).group()
+            if grootboek_number not in grootboek_numbers:
+                logging.warning(expense)
+                continue
 
             logging.info(f'Auto approve {expense}')
 
