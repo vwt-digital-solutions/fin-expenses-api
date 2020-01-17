@@ -974,6 +974,7 @@ class ManagerExpenses(ClaimExpenses):
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
+                    "line_manager": ed["line_manager"]
                 }
                 for ed in expenses_data
             ]
