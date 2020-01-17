@@ -25,10 +25,9 @@ def process_approve(request):
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
 
         query_cost_type.add_filter('AutoApprove', '=', True)
-        cost_types = query_cost_type.fetch()
         grootboek_numbers = []
-        for cost_types in cost_types:
-            grootboek_numbers.append(cost_types['Grootboek'])
+        for cost_type in query_cost_type.fetch():
+            grootboek_numbers.append(cost_type['Grootboek'])
 
         query.add_filter('claim_date', '<=', boundary)
         query.add_filter('status.text', '=', 'ready_for_manager')
@@ -39,9 +38,9 @@ def process_approve(request):
             changed = []
 
             # Only approve those expenses with concurrent cost-types
-            grootboek_number = re.search("[0-9]{6}", expense['cost_type']).group()
-            if grootboek_number not in grootboek_numbers:
-                logging.warning(expense)
+            grootboek_number = re.search("[0-9]{6}", expense['cost_type'])
+            if grootboek_number and \
+                    grootboek_number.group() not in grootboek_numbers:
                 continue
 
             logging.info(f'Auto approve {expense}')
