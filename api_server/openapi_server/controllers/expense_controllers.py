@@ -243,7 +243,8 @@ class ClaimExpenses:
             if afas_data:
                 try:
                     BusinessRulesEngine().process_rules(data, afas_data)
-                    data.line_manager = self._process_expense_cost_type(data)
+                    data.line_manager = self._process_expense_cost_type(
+                        data.cost_type)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
@@ -325,7 +326,8 @@ class ClaimExpenses:
             try:
                 BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
                 data['line_manager'] = self._process_expense_cost_type(
-                    expense, cost_types)
+                    data['cost_type'] if 'cost_type' in data else
+                    expense['cost_type'], cost_types)
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
 
@@ -726,18 +728,13 @@ class ClaimExpenses:
 
         return cost_types
 
-    def _process_expense_cost_type(self, expense, cost_types=None):
-        logging.info('Updating cost_type')
-        if not cost_types:
-            cost_types = self._create_cost_types_list()
+    def _process_expense_cost_type(self, cost_type, cost_types_list=None):
+        if not cost_types_list:
+            cost_types_list = self._create_cost_types_list()
 
-        if isinstance(expense, datastore.entity.Entity):
-            grootboek_number = re.search("[0-9]{6}", expense['cost_type'])
-        else:
-            grootboek_number = re.search("[0-9]{6}", expense.cost_type)
-
-        if grootboek_number and grootboek_number.group() in cost_types:
-            return cost_types[grootboek_number.group()]
+        grootboek_number = re.search("[0-9]{6}", cost_type)
+        if grootboek_number and grootboek_number.group() in cost_types_list:
+            return cost_types_list[grootboek_number.group()]
 
         return 'manager'
 
@@ -934,7 +931,8 @@ class EmployeeExpenses(ClaimExpenses):
                 "rnote",
                 "note",
                 "transaction_date",
-                "amount"
+                "amount",
+                "line_manager"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -1040,7 +1038,8 @@ class ManagerExpenses(ClaimExpenses):
             fields = {
                 "status",
                 "cost_type",
-                "rnote"
+                "rnote",
+                "line_manager"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -1252,7 +1251,8 @@ class CreditorExpenses(ClaimExpenses):
             fields = {
                 "status",
                 "cost_type",
-                "rnote"
+                "rnote",
+                "line_manager"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
