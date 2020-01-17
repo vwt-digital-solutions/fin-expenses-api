@@ -238,10 +238,12 @@ class ClaimExpenses:
                 ready_text = "ready_for_manager"
             else:
                 ready_text = "ready_for_creditor"
+
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
                     BusinessRulesEngine().process_rules(data, afas_data)
+                    data = self._process_expense_cost_type(data)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
@@ -261,6 +263,7 @@ class ClaimExpenses:
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
+                        "line_manager": data.line_manager
                     }
 
                     entity.update(new_expense)
@@ -711,6 +714,24 @@ class ClaimExpenses:
 
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
+
+    def _create_cost_types_list(self):
+        cost_types = {}
+        for cost_type in self.ds_client.query(kind="CostTypes").fetch():
+            cost_types[cost_type['Grootboek']] = cost_type['LineManager']
+
+        return cost_types
+
+    def _process_expense_cost_type(self, expense):
+        cost_types = self._create_cost_types_list()
+
+        grootboek_number = re.search("[0-9]{6}", expense.cost_type)
+        if grootboek_number and grootboek_number.group() in cost_types:
+            expense.line_manager = cost_types[grootboek_number.group()]
+        else:
+            expense.line_manager = 'manager'
+
+        return expense
 
     @staticmethod
     def _process_expenses_info(expenses_info):
