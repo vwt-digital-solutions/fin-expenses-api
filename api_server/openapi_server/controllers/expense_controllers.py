@@ -934,6 +934,24 @@ class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
+    def _process_expenses_info(self, expenses_info):
+        expenses_data = expenses_info.fetch()
+        if expenses_data:
+            return [
+                {
+                    "id": ed.id,
+                    "amount": ed["amount"],
+                    "note": ed["note"],
+                    "cost_type": ed["cost_type"],
+                    "claim_date": ed["claim_date"],
+                    "transaction_date": ed["transaction_date"],
+                    "employee": ed["employee"]["full_name"],
+                    "status": ed["status"],
+                }
+                for ed in expenses_data
+            ]
+        return []
+
     def __init__(self):
         super().__init__()
 
@@ -945,19 +963,36 @@ class ManagerExpenses(ClaimExpenses):
         return None
 
     def get_all_expenses(self):
+        expense_data = []
+
+        # Retrieve manager's expenses
         expenses_info = self._create_expenses_query()
+        expenses_info.add_filter("status.text", "=", "ready_for_manager")
         expenses_info.add_filter(
-            "status.text",
-            "=",
-            "ready_for_manager"
-        )
-        expenses_info.add_filter(
-            "employee.afas_data.Manager_personeelsnummer",
-            "=",
-            self.get_manager_identifying_value()
-        )
-        # expenses_data = expenses_info.fetch(limit=10)
-        return self._process_expenses_info(expenses_info)
+            "employee.afas_data.Manager_personeelsnummer", "=",
+            self.get_manager_identifying_value())
+
+        for expense in self._process_expenses_info(expenses_info):
+            if 'line_manager' in expense and \
+                    expense['line_manager'] == 'leasecoordinator':
+                continue
+
+            expense_data.append(expense)
+
+        # Retrieve lease coordinator's expenses if correct role
+        if 'leasecoordinator.write' in self.employee_info['roles']:
+            expenses_lease = self._create_expenses_query()
+            expenses_lease.add_filter("line_manager", "=", "leasecoordinator")
+
+            expense_data = expense_data + self._process_expenses_info(
+                expenses_lease)
+
+            expense_data.sort(key=lambda x: x['claim_date'], reverse=True)
+
+        if expense_data:
+            return jsonify(expense_data)
+
+        return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
