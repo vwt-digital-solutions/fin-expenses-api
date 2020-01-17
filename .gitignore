@@ -1,5 +1,6 @@
 config.py
 .enc
+*.enc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -70,3 +71,4 @@ target/
 fin-expenses-api
 .idea
 .openapi-generator
+.vscode
