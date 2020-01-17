@@ -243,7 +243,7 @@ class ClaimExpenses:
             if afas_data:
                 try:
                     BusinessRulesEngine().process_rules(data, afas_data)
-                    data = self._process_expense_cost_type(data)
+                    data.line_manager = self._process_expense_cost_type(data)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
@@ -310,6 +310,8 @@ class ClaimExpenses:
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
 
+        cost_types = self._create_cost_types_list()
+
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -322,6 +324,8 @@ class ClaimExpenses:
 
             try:
                 BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
+                data['line_manager'] = self._process_expense_cost_type(
+                    expense, cost_types)
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
 
@@ -722,16 +726,20 @@ class ClaimExpenses:
 
         return cost_types
 
-    def _process_expense_cost_type(self, expense):
-        cost_types = self._create_cost_types_list()
+    def _process_expense_cost_type(self, expense, cost_types=None):
+        logging.info('Updating cost_type')
+        if not cost_types:
+            cost_types = self._create_cost_types_list()
 
-        grootboek_number = re.search("[0-9]{6}", expense.cost_type)
-        if grootboek_number and grootboek_number.group() in cost_types:
-            expense.line_manager = cost_types[grootboek_number.group()]
+        if isinstance(expense, datastore.entity.Entity):
+            grootboek_number = re.search("[0-9]{6}", expense['cost_type'])
         else:
-            expense.line_manager = 'manager'
+            grootboek_number = re.search("[0-9]{6}", expense.cost_type)
 
-        return expense
+        if grootboek_number and grootboek_number.group() in cost_types:
+            return cost_types[grootboek_number.group()]
+
+        return 'manager'
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -1017,8 +1025,10 @@ class ManagerExpenses(ClaimExpenses):
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
+
         if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
-               self.get_manager_identifying_value():
+               self.get_manager_identifying_value() and \
+                'leasecoordinator.write' not in self.employee_info['roles']:
             return {}, {}
 
         # Check if status update is not unauthorized
