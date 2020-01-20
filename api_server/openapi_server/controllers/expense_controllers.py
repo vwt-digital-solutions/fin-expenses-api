@@ -974,7 +974,7 @@ class ManagerExpenses(ClaimExpenses):
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
-                    "line_manager": ed["line_manager"]
+                    "line_manager": ed.get("line_manager")
                 }
                 for ed in expenses_data
             ]
@@ -1008,7 +1008,7 @@ class ManagerExpenses(ClaimExpenses):
             expense_data.append(expense)
 
         # Retrieve lease coordinator's expenses if correct role
-        if 'leasecoordinator.write' in self.employee_info['roles']:
+        if 'leasecoordinator.write' in self.employee_info.get('roles'):
             expenses_lease = self._create_expenses_query()
             expenses_lease.add_filter("line_manager", "=", "leasecoordinator")
 
