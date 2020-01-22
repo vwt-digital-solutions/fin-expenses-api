@@ -278,7 +278,6 @@ class ClaimExpenses:
 
                     return make_response(
                         jsonify(entity.key.id_or_name), 201)
-                    return make_response(jsonify('Employee not found'), 403)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
@@ -750,7 +749,6 @@ class ClaimExpenses:
             cost_type, self._create_cost_types_list('MinAmount'))
 
         return manager_type if manager_type else 50
-
 
     @staticmethod
     def _process_expenses_info(expenses_info):
