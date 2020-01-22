@@ -1011,6 +1011,7 @@ class ManagerExpenses(ClaimExpenses):
         if 'leasecoordinator.write' in self.employee_info.get('scopes', []):
             expenses_lease = self._create_expenses_query()
             expenses_lease.add_filter("manager_type", "=", "leasecoordinator")
+            expenses_lease.add_filter("status.text", "=", "ready_for_manager")
 
             expense_data = expense_data + self._process_expenses_info(
                 expenses_lease)
