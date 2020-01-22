@@ -1008,7 +1008,7 @@ class ManagerExpenses(ClaimExpenses):
             expense_data.append(expense)
 
         # Retrieve lease coordinator's expenses if correct role
-        if 'leasecoordinator.write' in self.employee_info.get('roles'):
+        if 'leasecoordinator.write' in self.employee_info.get('scopes', []):
             expenses_lease = self._create_expenses_query()
             expenses_lease.add_filter("manager_type", "=", "leasecoordinator")
 
@@ -1026,7 +1026,7 @@ class ManagerExpenses(ClaimExpenses):
         # Check if expense is for manager
         if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
                self.get_manager_identifying_value() and \
-                'leasecoordinator.write' not in self.employee_info['roles']:
+                'leasecoordinator.write' not in self.employee_info.get('scopes', []):
             return {}, {}
 
         # Check if status update is not unauthorized
