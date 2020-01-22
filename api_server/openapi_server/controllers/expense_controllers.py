@@ -320,7 +320,7 @@ class ClaimExpenses:
 
             allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
 
-            if not allowed_fields and allowed_statuses:
+            if not allowed_fields or not allowed_statuses:
                 return make_response(jsonify('The content of this method is not valid'), 403)
 
             try:
@@ -736,7 +736,7 @@ class ClaimExpenses:
         if grootboek_number and grootboek_number.group() in cost_types_list:
             return cost_types_list[grootboek_number.group()]
 
-        return 'manager'
+        return 'linemanager'
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -1024,7 +1024,6 @@ class ManagerExpenses(ClaimExpenses):
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
-
         if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
                self.get_manager_identifying_value() and \
                 'leasecoordinator.write' not in self.employee_info['roles']:
