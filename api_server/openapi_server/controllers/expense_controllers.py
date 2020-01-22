@@ -243,7 +243,7 @@ class ClaimExpenses:
             if afas_data:
                 try:
                     BusinessRulesEngine().process_rules(data, afas_data)
-                    data.line_manager = self._process_expense_cost_type(
+                    data.manager_type = self._process_expense_cost_type(
                         data.cost_type)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
@@ -264,7 +264,7 @@ class ClaimExpenses:
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
-                        "line_manager": data.line_manager
+                        "manager_type": data.manager_type
                     }
 
                     entity.update(new_expense)
@@ -325,7 +325,7 @@ class ClaimExpenses:
 
             try:
                 BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
-                data['line_manager'] = self._process_expense_cost_type(
+                data['manager_type'] = self._process_expense_cost_type(
                     data['cost_type'] if 'cost_type' in data else
                     expense['cost_type'], cost_types)
             except ValueError as exception:
@@ -724,7 +724,7 @@ class ClaimExpenses:
     def _create_cost_types_list(self):
         cost_types = {}
         for cost_type in self.ds_client.query(kind="CostTypes").fetch():
-            cost_types[cost_type['Grootboek']] = cost_type['LineManager']
+            cost_types[cost_type['Grootboek']] = cost_type['ManagerType']
 
         return cost_types
 
@@ -932,7 +932,7 @@ class EmployeeExpenses(ClaimExpenses):
                 "note",
                 "transaction_date",
                 "amount",
-                "line_manager"
+                "manager_type"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -974,7 +974,7 @@ class ManagerExpenses(ClaimExpenses):
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
-                    "line_manager": ed.get("line_manager")
+                    "manager_type": ed.get("manager_type")
                 }
                 for ed in expenses_data
             ]
@@ -1001,8 +1001,8 @@ class ManagerExpenses(ClaimExpenses):
             self.get_manager_identifying_value())
 
         for expense in self._process_expenses_info(expenses_info):
-            if 'line_manager' in expense and \
-                    expense['line_manager'] == 'leasecoordinator':
+            if 'manager_type' in expense and \
+                    expense['manager_type'] == 'leasecoordinator':
                 continue
 
             expense_data.append(expense)
@@ -1010,7 +1010,7 @@ class ManagerExpenses(ClaimExpenses):
         # Retrieve lease coordinator's expenses if correct role
         if 'leasecoordinator.write' in self.employee_info.get('roles'):
             expenses_lease = self._create_expenses_query()
-            expenses_lease.add_filter("line_manager", "=", "leasecoordinator")
+            expenses_lease.add_filter("manager_type", "=", "leasecoordinator")
 
             expense_data = expense_data + self._process_expenses_info(
                 expenses_lease)
@@ -1040,7 +1040,7 @@ class ManagerExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
-                "line_manager"
+                "manager_type"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -1253,7 +1253,7 @@ class CreditorExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
-                "line_manager"
+                "manager_type"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
