@@ -234,7 +234,7 @@ class ClaimExpenses:
         *** ready_for{role} => { rejected } <= approved => exported
         """
         if "unique_name" in self.employee_info.keys():
-            if data.amount >= 50:
+            if data.amount >= self._process_expense_min_amount(data.cost_type):
                 ready_text = "ready_for_manager"
             else:
                 ready_text = "ready_for_creditor"
@@ -243,7 +243,7 @@ class ClaimExpenses:
             if afas_data:
                 try:
                     BusinessRulesEngine().process_rules(data, afas_data)
-                    data.manager_type = self._process_expense_cost_type(
+                    data.manager_type = self._process_expense_manager_type(
                         data.cost_type)
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
@@ -278,6 +278,7 @@ class ClaimExpenses:
 
                     return make_response(
                         jsonify(entity.key.id_or_name), 201)
+                    return make_response(jsonify('Employee not found'), 403)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
@@ -288,12 +289,17 @@ class ClaimExpenses:
                                          'rejected_by_manager'] \
                 and item == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], item)
+                expense['amount'], expense['cost_type'], item)
         else:
             expense["status"]["text"] = item
 
-    def _determine_status_amount_update(self, amount, item):
-        return "ready_for_creditor" if amount < 50 else item
+    def _determine_status_amount_update(self, amount, cost_type, item):
+        min_amount = self._process_expense_min_amount(cost_type)
+        manager_type = self._process_expense_manager_type(cost_type)
+
+        return "ready_for_creditor" if \
+            min_amount > 0 and amount < min_amount and \
+            manager_type != 'leasecoordinator' else item
 
     @abstractmethod
     def _prepare_context_update_expense(self, expense):
@@ -311,8 +317,6 @@ class ClaimExpenses:
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
 
-        cost_types = self._create_cost_types_list()
-
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
@@ -325,9 +329,9 @@ class ClaimExpenses:
 
             try:
                 BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
-                data['manager_type'] = self._process_expense_cost_type(
+                data['manager_type'] = self._process_expense_manager_type(
                     data['cost_type'] if 'cost_type' in data else
-                    expense['cost_type'], cost_types)
+                    expense['cost_type'])
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
 
@@ -721,22 +725,32 @@ class ClaimExpenses:
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
-    def _create_cost_types_list(self):
+    def _create_cost_types_list(self, field):
         cost_types = {}
-        for cost_type in self.ds_client.query(kind="CostTypes").fetch():
-            cost_types[cost_type['Grootboek']] = cost_type['ManagerType']
+        for cost_type in datastore.Client().query(kind="CostTypes").fetch():
+            cost_types[cost_type['Grootboek']] = cost_type[field]
 
         return cost_types
 
-    def _process_expense_cost_type(self, cost_type, cost_types_list=None):
-        if not cost_types_list:
-            cost_types_list = self._create_cost_types_list()
-
+    def _process_cost_type(self, cost_type, cost_types_list):
         grootboek_number = re.search("[0-9]{6}", cost_type)
         if grootboek_number and grootboek_number.group() in cost_types_list:
             return cost_types_list[grootboek_number.group()]
 
-        return 'linemanager'
+        return None
+
+    def _process_expense_manager_type(self, cost_type):
+        manager_type = self._process_cost_type(
+            cost_type, self._create_cost_types_list('ManagerType'))
+
+        return manager_type if manager_type else 'linemanager'
+
+    def _process_expense_min_amount(self, cost_type):
+        manager_type = self._process_cost_type(
+            cost_type, self._create_cost_types_list('MinAmount'))
+
+        return manager_type if manager_type else 50
+
 
     @staticmethod
     def _process_expenses_info(expenses_info):
