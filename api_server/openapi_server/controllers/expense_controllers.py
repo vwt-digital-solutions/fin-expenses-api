@@ -234,7 +234,8 @@ class ClaimExpenses:
         *** ready_for{role} => { rejected } <= approved => exported
         """
         if "unique_name" in self.employee_info.keys():
-            if data.amount >= self._process_expense_min_amount(data.cost_type):
+            min_amount = self._process_expense_min_amount(data.cost_type)
+            if min_amount == 0 or min_amount <= data.amount:
                 ready_text = "ready_for_manager"
             else:
                 ready_text = "ready_for_creditor"
@@ -739,16 +740,16 @@ class ClaimExpenses:
         return None
 
     def _process_expense_manager_type(self, cost_type):
-        manager_type = self._process_cost_type(
-            cost_type, self._create_cost_types_list('ManagerType'))
+        cost_types_list = self._create_cost_types_list('ManagerType')
+        manager_type = self._process_cost_type(cost_type, cost_types_list)
 
-        return manager_type if manager_type else 'linemanager'
+        return 'linemanager' if manager_type is None else manager_type
 
     def _process_expense_min_amount(self, cost_type):
-        manager_type = self._process_cost_type(
-            cost_type, self._create_cost_types_list('MinAmount'))
+        cost_types_list = self._create_cost_types_list('MinAmount')
+        min_amount = self._process_cost_type(cost_type, cost_types_list)
 
-        return manager_type if manager_type else 50
+        return 50 if min_amount is None else min_amount
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -971,6 +972,12 @@ class EmployeeExpenses(ClaimExpenses):
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
+        if 'leasecoordinator.write' in \
+                self.employee_info.get('scopes', []) and \
+                self._process_expense_manager_type(
+                    expense['cost_type']) == 'leasecoordinator':
+            return True
+
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
 
     def _process_expenses_info(self, expenses_info):
