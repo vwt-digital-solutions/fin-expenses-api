@@ -168,7 +168,11 @@ class ClaimExpenses:
 
         cost_types = self.ds_client.query(kind="CostTypes")
         results = [
-            {"ctype": row["Omschrijving"], "cid": row["Grootboek"]}
+            {
+                "ctype": row["Omschrijving"],
+                "cid": row["Grootboek"],
+                "managertype": row["ManagerType"]
+            }
             for row in cost_types.fetch()
         ]
         return jsonify(results)
