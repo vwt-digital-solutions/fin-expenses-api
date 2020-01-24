@@ -67,3 +67,4 @@ uritemplate==3.0.1
 urllib3==1.25.7
 Werkzeug==0.16.0
 wrapt==1.11.2
+PyPDF4
