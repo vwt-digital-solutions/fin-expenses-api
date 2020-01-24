@@ -16,10 +16,10 @@ from typing import Dict, Any
 import dateutil
 
 import pytz
-
 import config
 import logging
 import pandas as pd
+from PyPDF4 import PdfFileReader, PdfFileWriter
 
 import connexion
 import googleapiclient.discovery
@@ -114,12 +114,25 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
-            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
-            if not content_type:
+            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0]).group()
+            content = base64.b64decode(attachment.content.split(",")[1])  # Set the content from base64
+            if not content_type or not content:
                 return False
+            if content_type == 'application/pdf':
+                writer = PdfFileWriter()  # Create a PdfFileWriter to store the new PDF
+                with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+                    temp_file.write(base64.b64decode(attachment.content.split(",")[1]))
+                    reader = PdfFileReader(open(temp_file.name, 'rb'))  # Read the bytes from temp with original b64
+                    [writer.addPage(reader.getPage(i)) for i in range(0, reader.getNumPages())]  # Add pages
+                    writer.removeLinks()  # Remove all linking in PDF (not external website links)
+                    with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_flat_file:
+                        writer.write(temp_flat_file)  # Let the writer write into the temp file
+                        temp_flat_file.close()  # Close the temp file (stays in `with`)
+                        content = open(temp_flat_file.name, 'rb').read()  # Read the content from the temp file
+
             blob.upload_from_string(
-                base64.b64decode(attachment.content.split(",")[1]),
-                content_type=content_type.group()
+                content,  # Upload content (can be decoded b64 from request or read data from temp flat file
+                content_type=content_type
             )
             return True
         except Exception as e:
@@ -1154,7 +1167,6 @@ class CreditorExpenses(ClaimExpenses):
                 if expenses_list == "expenses_creditor":
                     if (query_filter["creditor"] == expense["status"]["text"] or
                             query_filter["creditor2"] == expense["status"]["text"]):
-
                         results.append(expense_row)
 
                 if expenses_list == "expenses_all":
@@ -1422,7 +1434,6 @@ def get_expenses_format(expenses_data, format_expense):
                 count = 0
                 for expense in expenses_data:
                     if count == 0:
-
                         field_names = list(expense.keys())
                         csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
                         csv_writer.writeheader()

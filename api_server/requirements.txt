@@ -25,3 +25,4 @@ Flask-AuditLog==1.0
 Flask-No-Cache==1.0
 Flask-SSLify==0.1.5
 defusedxml==0.6.0
+PyPDF4
