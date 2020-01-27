@@ -572,6 +572,11 @@ class ClaimExpenses:
         root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
         customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
+        expense_claims_to_export
+        ctrl_sum = 0
+
+        for expense in expense_claims_to_export:
+            ctrl_sum += expense['amount']
 
         # Group Header
         header = ET.SubElement(customer_header, "GrpHdr")
@@ -580,6 +585,7 @@ class ClaimExpenses:
         ET.SubElement(header, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
+        ET.SubElement(header, "CtrlSum").text = str(ctrl_sum)  # Total amount of the batch
         initiating_party = ET.SubElement(header, "InitgPty")
         ET.SubElement(initiating_party, "Nm").text = config.OWN_ACCOUNT["bedrijf"]
 
@@ -590,6 +596,7 @@ class ClaimExpenses:
         ET.SubElement(payment_info, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
+        ET.SubElement(payment_info, "CtrlSum").text = str(ctrl_sum)  # Total amount of the batch
 
         # Payment Type Information
         payment_typ_info = ET.SubElement(payment_info, "PmtTpInf")
@@ -616,7 +623,6 @@ class ClaimExpenses:
         ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT[
             "bic"
         ]
-
         for expense in expense_claims_to_export:
             # Transaction Transfer Information
             transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
