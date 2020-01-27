@@ -169,9 +169,9 @@ class ClaimExpenses:
         cost_types = self.ds_client.query(kind="CostTypes")
         results = [
             {
-                "ctype": row["Omschrijving"],
-                "cid": row["Grootboek"],
-                "managertype": row["ManagerType"]
+                "ctype": row.get("Omschrijving", ""),
+                "cid": row.get("Grootboek", ""),
+                "managertype": row.get("ManagerType", "linemanager")
             }
             for row in cost_types.fetch()
         ]
@@ -745,13 +745,15 @@ class ClaimExpenses:
     def _create_cost_types_list(self, field):
         cost_types = {}
         for cost_type in datastore.Client().query(kind="CostTypes").fetch():
-            cost_types[cost_type['Grootboek']] = cost_type[field]
+            cost_types[cost_type['Grootboek']] = cost_type.get(field, "")
 
         return cost_types
 
     def _process_cost_type(self, cost_type, cost_types_list):
         grootboek_number = re.search("[0-9]{6}", cost_type)
-        if grootboek_number and grootboek_number.group() in cost_types_list:
+        if grootboek_number and \
+                grootboek_number.group() in cost_types_list and \
+                cost_types_list[grootboek_number.group()]:
             return cost_types_list[grootboek_number.group()]
 
         return None
