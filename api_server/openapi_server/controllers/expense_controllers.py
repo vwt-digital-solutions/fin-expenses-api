@@ -751,15 +751,14 @@ class ClaimExpenses:
     def _create_cost_types_list(self, field):
         cost_types = {}
         for cost_type in datastore.Client().query(kind="CostTypes").fetch():
-            cost_types[cost_type['Grootboek']] = cost_type.get(field, "")
+            if field in cost_type:
+                cost_types[cost_type['Grootboek']] = cost_type[field]
 
         return cost_types
 
     def _process_cost_type(self, cost_type, cost_types_list):
         grootboek_number = re.search("[0-9]{6}", cost_type)
-        if grootboek_number and \
-                grootboek_number.group() in cost_types_list and \
-                cost_types_list[grootboek_number.group()]:
+        if grootboek_number and grootboek_number.group() in cost_types_list:
             return cost_types_list[grootboek_number.group()]
 
         return None
