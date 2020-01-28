@@ -1,7 +1,6 @@
 import datetime
 
 import six
-import typing
 from openapi_server import typing_utils
 
 
@@ -29,8 +28,8 @@ def _deserialize(data, klass):
             return _deserialize_list(data, klass.__args__[0])
         if typing_utils.is_dict(klass):
             return _deserialize_dict(data, klass.__args__[1])
-    else:
-        return deserialize_model(data, klass)
+
+    return deserialize_model(data, klass)
 
 
 def _deserialize_primitive(data, klass):

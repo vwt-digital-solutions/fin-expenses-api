@@ -1,4 +1,4 @@
-[![CodeFactor](https://www.codefactor.io/repository/github/vwt-digital/fin-expenses-api/badge)](https://www.codefactor.io/repository/github/vwt-digital/expenses-api)
+[![CodeFactor](https://www.codefactor.io/repository/github/vwt-digital/fin-expenses-api/badge)](https://www.codefactor.io/repository/github/vwt-digital/fin-expenses-api)
 
 # P2P Expenses API
 

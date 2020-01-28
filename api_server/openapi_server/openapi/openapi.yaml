@@ -399,7 +399,6 @@ paths:
       summary: Get csv with all expenses from expenses_journal
       description: Retrieve csv with expenses from expenses_journal
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /managers/expenses:
     get:
       responses:
@@ -502,7 +501,6 @@ paths:
       summary: Get all expenses
       description: Get all expenses for controllers
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -527,7 +525,6 @@ paths:
       security:
         - oauth2: [controller.write]
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
 components:
   schemas:
     Url:
@@ -668,10 +665,18 @@ components:
           description: A cost type doel organisation code
         ctype:
           type: string
+        managertype:
+          type: string
+          description: A manager type to differentiate different lines of managers
+        message:
+          type: string
+          description: An info message for on a fill-in screen
       example: |-
         {
             "cid": "410200",
-            "ctype": "Omschrijving"
+            "ctype": "Omschrijving",
+            "managertype": "linemanager",
+            "message": "Vul dit veld in"
         }
     BookingFile:
       title: Exported files
@@ -710,6 +715,8 @@ components:
       name: expenses_id
       schema:
         type: integer
+        minimum: 1
+        maximum: 9223372036854775807
       in: path
       required: true
     AttachmentName:
@@ -761,6 +768,7 @@ components:
       name: document_id
       schema:
         type: string
+        format: date-time
       in: path
       required: true
     DocumentType:
@@ -769,6 +777,9 @@ components:
       name: document_type
       schema:
         type: string
+        enum:
+          - payment_file
+          - booking_file
       in: path
       required: true
     ExpensesList:
