@@ -252,11 +252,7 @@ class ClaimExpenses:
         *** ready_for{role} => { rejected } <= approved => exported
         """
         if "unique_name" in self.employee_info.keys():
-            min_amount = self._process_expense_min_amount(data.cost_type)
-            if min_amount == 0 or min_amount <= data.amount:
-                ready_text = "ready_for_manager"
-            else:
-                ready_text = "ready_for_creditor"
+            ready_text = "draft"
 
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
