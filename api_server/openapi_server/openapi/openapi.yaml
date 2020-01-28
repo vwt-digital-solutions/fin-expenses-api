@@ -665,10 +665,18 @@ components:
           description: A cost type doel organisation code
         ctype:
           type: string
+        managertype:
+          type: string
+          description: A manager type to differentiate different lines of managers
+        message:
+          type: string
+          description: An info message for on a fill-in screen
       example: |-
         {
             "cid": "410200",
-            "ctype": "Omschrijving"
+            "ctype": "Omschrijving",
+            "managertype": "linemanager",
+            "message": "Vul dit veld in"
         }
     BookingFile:
       title: Exported files

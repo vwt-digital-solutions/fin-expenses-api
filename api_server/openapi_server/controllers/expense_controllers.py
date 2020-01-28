@@ -171,7 +171,8 @@ class ClaimExpenses:
             {
                 "ctype": row.get("Omschrijving", ""),
                 "cid": row.get("Grootboek", ""),
-                "managertype": row.get("ManagerType", "linemanager")
+                "managertype": row.get("ManagerType", "linemanager"),
+                "message": row.get("Message", "")
             }
             for row in cost_types.fetch()
         ]
