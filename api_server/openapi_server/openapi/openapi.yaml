@@ -548,6 +548,7 @@ components:
         status:
           type: string
           enum:
+            - draft
             - ready_for_creditor
             - ready_for_manager
             - rejected_by_manager

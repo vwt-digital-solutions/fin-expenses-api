@@ -336,10 +336,10 @@ class ClaimExpenses:
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
 
-            if expense['status']['text'] == "draft":
+            if expense['status']['text'] == "draft" and \
+                    data.get('status', '') != 'draft':
                 min_amount = self._process_expense_min_amount(
-                    data.get('cost_type', expense['cost_type'])
-                )
+                    data.get('cost_type', expense['cost_type']))
                 if min_amount == 0 or \
                         min_amount <= data.get('amount', expense['amount']):
                     data['status'] = "ready_for_manager"
@@ -964,7 +964,7 @@ class EmployeeExpenses(ClaimExpenses):
 
         # Check if status update is not unauthorized
         allowed_status_transitions = {
-            'draft': ['ready_for_manager', 'ready_for_creditor', 'cancelled'],
+            'draft': ['draft', 'ready_for_manager', 'ready_for_creditor', 'cancelled'],
             'rejected_by_manager': ['ready_for_manager', 'ready_for_creditor', 'cancelled'],
             'rejected_by_creditor': ['ready_for_manager', 'ready_for_creditor', 'cancelled']
         }
