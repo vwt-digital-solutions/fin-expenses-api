@@ -671,14 +671,14 @@ components:
           type: string
           description: A manager type to differentiate different lines of managers
         message:
-          type: string
-          description: An info message for on a fill-in screen
+          type: object
+          description: Different messages for different languages
       example: |-
         {
             "cid": "410200",
             "ctype": "Omschrijving",
             "managertype": "linemanager",
-            "message": "Vul dit veld in"
+            "message": {"nl: { "long": "Vul dit veld in" }}
         }
     BookingFile:
       title: Exported files
