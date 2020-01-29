@@ -399,6 +399,7 @@ paths:
       summary: Get csv with all expenses from expenses_journal
       description: Retrieve csv with expenses from expenses_journal
       x-openapi-router-controller: openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /managers/expenses:
     get:
       responses:
