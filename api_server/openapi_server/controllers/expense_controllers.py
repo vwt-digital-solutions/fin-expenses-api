@@ -337,7 +337,8 @@ class ClaimExpenses:
             old_expense = copy.deepcopy(expense)
 
             if expense['status']['text'] == "draft" and \
-                    data.get('status', '') != 'draft':
+                    data.get('status', '') != 'draft' and \
+                    'ready' in data.get('status', ''):
                 min_amount = self._process_expense_min_amount(
                     data.get('cost_type', expense['cost_type']))
                 if min_amount == 0 or \
