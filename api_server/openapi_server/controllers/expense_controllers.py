@@ -19,7 +19,7 @@ import pytz
 import config
 import logging
 import pandas as pd
-from PyPDF4 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter
 
 import connexion
 import googleapiclient.discovery
@@ -114,14 +114,16 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
-            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0]).group()
+            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
             content = base64.b64decode(attachment.content.split(",")[1])  # Set the content from base64
             if not content_type or not content:
                 return False
+            content_type = content_type.group()
             if content_type == 'application/pdf':
                 writer = PdfFileWriter()  # Create a PdfFileWriter to store the new PDF
-                with tempfile.NamedTemporaryFile(delete=True) as temp_file:
-                    temp_file.write(base64.b64decode(attachment.content.split(",")[1]))
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(content)
+                    temp_file.close()
                     reader = PdfFileReader(open(temp_file.name, 'rb'))  # Read the bytes from temp with original b64
                     [writer.addPage(reader.getPage(i)) for i in range(0, reader.getNumPages())]  # Add pages
                     writer.removeLinks()  # Remove all linking in PDF (not external website links)
@@ -135,6 +137,9 @@ class ClaimExpenses:
                 content_type=content_type
             )
             return True
+        except ValueError as e:
+            logger.warning(str(e))
+            return False
         except Exception as e:
             logger.warning(str(e))
             return False
