@@ -430,9 +430,10 @@ class ClaimExpenses:
                 self.ds_client.put(expense)
 
     def _has_attachments(self, expense, data):
-        allowed_statuses = ['draft', 'cancelled', 'rejected_by_manager', 'rejected_by_creditor']
-        if data.get('status', '') in allowed_statuses or \
-                expense['status']['text'] in allowed_statuses:
+        allowed_statuses_new = ['draft', 'cancelled', 'rejected_by_manager', 'rejected_by_creditor']
+        allowed_statuses_old = ['rejected_by_manager', 'rejected_by_creditor']
+        if data.get('status', '') in allowed_statuses_new or \
+                expense['status']['text'] in allowed_statuses_old:
             return True
 
         email_name = expense["employee"]["email"].split("@")[0]
