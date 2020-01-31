@@ -364,6 +364,9 @@ class ClaimExpenses:
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
 
+            if not self._has_attachments(expense, data):
+                return make_response(jsonify('De declaratie moet minimaal één bijlage hebben'), 403)
+
             valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
 
             if not valid_update:
@@ -424,6 +427,22 @@ class ClaimExpenses:
                 expense["status"]["export_date"] = document_time
                 expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
+
+    def _has_attachments(self, expense, data):
+        allowed_statuses_new = ['draft', 'cancelled', 'rejected_by_manager', 'rejected_by_creditor']
+        allowed_statuses_old = ['rejected_by_manager', 'rejected_by_creditor']
+        if data.get('status', '') in allowed_statuses_new or \
+                expense['status']['text'] in allowed_statuses_old:
+            return True
+
+        email_name = expense["employee"]["email"].split("@")[0]
+
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+        blobs = expenses_bucket.list_blobs(
+            prefix=f"exports/attachments/{email_name}/{str(expense.key.id)}"
+        )
+
+        return True if len(list(blobs)) > 0 else False
 
     @staticmethod
     def get_iban_details(iban):
@@ -770,8 +789,9 @@ class ClaimExpenses:
 
     def _process_cost_type(self, cost_type, cost_types_list):
         grootboek_number = re.search("[0-9]{6}", cost_type)
-        if grootboek_number and grootboek_number.group() in cost_types_list:
-            return cost_types_list[grootboek_number.group()]
+
+        if grootboek_number and int(grootboek_number.group()) in cost_types_list:
+            return cost_types_list[int(grootboek_number.group())]
 
         return None
 
