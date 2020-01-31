@@ -114,6 +114,8 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
+            if ',' not in attachment.content:
+                return False
             content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
             content = base64.b64decode(attachment.content.split(",")[1])  # Set the content from base64
             if not content_type or not content:
@@ -137,11 +139,8 @@ class ClaimExpenses:
                 content_type=content_type
             )
             return True
-        except ValueError as e:
-            logger.warning(str(e))
-            return False
-        except Exception as e:
-            logger.warning(str(e))
+        except Exception:
+            logging.exception("Something went wrong with the attachment upload")
             return False
 
     def delete_attachment(self, expenses_id, attachments_name):
