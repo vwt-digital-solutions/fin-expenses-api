@@ -19,7 +19,7 @@ import pytz
 import config
 import logging
 import pandas as pd
-from PyPDF4 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter
 
 import connexion
 import googleapiclient.discovery
@@ -114,14 +114,18 @@ class ClaimExpenses:
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
-            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0]).group()
+            if ',' not in attachment.content:
+                return False
+            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
             content = base64.b64decode(attachment.content.split(",")[1])  # Set the content from base64
             if not content_type or not content:
                 return False
+            content_type = content_type.group()
             if content_type == 'application/pdf':
                 writer = PdfFileWriter()  # Create a PdfFileWriter to store the new PDF
-                with tempfile.NamedTemporaryFile(delete=True) as temp_file:
-                    temp_file.write(base64.b64decode(attachment.content.split(",")[1]))
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(content)
+                    temp_file.close()
                     reader = PdfFileReader(open(temp_file.name, 'rb'))  # Read the bytes from temp with original b64
                     [writer.addPage(reader.getPage(i)) for i in range(0, reader.getNumPages())]  # Add pages
                     writer.removeLinks()  # Remove all linking in PDF (not external website links)
@@ -135,8 +139,8 @@ class ClaimExpenses:
                 content_type=content_type
             )
             return True
-        except Exception as e:
-            logger.warning(str(e))
+        except Exception:
+            logging.exception("Something went wrong with the attachment upload")
             return False
 
     def delete_attachment(self, expenses_id, attachments_name):
@@ -338,7 +342,13 @@ class ClaimExpenses:
             old_expense = copy.deepcopy(expense)
 
             if expense['status']['text'] == "draft" and \
-                    data.get('status', '') != 'draft':
+                    data.get('status', '') != 'draft' and \
+                    'ready' in data.get('status', ''):
+                if len(data) > 1:
+                    return make_response(
+                        jsonify('Moving from draft status ' +
+                                'is not allowed when updating fields'), 403)
+
                 min_amount = self._process_expense_min_amount(
                     data.get('cost_type', expense['cost_type']))
                 if min_amount == 0 or \
@@ -359,6 +369,9 @@ class ClaimExpenses:
                     expense['cost_type'])
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
+
+            if not self._has_attachments(expense, data):
+                return make_response(jsonify('De declaratie moet minimaal één bijlage hebben'), 403)
 
             valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
 
@@ -420,6 +433,22 @@ class ClaimExpenses:
                 expense["status"]["export_date"] = document_time
                 expense["status"]["text"] = "exported"
                 self.ds_client.put(expense)
+
+    def _has_attachments(self, expense, data):
+        allowed_statuses_new = ['draft', 'cancelled', 'rejected_by_manager', 'rejected_by_creditor']
+        allowed_statuses_old = ['rejected_by_manager', 'rejected_by_creditor']
+        if data.get('status', '') in allowed_statuses_new or \
+                expense['status']['text'] in allowed_statuses_old:
+            return True
+
+        email_name = expense["employee"]["email"].split("@")[0]
+
+        expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
+        blobs = expenses_bucket.list_blobs(
+            prefix=f"exports/attachments/{email_name}/{str(expense.key.id)}"
+        )
+
+        return True if len(list(blobs)) > 0 else False
 
     @staticmethod
     def get_iban_details(iban):
@@ -766,8 +795,9 @@ class ClaimExpenses:
 
     def _process_cost_type(self, cost_type, cost_types_list):
         grootboek_number = re.search("[0-9]{6}", cost_type)
-        if grootboek_number and grootboek_number.group() in cost_types_list:
-            return cost_types_list[grootboek_number.group()]
+
+        if grootboek_number and int(grootboek_number.group()) in cost_types_list:
+            return cost_types_list[int(grootboek_number.group())]
 
         return None
 
