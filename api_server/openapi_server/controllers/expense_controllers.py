@@ -343,6 +343,11 @@ class ClaimExpenses:
             if expense['status']['text'] == "draft" and \
                     data.get('status', '') != 'draft' and \
                     'ready' in data.get('status', ''):
+                if len(data) > 1:
+                    return make_response(
+                        jsonify('Moving from draft status ' +
+                                'is not allowed when updating fields'), 403)
+
                 min_amount = self._process_expense_min_amount(
                     data.get('cost_type', expense['cost_type']))
                 if min_amount == 0 or \
