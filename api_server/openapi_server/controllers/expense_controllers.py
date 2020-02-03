@@ -257,11 +257,12 @@ class ClaimExpenses:
         """
         if "unique_name" in self.employee_info.keys():
             ready_text = "draft"
-
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
-                    BusinessRulesEngine().process_rules(data, afas_data)
+                    business_rule_data = data.to_dict()
+                    business_rule_data["status"] = ready_text
+                    BusinessRulesEngine().process_rules(business_rule_data, afas_data)
                     data.manager_type = self._process_expense_manager_type(
                         data.cost_type)
                 except ValueError as exception:
@@ -360,7 +361,7 @@ class ClaimExpenses:
                 return make_response(jsonify('The content of this method is not valid'), 403)
 
             try:
-                BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'])
+                BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'], expense)
                 data['manager_type'] = self._process_expense_manager_type(
                     data['cost_type'] if 'cost_type' in data else
                     expense['cost_type'])
