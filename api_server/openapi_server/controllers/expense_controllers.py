@@ -260,9 +260,7 @@ class ClaimExpenses:
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
-                    business_rule_data = data.to_dict()
-                    business_rule_data["status"] = ready_text
-                    BusinessRulesEngine().process_rules(business_rule_data, afas_data)
+                    BusinessRulesEngine().pao_rule(data, afas_data)
                     data.manager_type = self._process_expense_manager_type(
                         data.cost_type)
                 except ValueError as exception:
@@ -284,8 +282,14 @@ class ClaimExpenses:
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
-                        "manager_type": data.manager_type
+                        "manager_type": data.manager_type,
                     }
+
+                    modified_data = BusinessRulesEngine().to_dict(data) if isinstance(data, ExpenseData) \
+                        else data
+                    BusinessRulesEngine().duplicate_rule(modified_data, afas_data)
+                    if "flags" in modified_data:
+                        new_expense["flags"] = modified_data["flags"]
 
                     entity.update(new_expense)
                     self.ds_client.put(entity)
@@ -358,12 +362,11 @@ class ClaimExpenses:
                     data['status'] = "ready_for_creditor"
 
             allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
-
             if not allowed_fields or not allowed_statuses:
                 return make_response(jsonify('The content of this method is not valid'), 403)
 
             try:
-                BusinessRulesEngine().process_rules(data, expense['employee']['afas_data'], expense)
+                BusinessRulesEngine().pao_rule(data, expense['employee']['afas_data'])
                 data['manager_type'] = self._process_expense_manager_type(
                     data['cost_type'] if 'cost_type' in data else
                     expense['cost_type'])
@@ -372,6 +375,11 @@ class ClaimExpenses:
 
             if not self._has_attachments(expense, data):
                 return make_response(jsonify('De declaratie moet minimaal één bijlage hebben'), 403)
+
+            BusinessRulesEngine().duplicate_rule(data, expense['employee']['afas_data'], expense)
+            # If there are no warnings to display: remove flags property from entity
+            if "flags" not in data and "flags" in expense:
+                del expense["flags"]
 
             valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
 
@@ -826,7 +834,7 @@ class ClaimExpenses:
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": ed["status"]
                 }
                 for ed in expenses_data
             ])
@@ -843,10 +851,10 @@ class ClaimExpenses:
         for attribute in list(set(old_expense) | set(expense)):
             if attribute not in old_expense:
                 changed.append({attribute: {"new": expense[attribute]}})
-            elif old_expense[attribute] != expense[attribute]:
-                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
             elif attribute not in expense:
                 changed.append({attribute: {"old": old_expense[attribute], "new": None}})
+            elif old_expense[attribute] != expense[attribute]:
+                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
 
         key = self.ds_client.key("Expenses_Journal")
         entity = datastore.Entity(key=key)
@@ -1008,7 +1016,8 @@ class EmployeeExpenses(ClaimExpenses):
                 "note",
                 "transaction_date",
                 "amount",
-                "manager_type"
+                "manager_type",
+                "flags"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -1569,6 +1578,9 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
+            if 'amount' in form_data and isinstance(form_data['amount'], int):
+                form_data['amount'] = float(form_data['amount'])
+
             if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
                 if datetime.datetime.strptime(form_data.get('transaction_date'),
                                               '%Y-%m-%dT%H:%M:%S.%fZ') > datetime.datetime.today() \

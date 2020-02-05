@@ -15,12 +15,12 @@ class BusinessRulesEngine:
         pass
 
     def process_rules(self, data, employee, expense=None):
+        self.pao_rule(data, employee)
+        self.duplicate_rule(data, employee, expense)
+
+    def pao_rule(self, data, employee):
         expense_data = self.to_dict(data) if isinstance(data, ExpenseData) \
             else data
-        self.pao_rule(expense_data, employee)
-        self.duplicate_rule(expense_data, employee, expense)
-
-    def pao_rule(self, expense_data, employee):
         if hasattr(config, "CONDITION_PAO_COMPANY") and \
                 hasattr(config, "CONDITION_PAO_AMOUNT"):
             if "Bedrijf" in employee and "amount" in expense_data and \
@@ -30,14 +30,21 @@ class BusinessRulesEngine:
                     "Het declaratiebedrag moet hoger zijn dan €{},-".format(
                         config.CONDITION_PAO_AMOUNT))
 
-    def duplicate_rule(self, modified_data, employee, original_expense):
-        if "draft" == modified_data.get("status", ""):
-            return
+    def duplicate_rule(self, modified_data, employee, original_expense=None):
+        ds = datastore.Client()
 
-        check_amount = modified_data.get("amount", original_expense["amount"])
-        check_date = modified_data.get("transaction_date", original_expense["transaction_date"])
+        # Values when expense is new (original_expense = None)
+        check_amount = modified_data.get("amount", "")
+        check_date = modified_data.get("transaction_date", "")
+        expense_id = 0
 
-        expenses_ds = datastore.Client().query(kind="Expenses")
+        # Values when expense is updated (original_expense exists)
+        if original_expense is not None:
+            check_amount = modified_data.get("amount", original_expense["amount"])
+            check_date = modified_data.get("transaction_date", original_expense["transaction_date"])
+            expense_id = original_expense.id
+
+        expenses_ds = ds.query(kind="Expenses")
 
         expenses_ds.add_filter("transaction_date", "=", check_date)
         expenses_ds.add_filter("amount", "=", check_amount)
@@ -46,10 +53,11 @@ class BusinessRulesEngine:
         duplicate_expenses = expenses_ds.fetch()
         duplicates = []
         for duplicate in duplicate_expenses:
-            if duplicate["status"]["text"] != "draft" and duplicate.id != original_expense.id:
+            if duplicate["status"]["text"] not in ["draft", "cancelled"] and duplicate.id != expense_id:
                 duplicates.append(duplicate.id)
 
-        return
+        if duplicates:
+            modified_data["flags"] = {"duplicates": duplicates}
 
     def to_dict(self, obj):
         pr = {}
