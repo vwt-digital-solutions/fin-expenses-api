@@ -295,11 +295,6 @@ class ClaimExpenses:
                     self.ds_client.put(entity)
                     self.expense_journal({}, entity)
 
-                    if ready_text == 'ready_for_manager':
-                        self.send_email_notification(
-                            'add_expense', afas_data,
-                            entity.key.id_or_name)
-
                     return make_response(
                         jsonify(entity.key.id_or_name), 201)
             else:
@@ -345,13 +340,16 @@ class ClaimExpenses:
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
 
+            is_draft = False
+
             if expense['status']['text'] == "draft" and \
                     data.get('status', '') != 'draft' and \
                     'ready' in data.get('status', ''):
+                is_draft = True
                 if len(data) > 1:
                     return make_response(
-                        jsonify('Moving from draft status ' +
-                                'is not allowed when updating fields'), 403)
+                        jsonify('Het indienen van een concept-declaratie ' +
+                                'is niet toegestaan tijdens het aanpassen van velden'), 403)
 
                 min_amount = self._process_expense_min_amount(
                     data.get('cost_type', expense['cost_type']))
@@ -388,9 +386,15 @@ class ClaimExpenses:
 
             self.expense_journal(old_expense, expense)
 
-            if data['status'] == 'rejected_by_manager' or data['status'] == 'rejected_by_creditor':
-                self.send_notification('mail',
-                                       'edit_expense',
+            if data['status'] in \
+                    ['rejected_by_manager', 'rejected_by_creditor']:
+                self.send_notification('mail', 'edit_expense',
+                                       expense['employee']['afas_data'],
+                                       expense.key.id_or_name)
+            elif data['status'] == 'ready_for_manager' and is_draft and \
+                    self._process_expense_manager_type(
+                        data.get('cost_type', expense['cost_type'])) == 'linemanager':
+                self.send_notification('mail', 'add_expense',
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
 
