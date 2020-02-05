@@ -380,7 +380,6 @@ class ClaimExpenses:
                 del expense["flags"]
 
             valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
-
             if not valid_update:
                 return make_response(jsonify('The content of this method is not valid'), 403)
 
@@ -1135,7 +1134,8 @@ class ManagerExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
-                "manager_type"
+                "manager_type",
+                "flags"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
@@ -1347,7 +1347,8 @@ class CreditorExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
-                "manager_type"
+                "manager_type",
+                "flags"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
