@@ -617,6 +617,13 @@ components:
           type: string
           format: date-time
           pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
+        flags:
+          type: object
+          properties:
+            declaraties:
+              type: array
+              items:
+                type: integer
       example: |-
         {
             "note": "This is a note",
@@ -624,6 +631,7 @@ components:
             "amount": 45.56,
             "cost_type": "Office Utilities",
             "transaction_date": "2017-07-21T17:32:28Z"
+            "flags": "{"duplicates": [5107419516502016]}"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray

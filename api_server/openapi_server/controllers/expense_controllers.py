@@ -205,6 +205,9 @@ class ClaimExpenses:
                         "cost_type": expense["cost_type"],
                     }
                 ]
+                if "flags" in expense:
+                    results[0]["flags"] = expense["flags"]
+
                 return jsonify(results)
 
             return make_response(jsonify(None), 204)
@@ -837,7 +840,8 @@ class ClaimExpenses:
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"]
+                    "status": ed["status"],
+                    "flags": ed.get("flags", {})
                 }
                 for ed in expenses_data
             ])
@@ -1068,7 +1072,8 @@ class ManagerExpenses(ClaimExpenses):
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": ed["status"],
-                    "manager_type": ed.get("manager_type")
+                    "manager_type": ed.get("manager_type"),
+                    "flags": ed.get("flags", {})
                 }
                 for ed in expenses_data
             ]
