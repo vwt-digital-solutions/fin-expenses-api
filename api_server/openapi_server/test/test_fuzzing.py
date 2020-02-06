@@ -1,19 +1,14 @@
 import json
-import unittest
-import requests
-import logging
 import re
-import sys
-import argparse
 import os
 import adal
 import config
 import warnings
 
 from prance import ResolvingParser
-from http.client import HTTPConnection
 from time import sleep
 from openapi_server.test import BaseTestCase
+
 
 def get_token():
     """
@@ -27,7 +22,8 @@ def get_token():
 
     # get an Azure access token using the adal library
     context = adal.AuthenticationContext(oauth_expected_authenticator)
-    token_response = context.acquire_token_with_client_credentials(resource, client_id, client_secret)
+    token_response = context.acquire_token_with_client_credentials(
+        resource, client_id, client_secret)
 
     access_token = token_response.get('accessToken')
     return access_token
@@ -47,13 +43,10 @@ def do_post_req(mytestcase, ep, headers, payload):
             method='POST',
             data=json.dumps(payload),
             headers=headers)
-        # r = requests.post('{}'.format(ep), data=payload,
-        #                   headers=headers, timeout=20, allow_redirects=False)
     except Exception as e:
-        print("    Exception connecting to {} with {}".format(ep, str(e)))
-        return({"status_code": -1, "content": ""})
+        print("Exception connecting to {} with {}".format(ep, str(e)))
+        return {"status_code": -1, "content": ""}
     else:
-        # print("    POST request to {} returned status {}: {}".format(ep, r.status_code, r.data))
         return r
 
 
@@ -70,18 +63,16 @@ def do_get_req(mytestcase, ep, headers):
             ep,
             method='GET',
             headers=headers)
-        # r = requests.get('{}'.format(ep), headers=headers,
-        #                  timeout=20, allow_redirects=False)
     except Exception as e:
         print("    Exception connecting to {} with {}".format(ep, str(e)))
-        return({"status_code": -1, "content": ""})
+        return {"status_code": -1, "content": ""}
     else:
-        # print("    GET request to {} returned status {}: {}".format(ep,r.status_code, r.content))
-        return(r)
+        return r
 
 
 def get_happyday_pattern(datatype):
-    fuzzdbfile = "openapi_server/test/fuzz-{}.txt".format(re.sub(r'[^a-zA-Z]', '', datatype))
+    fuzzdbfile = "openapi_server/test/fuzz-{}.txt".format(
+        re.sub(r'[^a-zA-Z]', '', datatype))
     fuzzdbfallbackfile = "openapi_server/test/fuzz-fallback.txt"
     happydaystring = ""
     if os.path.exists(fuzzdbfile):
@@ -97,7 +88,8 @@ def get_happyday_pattern(datatype):
 
 
 def get_fuzz_patterns(datatype):
-    fuzzdbfile = "openapi_server/test/fuzz-{}.txt".format(re.sub(r'[^a-zA-Z]', '', datatype))
+    fuzzdbfile = "openapi_server/test/fuzz-{}.txt".format(
+        re.sub(r'[^a-zA-Z]', '', datatype))
     fuzzdbfallbackfile = "openapi_server/test/fuzz-fallback.txt"
     lines = []
     if os.path.exists(fuzzdbfile):
@@ -171,7 +163,8 @@ def generate_payloads_from_postvars(postvars):
                     datatype = postvars.get(param, {}).get("type", "")
                     happydaystring = get_happyday_pattern(datatype)
                     if param == fuzzparam:
-                        if jsontype == "int" or datatype == "int" or datatype == "number":
+                        if jsontype == "int" or datatype == "int" or \
+                                datatype == "number":
                             try:
                                 payload[param] = int(line.rstrip())
                             except ValueError:
@@ -201,7 +194,7 @@ def do_post_fuzzing(*args, **kwargs):
     pathvars = kwargs.get('pathvars', {})
     postvars = kwargs.get('postvars', {})
     responses = kwargs.get('responses', [])
-    self = kwargs.get('mytestcase', None) 
+    self = kwargs.get('mytestcase', None)
 
     newresponses = []
     for response in responses:
@@ -215,9 +208,10 @@ def do_post_fuzzing(*args, **kwargs):
     payloads = generate_payloads_from_postvars(postvars)
 
     for payload in payloads:
-        with self.subTest(method="POST", url=url, payload=payload, headers=headers):
+        with self.subTest(method="POST", url=url, payload=payload,
+                          headers=headers):
             r = do_post_req(self, url, headers, payload)
-            self.assertLess(r.status_code,500)
+            self.assertLess(r.status_code, 500)
             self.assertIn(r.status_code, responses)
     return True
 
@@ -231,12 +225,9 @@ def do_get_fuzzing(*args, **kwargs):
     path = kwargs.get('path', None)
     pathvars = kwargs.get('pathvars', {})
     responses = kwargs.get('responses', [])
-    self = kwargs.get('mytestcase', None) 
+    self = kwargs.get('mytestcase', None)
 
     urls = generate_urls_from_pathvars(baseurl, path, pathvars)
-    stats = {}
-    stats['path'] = path
-    stats['method'] = 'GET'
 
     newresponses = []
     for response in responses:
@@ -249,42 +240,55 @@ def do_get_fuzzing(*args, **kwargs):
     for url in urls:
         with self.subTest(method="GET", url=url, headers=headers):
             r = do_get_req(self, url, headers)
-            self.assertLess(r.status_code,500)
+            self.assertLess(r.status_code, 500)
             self.assertIn(r.status_code, responses)
     return True
 
-def do_fuzzing(mytestcase, headers):
 
+def do_fuzzing(mytestcase, headers):
     self = mytestcase
     baseurl = ""
 
     parser = ResolvingParser("openapi_server/openapi/openapi.yaml")
     spec = parser.specification  # contains fully resolved specs as a dict
-    # print(json.dumps(parser.specification.get("paths").get("/employees/expenses/{expenses_id}/attachments").get("post"),indent=2))
-    for path, pathvalues in spec.get("paths",{}).items():
-        for method,methodvalues in pathvalues.items():
+    # print(json.dumps(parser.specification.get("paths").get(
+    #     "/employees/expenses/{expenses_id}/attachments").get(
+    #     "post"),indent=2))
+    for path, pathvalues in spec.get("paths", {}).items():
+        for method, methodvalues in pathvalues.items():
             pathvars = {}
-            # postvars = {}
             if method == 'get':
                 if 'parameters' in methodvalues.keys():
-                    pathvars = methodvalues.get("parameters",{})
-                    responses = list(methodvalues.get("responses",{}).keys())
+                    pathvars = methodvalues.get("parameters", {})
+                    responses = list(methodvalues.get("responses", {}).keys())
                     # print("--------------------------------------------")
                     # print("GET fuzzing {}".format(path))
-                    do_get_fuzzing(mytestcase=self, baseurl=baseurl, headers=headers, path=path, pathvars=pathvars, responses=responses)
+                    do_get_fuzzing(mytestcase=self, baseurl=baseurl,
+                                   headers=headers, path=path,
+                                   pathvars=pathvars, responses=responses)
             if method == 'post':
-                responses = list(methodvalues.get("responses",{}).keys())
-                if 'requestBody' in methodvalues.keys() and 'parameters' in methodvalues.keys():
+                responses = list(methodvalues.get("responses", {}).keys())
+                if 'requestBody' in methodvalues.keys() and \
+                        'parameters' in methodvalues.keys():
                     pathvars = methodvalues.get("parameters")
-                    postvars = methodvalues.get("requestBody",{}).get("content",{}).get("application/json",{}).get("schema",{}).get("properties",{})
+                    postvars = methodvalues.get("requestBody", {}).get(
+                        "content", {}).get("application/json", {}).get(
+                        "schema", {}).get("properties", {})
                     # print("--------------------------------------------")
                     # print("POST fuzzing param URL {}:".format(path))
-                    do_post_fuzzing(mytestcase=self, baseurl=baseurl, headers=headers, path=path, pathvars=pathvars, postvars=postvars, responses=responses)
+                    do_post_fuzzing(mytestcase=self, baseurl=baseurl,
+                                    headers=headers, path=path,
+                                    pathvars=pathvars, postvars=postvars,
+                                    responses=responses)
                 elif 'requestBody' in methodvalues.keys():
-                    postvars = methodvalues.get("requestBody",{}).get("content",{}).get("application/json",{}).get("schema",{}).get("properties",{})
+                    postvars = methodvalues.get("requestBody", {}).get(
+                        "content", {}).get("application/json", {}).get(
+                        "schema", {}).get("properties", {})
                     # print("--------------------------------------------")
                     # print("POST fuzzing non-param URL {}:".format(path))
-                    do_post_fuzzing(mytestcase=self, baseurl=baseurl, headers=headers, path=path, postvars=postvars, responses=responses)
+                    do_post_fuzzing(mytestcase=self, baseurl=baseurl,
+                                    headers=headers, path=path,
+                                    postvars=postvars, responses=responses)
 
 
 class TestvAPI(BaseTestCase):
@@ -304,4 +308,3 @@ class TestvAPI(BaseTestCase):
             'Authorization': f'Bearer {access_token}',
         }
         do_fuzzing(self, headers)
-

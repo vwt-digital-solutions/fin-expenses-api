@@ -5,7 +5,7 @@ def shift_to_business_days(pending: int):
     """
 
     :type pending: int
-    
+
     :returns int
     """
     business_shift = 0

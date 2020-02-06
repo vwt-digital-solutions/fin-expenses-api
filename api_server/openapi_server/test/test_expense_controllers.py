@@ -3,7 +3,6 @@
 from __future__ import absolute_import
 
 import config
-import json
 import unittest
 
 import adal
