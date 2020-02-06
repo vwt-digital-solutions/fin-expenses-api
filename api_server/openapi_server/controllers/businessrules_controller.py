@@ -1,6 +1,7 @@
 import config
 import inspect
 
+from datetime import datetime
 from openapi_server.models.expense_data import ExpenseData
 from google.cloud import datastore
 
@@ -17,6 +18,7 @@ class BusinessRulesEngine:
     def process_rules(self, data, employee, expense=None):
         self.pao_rule(data, employee)
         self.duplicate_rule(data, employee, expense)
+        self.employed_rule(employee)
 
     def pao_rule(self, data, employee):
         expense_data = self.to_dict(data) if isinstance(data, ExpenseData) \
@@ -29,6 +31,13 @@ class BusinessRulesEngine:
                 raise ValueError(
                     "Het declaratiebedrag moet hoger zijn dan €{},-".format(
                         config.CONDITION_PAO_AMOUNT))
+
+    def employed_rule(self, employee):
+        current_day = datetime.today().strftime('%Y-%m-%dT00:00:00Z')
+        if 'Datum_uit_dienst' in employee and \
+                employee['Datum_uit_dienst'] and \
+                employee['Datum_uit_dienst'] < current_day:
+            raise ValueError("Dit account is niet meer actief")
 
     def duplicate_rule(self, modified_data, employee, original_expense=None):
         ds = datastore.Client()

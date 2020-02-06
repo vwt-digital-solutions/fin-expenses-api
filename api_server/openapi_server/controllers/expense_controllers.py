@@ -263,6 +263,7 @@ class ClaimExpenses:
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
+                    BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
                     data.manager_type = self._process_expense_manager_type(
                         data.cost_type)
@@ -367,6 +368,7 @@ class ClaimExpenses:
                 return make_response(jsonify('The content of this method is not valid'), 403)
 
             try:
+                BusinessRulesEngine().employed_rule(expense['employee']['afas_data'])
                 BusinessRulesEngine().pao_rule(data, expense['employee']['afas_data'])
                 data['manager_type'] = self._process_expense_manager_type(
                     data['cost_type'] if 'cost_type' in data else
