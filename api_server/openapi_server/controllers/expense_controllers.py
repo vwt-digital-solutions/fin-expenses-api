@@ -11,6 +11,7 @@ import tempfile
 import xml.etree.cElementTree as ET
 import defusedxml.minidom as MD
 from abc import abstractmethod
+from decimal import Decimal
 from io import BytesIO
 from typing import Dict, Any
 import dateutil
@@ -623,11 +624,10 @@ class ClaimExpenses:
         root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
         customer_header = ET.SubElement(root, "CstmrCdtTrfInitn")
-        expense_claims_to_export
-        ctrl_sum = 0
 
+        ctrl_sum = Decimal(0)
         for expense in expense_claims_to_export:
-            ctrl_sum += expense['amount']
+            ctrl_sum += Decimal(str(expense['amount']))
 
         # Group Header
         header = ET.SubElement(customer_header, "GrpHdr")
@@ -1608,7 +1608,6 @@ def update_expenses_employee(expenses_id):
                     "}": "&rbrace;"
                 }
                 form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
-
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception:
         logging.exception("Update exp")
