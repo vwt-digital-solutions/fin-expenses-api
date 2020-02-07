@@ -331,6 +331,19 @@ class ClaimExpenses:
     def _prepare_context_update_expense(self, expense):
         pass
 
+    def _prepare_response_update_expense(self, expense):
+        return {
+            "id": expense.id,
+            "amount": expense["amount"],
+            "note": expense["note"],
+            "cost_type": expense["cost_type"],
+            "claim_date": expense["claim_date"],
+            "transaction_date": expense["transaction_date"],
+            "employee": expense["employee"]["full_name"],
+            "status": expense["status"],
+            "flags": expense.get("flags", {})
+        }
+
     def update_expenses(self, expenses_id, data, note_check=False):
         """
         Change the status and add note from expense
@@ -406,7 +419,8 @@ class ClaimExpenses:
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
 
-            return make_response(jsonify(None), 200)
+            return make_response(jsonify(
+                self._prepare_response_update_expense(expense)), 200)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -1235,7 +1249,8 @@ class CreditorExpenses(ClaimExpenses):
                     "rnote": expense.get("status", {}).get("rnote", ""),
                     "manager": expense.get("employee", {}).get("afas_data", {}).get(
                         "Manager_personeelsnummer", "Manager not found: check expense"),
-                    "export_date": expense["status"].get("export_date", "")
+                    "export_date": expense["status"].get("export_date", ""),
+                    "flags": expense.get("flags", {})
                 }
 
                 expense_row["export_date"] = (expense_row["export_date"], "")[expense_row["export_date"] == "never"]
