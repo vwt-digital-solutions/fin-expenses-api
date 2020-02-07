@@ -199,17 +199,17 @@ class ClaimExpenses:
                     if not expense["employee"]["email"] == self.employee_info["unique_name"]:
                         return make_response(jsonify('No match on email'), 403)
 
-                results = [
-                    {
+                return jsonify({
+                        "id": expense.id,
                         "amount": expense["amount"],
                         "note": expense["note"],
                         "cost_type": expense["cost_type"],
-                    }
-                ]
-                if "flags" in expense:
-                    results[0]["flags"] = expense["flags"]
-
-                return jsonify(results)
+                        "claim_date": expense["claim_date"],
+                        "transaction_date": expense["transaction_date"],
+                        "employee": expense["employee"]["full_name"],
+                        "status": expense["status"]["text"],
+                        "flags": expense.get("flags", {}),
+                    })
 
             return make_response(jsonify(None), 204)
 
