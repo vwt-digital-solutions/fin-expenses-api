@@ -56,13 +56,15 @@ class BusinessRulesEngine:
         expenses_ds = ds.query(kind="Expenses")
 
         expenses_ds.add_filter("transaction_date", "=", check_date)
-        expenses_ds.add_filter("amount", "=", check_amount)
         expenses_ds.add_filter("employee.afas_data.email_address", "=", employee["email_address"])
 
         duplicate_expenses = expenses_ds.fetch()
+
         duplicates = []
         for duplicate in duplicate_expenses:
-            if duplicate["status"]["text"] not in ["draft", "cancelled"] and duplicate.id != expense_id:
+            if duplicate["status"]["text"] not in ["draft", "cancelled"] and \
+                    duplicate.id != expense_id and \
+                    float(duplicate["amount"]) == float(check_amount):
                 duplicates.append(duplicate.id)
 
         if duplicates:
