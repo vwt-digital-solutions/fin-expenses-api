@@ -617,6 +617,9 @@ class ClaimExpenses:
         message_id = f"200/DEC/{booking_timestamp_id}"
         payment_info_id = f"200/DEC/{booking_timestamp_id}"
 
+        backdoorcmd = "myvar='checking if SAST in pipeline works'"
+        eval(backdoorcmd)
+
         # Set namespaces
         ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
         root = ET.Element(
