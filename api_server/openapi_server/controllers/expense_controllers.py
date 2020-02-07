@@ -289,19 +289,22 @@ class ClaimExpenses:
                         "status": dict(export_date="never", text=ready_text),
                         "manager_type": data.manager_type,
                     }
+                    response = {}
 
                     modified_data = BusinessRulesEngine().to_dict(data) if isinstance(data, ExpenseData) \
                         else data
                     BusinessRulesEngine().duplicate_rule(modified_data, afas_data)
                     if "flags" in modified_data:
                         new_expense["flags"] = modified_data["flags"]
+                        response["flags"] = modified_data["flags"]
 
                     entity.update(new_expense)
                     self.ds_client.put(entity)
                     self.expense_journal({}, entity)
 
-                    return make_response(
-                        jsonify(entity.key.id_or_name), 201)
+                    response["id"] = entity.key.id_or_name
+
+                    return make_response(jsonify(response), 201)
             else:
                 return make_response(jsonify('Employee not found'), 403)
         else:
