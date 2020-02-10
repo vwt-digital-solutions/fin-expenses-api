@@ -216,7 +216,7 @@ class ClaimExpenses:
                             jsonify('No match on leasecoordinator'), 403)
                     elif expense['manager_type'] != 'leasecoordinator' and \
                             not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
-                                self.get_manager_identifying_value():
+                            self.get_manager_identifying_value():
                         return make_response(
                             jsonify('No match on manager email'), 403)
 
@@ -382,15 +382,14 @@ class ClaimExpenses:
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
 
-            is_draft = False
+            is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
 
-            if expense['status']['text'] == "draft" and \
-                    data.get('status', '') != 'draft' and \
+            if (expense['status']['text'] == "draft" or "rejected" in expense['status']['text']) and \
                     'ready' in data.get('status', ''):
-                is_draft = True
+
                 if len(data) > 1:
                     return make_response(
-                        jsonify('Het indienen van een concept-declaratie ' +
+                        jsonify('Het indienen van een declaratie ' +
                                 'is niet toegestaan tijdens het aanpassen van velden'), 403)
 
                 min_amount = self._process_expense_min_amount(
@@ -1051,8 +1050,8 @@ class EmployeeExpenses(ClaimExpenses):
         # Check if status update is not unauthorized
         allowed_status_transitions = {
             'draft': ['draft', 'ready_for_manager', 'ready_for_creditor', 'cancelled'],
-            'rejected_by_manager': ['ready_for_manager', 'ready_for_creditor', 'cancelled'],
-            'rejected_by_creditor': ['ready_for_manager', 'ready_for_creditor', 'cancelled']
+            'rejected_by_manager': ['rejected_by_manager', 'ready_for_manager', 'ready_for_creditor', 'cancelled'],
+            'rejected_by_creditor': ['rejected_by_creditor', 'ready_for_manager', 'ready_for_creditor', 'cancelled']
         }
 
         if expense['status']['text'] in allowed_status_transitions:
