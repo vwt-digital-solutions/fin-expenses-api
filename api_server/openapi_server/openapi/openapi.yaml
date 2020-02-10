@@ -481,6 +481,33 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseData'
+          description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
+        default:
+          description: Expense Success
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_expenses_manager
+      summary: Get information from expenses by id
+      description: Retrieve an expense
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /managers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -534,6 +561,34 @@ paths:
       operationId: get_controller_expenses
       summary: Get all expenses
       description: Get all expenses for controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+  /controllers/expenses/{expenses_id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseData'
+          description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
+        default:
+          description: Expense Success
+      security:
+        - oauth2: [controller.write]
+      operationId: get_expenses_controller
+      summary: Get information from expenses by id
+      description: Retrieve an expense
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
   /controllers/expenses/{expenses_id}/attachments:

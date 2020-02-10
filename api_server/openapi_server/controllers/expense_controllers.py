@@ -183,6 +183,13 @@ class ClaimExpenses:
         ]
         return jsonify(results)
 
+    def get_manager_identifying_value(self):
+        afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
+        if afas_data:
+            return afas_data["Personeelsnummer"]
+
+        return None
+
     def get_expenses(self, expenses_id, permission):
         """
         Get single expense by expense id and check if permission is employee if expense is from employee
@@ -196,8 +203,22 @@ class ClaimExpenses:
 
             if expense:
                 if permission == "employee":
-                    if not expense["employee"]["email"] == self.employee_info["unique_name"]:
-                        return make_response(jsonify('No match on email'), 403)
+                    if not expense["employee"]["email"] == \
+                           self.employee_info["unique_name"]:
+                        return make_response(
+                            jsonify('No match on email'), 403)
+                elif permission == "manager":
+                    print(expense)
+                    if expense['manager_type'] == 'leasecoordinator' and \
+                            'leasecoordinator.write' not in \
+                            self.employee_info.get('scopes', []):
+                        return make_response(
+                            jsonify('No match on leasecoordinator'), 403)
+                    elif expense['manager_type'] != 'leasecoordinator' and \
+                            not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
+                                self.get_manager_identifying_value():
+                        return make_response(
+                            jsonify('No match on manager email'), 403)
 
                 return jsonify({
                         "id": expense.id,
@@ -1658,12 +1679,28 @@ def get_expenses_employee(expenses_id):
     return expense_instance.get_expenses(expenses_id, "employee")
 
 
+def get_expenses_manager(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    expense_instance = ClaimExpenses()
+    return expense_instance.get_expenses(expenses_id, "manager")
+
+
 def get_expenses_creditor(expenses_id):
     """Get information from expenses by id
     :rtype: Expenses
     """
     expense_instance = ClaimExpenses()
     return expense_instance.get_expenses(expenses_id, "creditor")
+
+
+def get_expenses_controller(expenses_id):
+    """Get information from expenses by id
+    :rtype: Expenses
+    """
+    expense_instance = ClaimExpenses()
+    return expense_instance.get_expenses(expenses_id, "controller")
 
 
 def get_attachment_creditor(expenses_id):
