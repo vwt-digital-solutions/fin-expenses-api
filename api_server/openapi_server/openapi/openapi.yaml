@@ -591,6 +591,7 @@ paths:
       description: Retrieve an expense
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    x-eac-ignore: True
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
