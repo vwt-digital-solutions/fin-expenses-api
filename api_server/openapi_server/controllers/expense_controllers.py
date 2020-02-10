@@ -208,13 +208,14 @@ class ClaimExpenses:
                         return make_response(
                             jsonify('No match on email'), 403)
                 elif permission == "manager":
-                    print(expense)
-                    if expense['manager_type'] == 'leasecoordinator' and \
+                    if expense.get('manager_type', 'linemanager') == \
+                            'leasecoordinator' and \
                             'leasecoordinator.write' not in \
                             self.employee_info.get('scopes', []):
                         return make_response(
                             jsonify('No match on leasecoordinator'), 403)
-                    elif expense['manager_type'] != 'leasecoordinator' and \
+                    elif expense.get('manager_type', 'linemanager') != \
+                            'leasecoordinator' and \
                             not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
                                 self.get_manager_identifying_value():
                         return make_response(
