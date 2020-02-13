@@ -1,12 +1,13 @@
 ---
 openapi: 3.0.2
+x-zally-ignore: [101, 104, 105, 146, 151]
 info:
   title: Expenses API
-  version: '0.1'
+  version: '1.0'
   description: An API for the expenses app
   contact:
     name: VolkerWessels Telecom
-    url: 'http://www.volkerwesselstelecom.com'
+    url: 'https://www.vwtelecom.com'
     email: info@vwt.digital
   license:
     name: GNU GPLv3
@@ -407,7 +408,7 @@ paths:
         or retrieve file with all expenses
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  /finances/expenses/journal:
+  /finances/expenses/journals:
     get:
       parameters:
         - $ref: '#/components/parameters/DateFrom'
@@ -920,8 +921,10 @@ components:
           authorizationUrl: >-
             https://azuread.url/2.0/authorize
           scopes:
-            creditor.write: Write all expenses and documents
+            leasecoordinator.write: >
+              Read filtered expense and document information
             finance.expenses: Read expense and document information
+            creditor.write: Write all expenses and documents
             controller.write: Read all expense information
       x-tokenInfoFunc:
         openapi_server.controllers.security_controller_.info_from_oAuth2
