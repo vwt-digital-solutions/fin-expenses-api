@@ -1,3 +1,4 @@
+---
 openapi: 3.0.2
 info:
   title: Expenses API
@@ -293,7 +294,7 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
+    x-eac-ignore: true
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
@@ -429,7 +430,7 @@ paths:
       description: Retrieve csv with expenses from expenses_journal
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
+    x-eac-ignore: true
   /managers/expenses:
     get:
       responses:
@@ -591,7 +592,7 @@ paths:
       description: Retrieve an expense
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
+    x-eac-ignore: true
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
