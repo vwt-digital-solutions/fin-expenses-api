@@ -8,7 +8,7 @@ import csv
 
 import datetime
 import tempfile
-import xml.etree.cElementTree as ET
+import defusedxml.cElementTree as ET
 import defusedxml.minidom as MD
 from abc import abstractmethod
 from decimal import Decimal
