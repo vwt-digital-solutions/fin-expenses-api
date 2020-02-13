@@ -8,7 +8,9 @@ import csv
 
 import datetime
 import tempfile
-import defusedxml.cElementTree as ET
+
+from defusedxml import defuse_stdlib
+import xml.etree.cElementTree as ET  # nosec
 import defusedxml.minidom as MD
 from abc import abstractmethod
 from decimal import Decimal
@@ -38,6 +40,7 @@ from openapi_server.controllers.businessrules_controller import BusinessRulesEng
 from OpenSSL import crypto
 
 logger = logging.getLogger(__name__)
+defuse_stdlib()
 
 # Constants
 EXPORTABLE_STATUSES = ["approved"]
