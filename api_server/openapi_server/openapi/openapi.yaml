@@ -1,11 +1,13 @@
+---
 openapi: 3.0.2
+x-zally-ignore: [101, 104, 105, 146, 151]
 info:
   title: Expenses API
-  version: '0.1'
+  version: '1.0'
   description: An API for the expenses app
   contact:
     name: VolkerWessels Telecom
-    url: 'http://www.volkerwesselstelecom.com'
+    url: 'https://www.vwtelecom.com'
     email: info@vwt.digital
   license:
     name: GNU GPLv3
@@ -35,7 +37,8 @@ paths:
       operationId: add_expense
       summary: Make expense
       description: Create an expense
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /employees/cost-types:
     get:
       responses:
@@ -58,7 +61,8 @@ paths:
       operationId: get_cost_types
       summary: Get all cost_types
       description: Retrieve all cost_types
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /employees/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -82,7 +86,8 @@ paths:
       operationId: get_attachment_employee
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
     post:
       requestBody:
         $ref: '#/components/requestBodies/attachmentData'
@@ -107,7 +112,8 @@ paths:
       operationId: add_attachment_employee
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
@@ -120,7 +126,8 @@ paths:
       operationId: delete_attachment
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /employees/{employee_id}/expenses:
     get:
       parameters:
@@ -143,7 +150,9 @@ paths:
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28Z
-          description: Succesfull response - returns all expenses of a logged in employee
+          description: >
+            Succesfull response -
+            returns all expenses of a logged in employee
         '400':
           description: 'Invalid input'
         '401':
@@ -159,7 +168,8 @@ paths:
       operationId: get_employee_expenses
       summary: Get all expenses belonging to a specific logged in employee
       description: Retrieve all expenses for a logged in employee
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   '/employees/expenses/{expenses_id}':
     get:
       parameters:
@@ -186,7 +196,8 @@ paths:
       operationId: get_expenses_employee
       summary: Get information from expenses by id
       description: Retrieve an expense
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
     put:
       summary: Update expense
       operationId: update_expenses_employee
@@ -205,7 +216,8 @@ paths:
           description: Status of an expense has been updated
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   '/finances/documents':
     get:
       operationId: get_document_list
@@ -218,7 +230,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/BookingFile'
         '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
+          description: >
+            The unauthorized client is not allowed
+            to access the authorization grant type.
         '400':
           description: A missing parameter or, unsupported parameter value.
         '403':
@@ -227,15 +241,20 @@ paths:
           description: List of files got Successfully OK
       security:
         - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
     post:
       operationId: create_booking_and_payment_file
-      summary: Creates a single booking and payment document containing all expenses ready for payment.
+      summary: >
+        Creates a single booking and payment document
+        containing all expenses ready for payment.
       responses:
         '200':
           description: Download Success
         '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
+          description: >
+            The unauthorized client is not allowed to access
+            the authorization grant type.
         '400':
           description: A missing parameter or, unsupported parameter value.
         '403':
@@ -244,7 +263,8 @@ paths:
           description: Booking file made Successfully OK
       security:
         - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   '/finances/expenses/documents/{document_id}/kinds/{document_type}':
     get:
       operationId: get_document
@@ -260,7 +280,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/BookingFile'
         '401':
-          description: The unauthorized client is not allowed to access the authorization grant type.
+          description: >
+            The unauthorized client is not allowed to
+            access the authorization grant type.
         '400':
           description: A missing parameter or, unsupported parameter value.
         '403':
@@ -271,8 +293,9 @@ paths:
           description: Document file successfully retrieved
       security:
         - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-    x-eac-ignore: True
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   '/finances/expenses/{expenses_id}':
     put:
       summary: Update expense
@@ -292,7 +315,8 @@ paths:
           description: Status of an expense has been updated
       security:
         - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
     get:
       parameters:
         - $ref: '#/components/parameters/ExpensesId'
@@ -318,7 +342,8 @@ paths:
       operationId: get_expenses_creditor
       summary: Get information from expenses by id
       description: Retrieve an expense
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -342,7 +367,8 @@ paths:
       operationId: get_attachment_creditor
       security:
         - oauth2: [creditor.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /finances/expenses:
     get:
       parameters:
@@ -377,9 +403,12 @@ paths:
         - oauth2: [creditor.write]
       operationId: get_all_creditor_expenses
       summary: Get all expenses
-      description: Retrieve all expenses meant for creditor or retrieve file with all expenses
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
-  /finances/expenses/journal:
+      description: >
+        Retrieve all expenses meant for creditor
+        or retrieve file with all expenses
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+  /finances/expenses/journals:
     get:
       parameters:
         - $ref: '#/components/parameters/DateFrom'
@@ -390,7 +419,9 @@ paths:
             text/csv:
               schema:
                 $ref: '#/components/schemas/ExportFile'
-          description: Succesful response - returns export file with all journal expenses
+          description: >
+            Succesful response -
+            returns export file with all journal expenses
         default:
           description: Response Successfully Executed
       security:
@@ -398,7 +429,9 @@ paths:
       operationId: get_all_creditor_expenses_journal
       summary: Get csv with all expenses from expenses_journal
       description: Retrieve csv with expenses from expenses_journal
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /managers/expenses:
     get:
       responses:
@@ -427,7 +460,8 @@ paths:
       operationId: get_managers_expenses
       summary: Get all expenses for approval of a specific manager
       description: Retrieve all expenses for a given manager
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /managers/expenses/{expenses_id}:
     put:
       summary: Update expense
@@ -447,7 +481,35 @@ paths:
           description: Status of an expense has been updated
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseData'
+          description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
+        default:
+          description: Expense Success
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_expenses_manager
+      summary: Get information from expenses by id
+      description: Retrieve an expense
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /managers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -471,7 +533,8 @@ paths:
       operationId: get_attachment_manager
       security:
         - oauth2: [finance.expenses]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /controllers/expenses:
     get:
       responses:
@@ -500,7 +563,37 @@ paths:
       operationId: get_controller_expenses
       summary: Get all expenses
       description: Get all expenses for controllers
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+  /controllers/expenses/{expenses_id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/ExpensesId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseData'
+          description: Successful response - returns information of expense
+        '400':
+          description: 'Invalid input'
+        '401':
+          description: 'Provided token is invalid'
+        '403':
+          description: 'Provided token does not have the required scope'
+        '404':
+          description: 'Non-existing expenses_id'
+        default:
+          description: Expense Success
+      security:
+        - oauth2: [controller.write]
+      operationId: get_expenses_controller
+      summary: Get information from expenses by id
+      description: Retrieve an expense
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
@@ -524,7 +617,8 @@ paths:
       operationId: get_attachment_controllers
       security:
         - oauth2: [controller.write]
-      x-openapi-router-controller: openapi_server.controllers.expense_controllers
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
 components:
   schemas:
     Url:
@@ -548,6 +642,7 @@ components:
         status:
           type: string
           enum:
+            - draft
             - ready_for_creditor
             - ready_for_manager
             - rejected_by_manager
@@ -587,7 +682,9 @@ components:
         content:
           type: string
           format: byte
-          pattern: '(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)'
+          pattern:
+            "(?<=^data:)(image/png|image/jpeg|\
+            image/jpg|application/pdf)(?=;base64,)"
       example: |-
         {
           "name": "somename",
@@ -615,6 +712,13 @@ components:
           type: string
           format: date-time
           pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
+        flags:
+          type: object
+          properties:
+            declaraties:
+              type: array
+              items:
+                type: integer
       example: |-
         {
             "note": "This is a note",
@@ -622,6 +726,7 @@ components:
             "amount": 45.56,
             "cost_type": "Office Utilities",
             "transaction_date": "2017-07-21T17:32:28Z"
+            "flags": "{"duplicates": [5107419516502016]}"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
@@ -667,16 +772,17 @@ components:
           type: string
         managertype:
           type: string
-          description: A manager type to differentiate different lines of managers
+          description: >
+            A manager type to differentiate different lines of managers
         message:
-          type: string
-          description: An info message for on a fill-in screen
+          type: object
+          description: Different messages for different languages
       example: |-
         {
             "cid": "410200",
             "ctype": "Omschrijving",
             "managertype": "linemanager",
-            "message": "Vul dit veld in"
+            "message": {"nl: { "long": "Vul dit veld in" }}
         }
     BookingFile:
       title: Exported files
@@ -689,11 +795,13 @@ components:
           type: string
         payment_file:
           type: string
-      example: |-
+      example: >-
         {
-          "booking_file": "http://127.0.0.1:5000/finances/expenses/documents/booking.csv/kinds/booking_file",
+          "booking_file": "http://127.0.0.1:5000/finances/expenses/\
+        documents/booking.csv/kinds/booking_file",
           "export_date": "2019-10-01T06:07:19.188000+00:00",
-          "payment_file": "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
+          "payment_file": "http://127.0.0.1:5000/finances/expenses/\
+        documents/booking/kinds/payment_file"
         }
     ExportFile:
       title: Export file expenses
@@ -813,8 +921,11 @@ components:
           authorizationUrl: >-
             https://azuread.url/2.0/authorize
           scopes:
-            creditor.write: Write all expenses and documents
+            leasecoordinator.write: >
+              Read filtered expense and document information
             finance.expenses: Read expense and document information
+            creditor.write: Write all expenses and documents
             controller.write: Read all expense information
-      x-tokenInfoFunc: openapi_server.controllers.security_controller_.info_from_oAuth2
+      x-tokenInfoFunc:
+        openapi_server.controllers.security_controller_.info_from_oAuth2
       x-scopeValidateFunc: connexion.decorators.security.validate_scope

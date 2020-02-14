@@ -18,7 +18,6 @@ if hasattr(config, 'OAUTH_E2E_JWKS_URL'):
                            jwks_url=config.OAUTH_E2E_JWKS_URL)
 
 
-
 def info_from_oAuth2(token):
     """
     Validate and decode token.
