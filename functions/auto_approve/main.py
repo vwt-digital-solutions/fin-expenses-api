@@ -3,6 +3,7 @@ import logging
 import json
 import datetime
 import re
+from decimal import Decimal
 
 from flask import make_response, jsonify
 from utils import shift_to_business_days
@@ -47,8 +48,8 @@ def process_approve(request):
             elif int(grootboek_number.group()) not in grootboek_numbers:
                 continue
             else:
-                if int(expense['amount']) > \
-                        grootboek_numbers[int(grootboek_number.group())]:
+                if round(Decimal(expense['amount']), 2) > Decimal(
+                        grootboek_numbers[int(grootboek_number.group())]):
                     logging.info(f'Auto approving expense {expense.key.id}')
 
                     old_auto_value = expense['auto_approved'] if \
