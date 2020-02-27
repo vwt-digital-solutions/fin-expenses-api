@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import AnyStr, Union
 
 import connexion
@@ -42,4 +43,7 @@ app.app.json_encoder = encoder.JSONEncoder
 app.add_api('openapi.yaml',
             arguments={'title': 'P2P: Expenses API'},
             strict_validation=True)
-CORS(app.app)
+if 'GAE_INSTANCE' in os.environ:
+    CORS(app.app, origins=['https://declaratie.test-app.vwtelecom.com', 'https://declaratie.app.vwtelecom.com'])
+else:
+    CORS(app.app)
