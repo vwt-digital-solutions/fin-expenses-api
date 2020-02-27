@@ -2,6 +2,8 @@ import logging
 import os
 from typing import AnyStr, Union
 
+import config
+
 import connexion
 from connexion import problem
 from connexion.decorators.validation import RequestBodyValidator
@@ -31,7 +33,8 @@ def validate_schema(self, data, url):
         logging.error("{url} validation error: {error}".format(url=url,
                                                                error=exception.message),
                       extra={'validator': 'body'})
-        return problem(400, 'Bad Request', 'Some data is missing or incorrect', type='Validation')
+        return problem(400, 'Bad Request', 'Some data is missing or incorrect',
+                       type='Validation')
 
     return None
 
@@ -44,6 +47,6 @@ app.add_api('openapi.yaml',
             arguments={'title': 'P2P: Expenses API'},
             strict_validation=True)
 if 'GAE_INSTANCE' in os.environ:
-    CORS(app.app, origins=['https://declaratie.test-app.vwtelecom.com', 'https://declaratie.app.vwtelecom.com'])
+    CORS(app.app, origins=config.ORIGINS)
 else:
     CORS(app.app)
