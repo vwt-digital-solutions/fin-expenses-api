@@ -3,6 +3,7 @@ import logging
 import json
 import datetime
 import re
+from decimal import Decimal
 
 from flask import make_response, jsonify
 from utils import shift_to_business_days
@@ -25,9 +26,10 @@ def process_approve(request):
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
 
         query_cost_type.add_filter('AutoApprove', '=', True)
-        grootboek_numbers = []
+        grootboek_numbers = {}
         for cost_type in query_cost_type.fetch():
-            grootboek_numbers.append(int(cost_type['Grootboek']))
+            grootboek_numbers[int(cost_type['Grootboek'])] = \
+                int(cost_type['MinAmount'])
 
         query.add_filter('claim_date', '<=', boundary)
         query.add_filter('status.text', '=', 'ready_for_manager')
@@ -46,37 +48,39 @@ def process_approve(request):
             elif int(grootboek_number.group()) not in grootboek_numbers:
                 continue
             else:
-                logging.info(f'Auto approving expense {expense.key.id}')
+                if round(Decimal(expense['amount']), 2) > Decimal(
+                        grootboek_numbers[int(grootboek_number.group())]):
+                    logging.info(f'Auto approving expense {expense.key.id}')
 
-                old_auto_value = expense['auto_approved'] if \
-                    'auto_approved' in expense else 'null'
-                new_auto_value = 'Yes'
+                    old_auto_value = expense['auto_approved'] if \
+                        'auto_approved' in expense else 'null'
+                    new_auto_value = 'Yes'
 
-                expense['auto_approved'] = new_auto_value
+                    expense['auto_approved'] = new_auto_value
 
-                # Update Expenses_Journal: auto_approved and status
-                changed.append({'auto_approved': {"old": old_auto_value,
-                                                  "new": new_auto_value}})
-                changed.append({'status': {
-                    "old": {'text': expense['status']['text']},
-                    "new": {'text': 'ready_for_creditor'}}
-                })
+                    # Update Expenses_Journal: auto_approved and status
+                    changed.append({'auto_approved': {"old": old_auto_value,
+                                                      "new": new_auto_value}})
+                    changed.append({'status': {
+                        "old": {'text': expense['status']['text']},
+                        "new": {'text': 'ready_for_creditor'}}
+                    })
 
-                expense['status']['text'] = 'ready_for_creditor'
+                    expense['status']['text'] = 'ready_for_creditor'
 
-                key = client.key("Expenses_Journal")
-                expense_journal = datastore.Entity(key=key)
-                expense_journal.update(
-                    {
-                        "Expenses_Id": expense.key.id,
-                        "Time": datetime.datetime.utcnow().isoformat(
-                            timespec="seconds") + 'Z',
-                        "Attributes_Changed": json.dumps(changed),
-                        "User": "auto_approved"
-                    }
-                )
-                expenses_to_update.append(expense)
-                expenses_to_update.append(expense_journal)
+                    key = client.key("Expenses_Journal")
+                    expense_journal = datastore.Entity(key=key)
+                    expense_journal.update(
+                        {
+                            "Expenses_Id": expense.key.id,
+                            "Time": datetime.datetime.utcnow().isoformat(
+                                timespec="seconds") + 'Z',
+                            "Attributes_Changed": json.dumps(changed),
+                            "User": "auto_approved"
+                        }
+                    )
+                    expenses_to_update.append(expense)
+                    expenses_to_update.append(expense_journal)
 
         client.put_multi(expenses_to_update)
     else:
