@@ -47,7 +47,7 @@ def process_approve(request):
             elif int(grootboek_number.group()) not in grootboek_numbers:
                 continue
             else:
-                if expense['amount'] > \
+                if int(expense['amount']) > \
                         grootboek_numbers[int(grootboek_number.group())]:
                     logging.info(f'Auto approving expense {expense.key.id}')
 
