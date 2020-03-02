@@ -1043,7 +1043,12 @@ class EmployeeExpenses(ClaimExpenses):
         expenses_info.add_filter(
             "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
         )
-        return self._process_expenses_info(expenses_info)
+        expense_data = self._process_expenses_info(expenses_info)
+
+        if expense_data:
+            return expense_data
+
+        return make_response(jsonify(None), 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is from employee
