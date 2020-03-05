@@ -602,12 +602,16 @@ class ClaimExpenses:
             expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
             cost_type_split = expense_detail["cost_type"].split(":")
-            grootboek_number = "Not in expense"
+            grootboek_number = expense_detail["cost_type"]
 
             if len(cost_type_split) == 2:
-                key = self.ds_client.key('CostTypes', cost_type_split[1])
-                cost_entity = self.ds_client.get(key=key)
-                grootboek_number = cost_entity.get('Grootboek', "")
+                try:
+                    key = self.ds_client.key('CostTypes', cost_type_split[1])
+                    cost_entity = self.ds_client.get(key=key)
+                    grootboek_number = cost_entity.get('Grootboek', "")
+                except AttributeError:
+                    logging.warning("Old cost_type")
+                    grootboek_number = cost_type_split[1]
 
             booking_file_data.append(
                 {
