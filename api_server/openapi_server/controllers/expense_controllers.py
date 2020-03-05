@@ -602,6 +602,12 @@ class ClaimExpenses:
             expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
             cost_type_split = expense_detail["cost_type"].split(":")
+            grootboek_number = "Not in expense"
+
+            if len(cost_type_split) == 2:
+                key = self.ds_client.key('CostTypes', cost_type_split[1])
+                cost_entity = self.ds_client.get(key=key)
+                grootboek_number = cost_entity.get('Grootboek', "")
 
             booking_file_data.append(
                 {
@@ -617,7 +623,7 @@ class ClaimExpenses:
                     "Bron EC": "000",
                     "Bron VP": "00",
                     "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Doel-bedrijfs-nummer"],
-                    "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
+                    "Doel-gr boekrek": grootboek_number,
                     "Doel Org code": config.BOOKING_FILE_STATICS["Doel-org-code"],
                     "Doel Proces": "000",
                     "Doel Produkt": "000",
@@ -846,15 +852,20 @@ class ClaimExpenses:
         cost_types = {}
         for cost_type in datastore.Client().query(kind="CostTypes").fetch():
             if field in cost_type:
-                cost_types[cost_type['Grootboek']] = cost_type[field]
+                cost_types[int(cost_type.key.name)] = cost_type[field]
 
         return cost_types
 
     def _process_cost_type(self, cost_type, cost_types_list):
-        grootboek_number = re.search("[0-9]{6}", cost_type)
+        cost_type_split = cost_type.split(":")
 
-        if grootboek_number and int(grootboek_number.group()) in cost_types_list:
-            return cost_types_list[int(grootboek_number.group())]
+        cost_type_id = "Not in expense"
+
+        if len(cost_type_split) == 2:
+            cost_type_id = cost_type_split[1]
+
+        if cost_type_id in cost_types_list:
+            return cost_types_list[cost_type_id]
 
         return None
 

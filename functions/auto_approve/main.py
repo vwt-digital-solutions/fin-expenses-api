@@ -2,7 +2,6 @@ from google.cloud import datastore
 import logging
 import json
 import datetime
-import re
 from decimal import Decimal
 
 from flask import make_response, jsonify
@@ -26,11 +25,10 @@ def process_approve(request):
             days=business_pending)).isoformat(timespec="seconds") + 'Z'
 
         query_cost_type.add_filter('AutoApprove', '=', True)
-        grootboek_numbers = {}
+        cost_type_list = {}
         for cost_type in query_cost_type.fetch():
-            grootboek_numbers[int(cost_type['Grootboek'])] = \
+            cost_type_list[int(cost_type.key.name)] = \
                 int(cost_type['MinAmount'])
-
         query.add_filter('claim_date', '<=', boundary)
         query.add_filter('status.text', '=', 'ready_for_manager')
 
@@ -40,16 +38,21 @@ def process_approve(request):
             changed = []
 
             # Only approve those expenses with concurrent cost-types
-            grootboek_number = re.search("[0-9]{6}", expense['cost_type'])
-            if not grootboek_number:
+            cost_type_split = expense['cost_type'].split(":")
+            cost_type_id = ""
+
+            if len(cost_type_split) == 2:
+                cost_type_id = int(cost_type_split[1])
+
+            if not cost_type_id:
                 logging.warning(
                     f"No correct cost_type found for expense {expense.key.id}")
                 continue
-            elif int(grootboek_number.group()) not in grootboek_numbers:
+            elif cost_type_id not in cost_type_list:
                 continue
             else:
                 if round(Decimal(expense['amount']), 2) > Decimal(
-                        grootboek_numbers[int(grootboek_number.group())]):
+                        cost_type_list[cost_type_id]):
                     logging.info(f'Auto approving expense {expense.key.id}')
 
                     old_auto_value = expense['auto_approved'] if \
@@ -96,7 +99,6 @@ if __name__ == '__main__':
     class R:
         def __init__(self):
             self.args = {'pending': 3}
-
     r = R()
     logging.warning(r.args)
     # r.args = {'pending': 3}
