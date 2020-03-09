@@ -178,7 +178,7 @@ class ClaimExpenses:
         results = [
             {
                 "ctype": row.get("Omschrijving", ""),
-                "cid": row.get("Grootboek", ""),
+                "cid": row.key.name,
                 "managertype": row.get("ManagerType", "linemanager"),
                 "message": row.get("Message", {})
             }
@@ -856,14 +856,13 @@ class ClaimExpenses:
         cost_types = {}
         for cost_type in datastore.Client().query(kind="CostTypes").fetch():
             if field in cost_type:
-                cost_types[int(cost_type.key.name)] = cost_type[field]
+                cost_types[cost_type.key.name] = cost_type[field]
 
         return cost_types
 
     def _process_cost_type(self, cost_type, cost_types_list):
         cost_type_split = cost_type.split(":")
-
-        cost_type_id = "Not in expense"
+        cost_type_id = cost_type
 
         if len(cost_type_split) == 2:
             cost_type_id = cost_type_split[1]

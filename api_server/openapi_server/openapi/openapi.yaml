@@ -145,11 +145,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
           description: >
             Successful response -
             returns all expenses of a logged in employee
@@ -388,11 +388,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
             text/csv:
               schema:
                 $ref: '#/components/schemas/ExportFile'
@@ -447,11 +447,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
           description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -550,11 +550,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:280Z
+                        transaction_date: 2017-07-21T17:32:28.000Z
           description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -664,7 +664,7 @@ components:
           type: string
         transaction_date:
           type: string
-          pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
+          format: date-time
       required:
         - status
       example:
@@ -708,14 +708,7 @@ components:
           type: string
         transaction_date:
           type: string
-          pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
-        flags:
-          type: object
-          properties:
-            declaraties:
-              type: array
-              items:
-                type: integer
+          format: date-time
       example: |-
         {
             "note": "This is a note",
@@ -723,7 +716,6 @@ components:
             "amount": 45.56,
             "cost_type": "Office Utilities",
             "transaction_date": "2017-07-21T17:32:280Z"
-            "flags": "{"duplicates": [5107419516502016]}"
         }
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
@@ -744,7 +736,7 @@ components:
             cost_type: |
               This is a cost_type
             status: rejected_by_creditor
-            transaction_date: 2017-07-21T17:32:280Z
+            transaction_date: 2017-07-21T17:32:28.000Z
           - note: |
               This is a notes
             id: |
@@ -753,7 +745,7 @@ components:
             cost_type: |
               This is a cost_type
             status: ready_for_creditor
-            transaction_date: 2017-07-21T17:32:280Z
+            transaction_date: 2017-07-21T17:32:28.000Z
     CostTypes:
       title: costTypes
       description: CostType data
