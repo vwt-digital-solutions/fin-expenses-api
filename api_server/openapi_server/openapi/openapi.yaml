@@ -23,7 +23,7 @@ paths:
         $ref: '#/components/requestBodies/formData'
       responses:
         '201':
-          description: Succesfully made or updated an expense
+          description: Successfuly made or updated an expense
         '400':
           description: 'Invalid input'
         '401':
@@ -53,7 +53,7 @@ paths:
                     CostTypes:
                       - ctype: some text
                         cid: ''
-          description: Succesfull response - returns all costtypes
+          description: Successful response - returns all costtypes
         default:
           description: Cost Types retrieved successfully
       security:
@@ -69,7 +69,7 @@ paths:
         - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Succesfully received all attachments for expense
+          description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
@@ -95,7 +95,7 @@ paths:
         - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Succesfully received all attachments for expense
+          description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
@@ -145,13 +145,13 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:28Z
+                        transaction_date: 2017-07-21T17:32:280Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:28Z
+                        transaction_date: 2017-07-21T17:32:280Z
           description: >
-            Succesfull response -
+            Successful response -
             returns all expenses of a logged in employee
         '400':
           description: 'Invalid input'
@@ -350,7 +350,7 @@ paths:
         - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Succesfully received all attachments for expense
+          description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
@@ -388,11 +388,11 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:28Z
+                        transaction_date: 2017-07-21T17:32:280Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:28Z
+                        transaction_date: 2017-07-22T17:32:280Z
             text/csv:
               schema:
                 $ref: '#/components/schemas/ExportFile'
@@ -420,7 +420,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExportFile'
           description: >
-            Succesful response -
+            Successful response -
             returns export file with all journal expenses
         default:
           description: Response Successfully Executed
@@ -447,12 +447,12 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:28Z
+                        transaction_date: 2017-07-21T17:32:280Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:28Z
-          description: Succesfull response - returns all expenses
+                        transaction_date: 2017-07-22T17:32:280Z
+          description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
       security:
@@ -516,7 +516,7 @@ paths:
         - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Succesfully received all attachments for expense
+          description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
@@ -550,12 +550,12 @@ paths:
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-21T17:32:28Z
+                        transaction_date: 2017-07-21T17:32:280Z
                       - amount: ''
                         note: some text
                         cost_type: some text
-                        transaction_date: 2017-07-22T17:32:28Z
-          description: Succesfull response - returns all expenses
+                        transaction_date: 2017-07-22T17:32:280Z
+          description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
       security:
@@ -600,7 +600,7 @@ paths:
         - $ref: '#/components/parameters/ExpensesId'
       responses:
         '200':
-          description: Succesfully received all attachments for expense
+          description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
@@ -650,7 +650,6 @@ components:
             - exported
             - cancelled
             - approved
-            - payed
         creditor_note:
           type: string
         manager_note:
@@ -665,13 +664,12 @@ components:
           type: string
         transaction_date:
           type: string
-          format: date-time
           pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
       required:
         - status
       example:
         status: 'rejected_by_creditor'
-        finance_note: 'Wrong amount'
+        creditor_note: 'Wrong amount'
     AttachmentData:
       title: attachmentData
       description: form data for single attachment
@@ -710,7 +708,6 @@ components:
           type: string
         transaction_date:
           type: string
-          format: date-time
           pattern: '^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3})Z$'
         flags:
           type: object
@@ -725,7 +722,7 @@ components:
             "id": "R1rt2345",
             "amount": 45.56,
             "cost_type": "Office Utilities",
-            "transaction_date": "2017-07-21T17:32:28Z"
+            "transaction_date": "2017-07-21T17:32:280Z"
             "flags": "{"duplicates": [5107419516502016]}"
         }
     ExpenseDataArray:
@@ -746,8 +743,8 @@ components:
             amount: 45.56
             cost_type: |
               This is a cost_type
-            status: new
-            transaction_date: 2017-07-21T17:32:28Z
+            status: rejected_by_creditor
+            transaction_date: 2017-07-21T17:32:280Z
           - note: |
               This is a notes
             id: |
@@ -755,8 +752,8 @@ components:
             amount: 45.16
             cost_type: |
               This is a cost_type
-            status: opened
-            transaction_date: 2017-07-21T17:32:28Z
+            status: ready_for_creditor
+            transaction_date: 2017-07-21T17:32:280Z
     CostTypes:
       title: costTypes
       description: CostType data
@@ -849,7 +846,7 @@ components:
       schema:
         type: string
         format: date
-        default: ''
+        default: '1970-01-01'
       in: query
       required: false
     DateTo:
@@ -859,7 +856,7 @@ components:
       schema:
         type: string
         format: date
-        default: ''
+        default: '1970-01-01'
       in: query
       required: false
     DepartmentId:

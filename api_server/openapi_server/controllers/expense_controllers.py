@@ -1258,9 +1258,9 @@ class CreditorExpenses(ClaimExpenses):
         day_from = "1970-01-01T00:00:00Z"
         day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
-        if date_from != '':
+        if date_from != '1970-01-01':
             day_from = date_from + "T00:00:00Z"
-        if date_to != '':
+        if date_to != '1970-01-01':
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
@@ -1313,9 +1313,9 @@ class CreditorExpenses(ClaimExpenses):
         day_from = "1970-01-01T00:00:00Z"
         day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
-        if date_from != '':
+        if date_from != '1970-01-01':
             day_from = date_from + "T00:00:00Z"
-        if date_to != '':
+        if date_to != '1970-01-01':
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
