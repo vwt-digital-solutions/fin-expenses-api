@@ -1435,7 +1435,7 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            if form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
+            if datetime.datetime(1970, 1, 1) <= form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
                     (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
                 html = {
                     '"': "&quot;",
@@ -1449,10 +1449,10 @@ def add_expense():
                 form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
                 form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                 return expense_instance.add_expenses(form_data)
-            return jsonify('Date needs to be in the past'), 400
+            return jsonify('Date needs to be between 1970-01-01 and today'), 400
     except Exception:
         logging.exception('Exception on add_expense')
-        return jsonify("Something went wrong. Please try again later"), 500
+        return jsonify("Something is wrong with the request"), 400
 
 
 def get_all_creditor_expenses(expenses_list, date_from, date_to):
