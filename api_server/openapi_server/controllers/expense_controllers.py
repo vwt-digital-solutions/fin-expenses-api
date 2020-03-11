@@ -286,13 +286,19 @@ class ClaimExpenses:
         """
         if "unique_name" in self.employee_info.keys():
             ready_text = "draft"
+            cost_types = datastore.Client().query(kind="CostTypes").fetch()
+
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
-                    data.manager_type = self._process_expense_manager_type(
-                        data.cost_type)
+
+                    cost_type_entity = self._process_cost_type(data.cost_type, cost_types)
+                    if cost_type_entity is None:
+                        return make_response(jsonify('Not a valid cost-type'), 400)
+                    data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
+
                 except ValueError as exception:
                     return make_response(jsonify(str(exception)), 400)
                 else:
@@ -335,22 +341,22 @@ class ClaimExpenses:
         else:
             return make_response(jsonify('Employee not unique'), 403)
 
-    def _process_status_text_update(self, item, expense):
+    def _process_status_text_update(self, data, expense):
         if expense['status']['text'] in ['rejected_by_creditor',
                                          'rejected_by_manager'] \
-                and item == 'ready_for_manager':
+                and data['status'] == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], expense['cost_type'], item)
+                expense['amount'], expense['cost_type'], data)
         else:
-            expense["status"]["text"] = item
+            expense["status"]["text"] = data['status']
 
-    def _determine_status_amount_update(self, amount, cost_type, item):
-        min_amount = self._process_expense_min_amount(cost_type)
-        manager_type = self._process_expense_manager_type(cost_type)
+    def _determine_status_amount_update(self, amount, cost_type, data):
+        min_amount = data['min_amount']
+        manager_type = data['manager_type']
 
         return "ready_for_creditor" if \
             min_amount > 0 and amount < min_amount and \
-            manager_type != 'leasecoordinator' else item
+            manager_type != 'leasecoordinator' else data['status']
 
     @abstractmethod
     def _prepare_context_update_expense(self, expense):
@@ -377,6 +383,8 @@ class ClaimExpenses:
         :param note_check:
         :return:
         """
+        cost_types = datastore.Client().query(kind="CostTypes").fetch()
+
         if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
@@ -385,6 +393,10 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
+
+            cost_type_entity = self._process_cost_type(data.get('cost_type', expense['cost_type']), cost_types)
+            if cost_type_entity is None:
+                return make_response(jsonify('Not a valid cost-type'), 400)
 
             is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
 
@@ -396,10 +408,9 @@ class ClaimExpenses:
                         jsonify('Het indienen van een declaratie ' +
                                 'is niet toegestaan tijdens het aanpassen van velden'), 403)
 
-                min_amount = self._process_expense_min_amount(
-                    data.get('cost_type', expense['cost_type']))
-                if min_amount == 0 or \
-                        min_amount <= data.get('amount', expense['amount']):
+                data['min_amount'] = cost_type_entity.get('MinAmount', 50)
+                if data['min_amount'] == 0 or \
+                        data['min_amount'] <= data.get('amount', expense['amount']):
                     data['status'] = "ready_for_manager"
                 else:
                     data['status'] = "ready_for_creditor"
@@ -411,9 +422,7 @@ class ClaimExpenses:
             try:
                 BusinessRulesEngine().employed_rule(expense['employee']['afas_data'])
                 BusinessRulesEngine().pao_rule(data, expense['employee']['afas_data'])
-                data['manager_type'] = self._process_expense_manager_type(
-                    data['cost_type'] if 'cost_type' in data else
-                    expense['cost_type'])
+                data['manager_type'] = cost_type_entity.get('ManagerType', "linemanager")
             except ValueError as exception:
                 return make_response(jsonify(str(exception)), 400)
 
@@ -437,8 +446,7 @@ class ClaimExpenses:
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
             elif data['status'] == 'ready_for_manager' and is_draft and \
-                    self._process_expense_manager_type(
-                        data.get('cost_type', expense['cost_type'])) == 'linemanager':
+                    data['manager_type'] == 'linemanager':
                 self.send_notification('mail', 'add_expense',
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
@@ -463,7 +471,7 @@ class ClaimExpenses:
                 f"transition [{allowed_statuses}]")
             if data['status'] in allowed_statuses:
                 need_to_save = True
-                self._process_status_text_update(data['status'], expense)
+                self._process_status_text_update(data, expense)
             else:
                 logging.info(
                     "Rejected unauthorized status transition for " +
@@ -852,37 +860,16 @@ class ClaimExpenses:
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
-    def _create_cost_types_list(self, field):
-        cost_types = {}
-        for cost_type in datastore.Client().query(kind="CostTypes").fetch():
-            if field in cost_type:
-                cost_types[cost_type.key.name] = cost_type[field]
-
-        return cost_types
-
-    def _process_cost_type(self, cost_type, cost_types_list):
+    def _process_cost_type(self, cost_type, cost_types):
         cost_type_split = cost_type.split(":")
         cost_type_id = cost_type
 
         if len(cost_type_split) == 2:
             cost_type_id = cost_type_split[1]
-
-        if cost_type_id in cost_types_list:
-            return cost_types_list[cost_type_id]
-
+        for cost_type in cost_types:
+            if cost_type.key.name == cost_type_id:
+                return cost_type
         return None
-
-    def _process_expense_manager_type(self, cost_type):
-        cost_types_list = self._create_cost_types_list('ManagerType')
-        manager_type = self._process_cost_type(cost_type, cost_types_list)
-
-        return 'linemanager' if manager_type is None else manager_type
-
-    def _process_expense_min_amount(self, cost_type):
-        cost_types_list = self._create_cost_types_list('MinAmount')
-        min_amount = self._process_cost_type(cost_type, cost_types_list)
-
-        return 50 if min_amount is None else min_amount
 
     @staticmethod
     def _process_expenses_info(expenses_info):
