@@ -286,15 +286,13 @@ class ClaimExpenses:
         """
         if "unique_name" in self.employee_info.keys():
             ready_text = "draft"
-            cost_types = datastore.Client().query(kind="CostTypes").fetch()
-
             afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
             if afas_data:
                 try:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
-                    cost_type_entity = self._process_cost_type(data.cost_type, cost_types)
+                    cost_type_entity = self._process_cost_type(data.cost_type)
                     if cost_type_entity is None:
                         return make_response(jsonify('Not a valid cost-type'), 400)
                     data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
@@ -383,8 +381,6 @@ class ClaimExpenses:
         :param note_check:
         :return:
         """
-        cost_types = datastore.Client().query(kind="CostTypes").fetch()
-
         if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
                                                      or data['status'] == 'rejected_by_creditor'):
             return jsonify('Some data is missing'), 400
@@ -394,7 +390,7 @@ class ClaimExpenses:
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
 
-            cost_type_entity = self._process_cost_type(data.get('cost_type', expense['cost_type']), cost_types)
+            cost_type_entity = self._process_cost_type(data.get('cost_type', expense['cost_type']))
             if cost_type_entity is None:
                 return make_response(jsonify('Not a valid cost-type'), 400)
 
@@ -860,16 +856,17 @@ class ClaimExpenses:
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
-    def _process_cost_type(self, cost_type, cost_types):
+    def _process_cost_type(self, cost_type):
         cost_type_split = cost_type.split(":")
         cost_type_id = cost_type
 
         if len(cost_type_split) == 2:
             cost_type_id = cost_type_split[1]
-        for cost_type in cost_types:
-            if cost_type.key.name == cost_type_id:
-                return cost_type
-        return None
+
+        key = self.ds_client.key("CostTypes", cost_type_id)
+        entity = self.ds_client.get(key=key)
+
+        return entity
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -1100,10 +1097,15 @@ class EmployeeExpenses(ClaimExpenses):
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
+        cost_type_entity = self._process_cost_type(expense['cost_type'])
+        manager_type = "linemanager"
+
+        if cost_type_entity is not None:
+            manager_type = cost_type_entity['ManagerType']
+
         if 'leasecoordinator.write' in \
                 self.employee_info.get('scopes', []) and \
-                self._process_expense_manager_type(
-                    expense['cost_type']) == 'leasecoordinator':
+                manager_type == 'leasecoordinator':
             return True
 
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
