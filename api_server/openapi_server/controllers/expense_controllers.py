@@ -179,6 +179,9 @@ class ClaimExpenses:
             {
                 "ctype": row.get("Omschrijving", ""),
                 "cid": row.key.name,
+                "description": row.get("Description", {"nl": row.get("Omschrijving", ""),
+                                                        "en": row.get("Omschrijving", ""),
+                                                        "de": row.get("Omschrijving", "")}),
                 "managertype": row.get("ManagerType", "linemanager"),
                 "message": row.get("Message", {})
             }

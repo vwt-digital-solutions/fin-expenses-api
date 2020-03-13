@@ -50,12 +50,14 @@ paths:
               examples:
                 CostTypes:
                   value:
-                    CostTypes:
-                      - ctype: some text
-                        cid: ''
-          description: Successful response - returns all costtypes
+                    - ctype: some text
+                      cid: ''
+                      description: {"nl": "some text"}
+                      managertype: some text
+                      message: {"nl": { "long": "Vul dit veld in" }}
+          description: Successful response - returns all cost-types
         default:
-          description: Cost Types retrieved successfully
+          description: Cost-types retrieved successfully
       security:
         - oauth2: [finance.expenses]
       operationId: get_cost_types
@@ -752,13 +754,18 @@ components:
       required:
         - cid
         - ctype
+        - description
       type: object
       properties:
         cid:
           type: string
-          description: A cost type doel organisation code
+          description: A cost type ID
         ctype:
           type: string
+          description: Description cost-type (old)
+        description:
+          type: object
+          description: Descriptions cost-type
         managertype:
           type: string
           description: >
@@ -770,6 +777,7 @@ components:
         {
             "cid": "410200",
             "ctype": "Omschrijving",
+            "description": {"nl: Omschrijving"}
             "managertype": "linemanager",
             "message": {"nl: { "long": "Vul dit veld in" }}
         }
