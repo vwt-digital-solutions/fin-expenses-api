@@ -52,9 +52,9 @@ paths:
                   value:
                     - ctype: some text
                       cid: ''
-                      description: {"nl": "some text"}
+                      description: {"nl":"some text"}
                       managertype: some text
-                      message: {"nl": { "long": "Vul dit veld in" }}
+                      message: {"nl": {"long": "Vul dit veld in"}}
           description: Successful response - returns all cost-types
         default:
           description: Cost-types retrieved successfully
