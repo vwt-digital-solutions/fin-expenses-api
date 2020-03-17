@@ -3,15 +3,15 @@ openapi: 3.0.2
 x-zally-ignore: [101, 104, 105, 146, 151]
 info:
   title: Expenses API
-  version: '1.0'
+  version: "1.0"
   description: An API for the expenses app
   contact:
     name: VolkerWessels Telecom
-    url: 'https://www.vwtelecom.com'
+    url: "https://www.vwtelecom.com"
     email: info@vwt.digital
   license:
     name: GNU GPLv3
-    url: 'https://www.gnu.org/licenses/gpl.txt'
+    url: "https://www.gnu.org/licenses/gpl.txt"
   x-audience: company-internal
   x-api-id: 1b66bb9e-5b02-49f1-8cf9-bc3f649d70a6
 servers:
@@ -20,16 +20,16 @@ paths:
   /employees/expenses:
     post:
       requestBody:
-        $ref: '#/components/requestBodies/formData'
+        $ref: "#/components/requestBodies/formData"
       responses:
-        '201':
+        "201":
           description: Successfuly made or updated an expense
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
         default:
           description: Expense Made/Updated successfully!
       security:
@@ -42,19 +42,22 @@ paths:
   /employees/cost-types:
     get:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CostTypes'
+                $ref: "#/components/schemas/CostTypes"
               examples:
                 CostTypes:
                   value:
-                    - ctype: some text
-                      cid: ''
-                      description: {"nl":"some text"}
-                      managertype: some text
-                      message: {"nl": {"long": "Vul dit veld in"}}
+                    - ctype: "some text"
+                      cid: "some id"
+                      description:
+                        nl: "some text"
+                      managertype: "some text"
+                      message:
+                        nl:
+                          long: "Vul dit veld in"
           description: Successful response - returns all cost-types
         default:
           description: Cost-types retrieved successfully
@@ -68,22 +71,22 @@ paths:
   /employees/expenses/{expenses_id}/attachments:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrlArray'
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+                $ref: "#/components/schemas/UrlArray"
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
       summary: Get attachments by expense id
       operationId: get_attachment_employee
       security:
@@ -92,24 +95,24 @@ paths:
         openapi_server.controllers.expense_controllers
     post:
       requestBody:
-        $ref: '#/components/requestBodies/attachmentData'
+        $ref: "#/components/requestBodies/attachmentData"
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrlArray'
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+                $ref: "#/components/schemas/UrlArray"
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
       summary: Get attachments by expense id
       operationId: add_attachment_employee
       security:
@@ -119,10 +122,10 @@ paths:
   /employees/expenses/{expenses_id}/attachments/{attachments_name}:
     delete:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
-        - $ref: '#/components/parameters/AttachmentName'
+        - $ref: "#/components/parameters/ExpensesId"
+        - $ref: "#/components/parameters/AttachmentName"
       responses:
-        '200':
+        "200":
           description: Succesfully deleted attachment for expense
       summary: Delete attachment by expense id and attachment name
       operationId: delete_attachment
@@ -133,36 +136,34 @@ paths:
   /employees/{employee_id}/expenses:
     get:
       parameters:
-        - $ref: '#/components/parameters/EmployeeId'
+        - $ref: "#/components/parameters/EmployeeId"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
+                $ref: "#/components/schemas/ExpenseDataArray"
               examples:
                 ExpenseDataArray:
                   value:
                     Expenses:
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
-          description: >
-            Successful response -
-            returns all expenses of a logged in employee
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+          description: Successful response - returns all expenses of a logged in employee
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
         default:
           description: Response Successfully Executed
       security:
@@ -172,25 +173,25 @@ paths:
       description: Retrieve all expenses for a logged in employee
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  '/employees/expenses/{expenses_id}':
+  "/employees/expenses/{expenses_id}":
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseData'
+                $ref: "#/components/schemas/ExpenseData"
           description: Successful response - returns information of expense
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
         default:
           description: Expense Success
       security:
@@ -205,14 +206,14 @@ paths:
       operationId: update_expenses_employee
       requestBody:
         content:
-          'application/json':
+          "application/json":
             schema:
-              $ref: '#/components/schemas/Status'
+              $ref: "#/components/schemas/Status"
         required: true
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Updated expense
         default:
           description: Status of an expense has been updated
@@ -220,24 +221,22 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  '/finances/documents':
+  "/finances/documents":
     get:
       operationId: get_document_list
       summary: Get a list of all booking and payment files
       responses:
-        '200':
+        "200":
           description: Download Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BookingFile'
-        '401':
-          description: >
-            The unauthorized client is not allowed
-            to access the authorization grant type.
-        '400':
+                $ref: "#/components/schemas/BookingFile"
+        "401":
+          description: The unauthorized client is not allowed to access the authorization grant type.
+        "400":
           description: A missing parameter or, unsupported parameter value.
-        '403':
+        "403":
           description: The Access token does not have the required scope
         default:
           description: List of files got Successfully OK
@@ -247,19 +246,17 @@ paths:
         openapi_server.controllers.expense_controllers
     post:
       operationId: create_booking_and_payment_file
-      summary: >
-        Creates a single booking and payment document
-        containing all expenses ready for payment.
+      summary: Creates a single booking and payment document containing all expenses ready for payment.
       responses:
-        '200':
+        "200":
           description: Download Success
-        '401':
+        "401":
           description: >
             The unauthorized client is not allowed to access
             the authorization grant type.
-        '400':
+        "400":
           description: A missing parameter or, unsupported parameter value.
-        '403':
+        "403":
           description: The Access token does not have the required scope
         default:
           description: Booking file made Successfully OK
@@ -267,29 +264,27 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  '/finances/expenses/documents/{document_id}/kinds/{document_type}':
+  "/finances/expenses/documents/{document_id}/kinds/{document_type}":
     get:
       operationId: get_document
       summary: Returns a CSV => of a booking file or XML => of payment file
       parameters:
-        - $ref: '#/components/parameters/DocumentId'
-        - $ref: '#/components/parameters/DocumentType'
+        - $ref: "#/components/parameters/DocumentId"
+        - $ref: "#/components/parameters/DocumentType"
       responses:
-        '200':
+        "200":
           description: Download Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BookingFile'
-        '401':
-          description: >
-            The unauthorized client is not allowed to
-            access the authorization grant type.
-        '400':
+                $ref: "#/components/schemas/BookingFile"
+        "401":
+          description: The unauthorized client is not allowed to access the authorization grant type.
+        "400":
           description: A missing parameter or, unsupported parameter value.
-        '403':
+        "403":
           description: The Access token does not have the required scope
-        '404':
+        "404":
           description: Document id or type not found
         default:
           description: Document file successfully retrieved
@@ -298,20 +293,20 @@ paths:
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
     x-eac-ignore: true
-  '/finances/expenses/{expenses_id}':
+  "/finances/expenses/{expenses_id}":
     put:
       summary: Update expense
       operationId: update_expenses_creditor
       requestBody:
         content:
-          'application/json':
+          "application/json":
             schema:
-              $ref: '#/components/schemas/Status'
+              $ref: "#/components/schemas/Status"
         required: true
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Updated expense
         default:
           description: Status of an expense has been updated
@@ -321,22 +316,22 @@ paths:
         openapi_server.controllers.expense_controllers
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseData'
+                $ref: "#/components/schemas/ExpenseData"
           description: Successful response - returns information of expense
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
         default:
           description: Expense Success
       security:
@@ -349,22 +344,22 @@ paths:
   /finances/expenses/{expenses_id}/attachments:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrlArray'
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+                $ref: "#/components/schemas/UrlArray"
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
       summary: Get attachments by expense id
       operationId: get_attachment_creditor
       security:
@@ -374,30 +369,30 @@ paths:
   /finances/expenses:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesList'
-        - $ref: '#/components/parameters/DateFrom'
-        - $ref: '#/components/parameters/DateTo'
+        - $ref: "#/components/parameters/ExpensesList"
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
+                $ref: "#/components/schemas/ExpenseDataArray"
               examples:
                 ExpenseDataArray:
                   value:
                     Expenses:
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
             text/csv:
               schema:
-                $ref: '#/components/schemas/ExportFile'
+                $ref: "#/components/schemas/ExportFile"
           description: Successful response - returns all expenses
         default:
           description: Response Successfully Executed
@@ -405,25 +400,21 @@ paths:
         - oauth2: [creditor.write]
       operationId: get_all_creditor_expenses
       summary: Get all expenses
-      description: >
-        Retrieve all expenses meant for creditor
-        or retrieve file with all expenses
+      description: Retrieve all expenses meant for creditor or retrieve file with all expenses
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
   /finances/expenses/journals:
     get:
       parameters:
-        - $ref: '#/components/parameters/DateFrom'
-        - $ref: '#/components/parameters/DateTo'
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
       responses:
-        '200':
+        "200":
           content:
             text/csv:
               schema:
-                $ref: '#/components/schemas/ExportFile'
-          description: >
-            Successful response -
-            returns export file with all journal expenses
+                $ref: "#/components/schemas/ExportFile"
+          description: Successful response - returns export file with all journal expenses
         default:
           description: Response Successfully Executed
       security:
@@ -437,20 +428,20 @@ paths:
   /managers/expenses:
     get:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
+                $ref: "#/components/schemas/ExpenseDataArray"
               examples:
                 ExpenseDataArray:
                   value:
                     Expenses:
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
@@ -470,14 +461,14 @@ paths:
       operationId: update_expenses_manager
       requestBody:
         content:
-          'application/json':
+          "application/json":
             schema:
-              $ref: '#/components/schemas/Status'
+              $ref: "#/components/schemas/Status"
         required: true
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Updated expense
         default:
           description: Status of an expense has been updated
@@ -487,22 +478,22 @@ paths:
         openapi_server.controllers.expense_controllers
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseData'
+                $ref: "#/components/schemas/ExpenseData"
           description: Successful response - returns information of expense
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
         default:
           description: Expense Success
       security:
@@ -515,22 +506,22 @@ paths:
   /managers/expenses/{expenses_id}/attachments:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrlArray'
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+                $ref: "#/components/schemas/UrlArray"
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
       summary: Get attachments by expense id
       operationId: get_attachment_manager
       security:
@@ -540,11 +531,11 @@ paths:
   /managers/rejection-notes:
     get:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RejectionNotes'
+                $ref: "#/components/schemas/RejectionNotes"
               examples:
                 RejectionNotes:
                   value:
@@ -553,7 +544,7 @@ paths:
                         en: "This is an example"
           description: Successful response - returns all cost-types
         default:
-          description: Rejection_notes retrieved successfully
+          description: Rejection notes retrieved successfully
       security:
         - oauth2: [finance.expenses]
       operationId: get_rejection_notes
@@ -564,20 +555,20 @@ paths:
   /controllers/expenses:
     get:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseDataArray'
+                $ref: "#/components/schemas/ExpenseDataArray"
               examples:
                 ExpenseDataArray:
                   value:
                     Expenses:
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
-                      - amount: ''
+                      - amount: ""
                         note: some text
                         cost_type: some text
                         transaction_date: 2017-07-21T17:32:28.000Z
@@ -594,22 +585,22 @@ paths:
   /controllers/expenses/{expenses_id}:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExpenseData'
+                $ref: "#/components/schemas/ExpenseData"
           description: Successful response - returns information of expense
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
         default:
           description: Expense Success
       security:
@@ -623,22 +614,22 @@ paths:
   /controllers/expenses/{expenses_id}/attachments:
     get:
       parameters:
-        - $ref: '#/components/parameters/ExpensesId'
+        - $ref: "#/components/parameters/ExpensesId"
       responses:
-        '200':
+        "200":
           description: Successfully received all attachments for expense
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UrlArray'
-        '400':
-          description: 'Invalid input'
-        '401':
-          description: 'Provided token is invalid'
-        '403':
-          description: 'Provided token does not have the required scope'
-        '404':
-          description: 'Non-existing expenses_id'
+                $ref: "#/components/schemas/UrlArray"
+        "400":
+          description: "Invalid input"
+        "401":
+          description: "Provided token is invalid"
+        "403":
+          description: "Provided token does not have the required scope"
+        "404":
+          description: "Non-existing expenses_id"
       summary: Get attachments by expense id
       operationId: get_attachment_controllers
       security:
@@ -652,7 +643,7 @@ components:
         url:
           type: string
       example:
-        url: 'https://gcp.com/img.png'
+        url: "https://gcp.com/img.png"
     UrlArray:
       title: Root Type for UrlArray
       description: Array of urls of attachments
@@ -661,7 +652,7 @@ components:
         attachments:
           type: array
           items:
-            $ref: '#/components/schemas/Url'
+            $ref: "#/components/schemas/Url"
     Status:
       description: Status for expense
       properties:
@@ -694,8 +685,8 @@ components:
       required:
         - status
       example:
-        status: 'rejected_by_creditor'
-        creditor_note: 'Wrong amount'
+        status: "rejected_by_creditor"
+        creditor_note: "Wrong amount"
     AttachmentData:
       title: attachmentData
       description: form data for single attachment
@@ -706,14 +697,10 @@ components:
         content:
           type: string
           format: byte
-          pattern:
-            "(?<=^data:)(image/png|image/jpeg|\
-            image/jpg|application/pdf)(?=;base64,)"
-      example: |-
-        {
-          "name": "somename",
-          "content": "b64 string"
-        }
+          pattern: "(?<=^data:)(image/png|image/jpeg|image/jpg|application/pdf)(?=;base64,)"
+      example:
+        name: "somename"
+        content: "b64 string"
     ExpenseData:
       title: expenseData
       description: Form data to an expense
@@ -735,14 +722,12 @@ components:
         transaction_date:
           type: string
           format: date-time
-      example: |-
-        {
-            "note": "This is a note",
-            "id": "R1rt2345",
-            "amount": 45.56,
-            "cost_type": "Office Utilities",
-            "transaction_date": "2017-07-21T17:32:280Z"
-        }
+      example:
+        note: "This is a note"
+        id: "R1rt2345"
+        amount: 45.56
+        cost_type: "Office Utilities"
+        transaction_date: "2017-07-21T17:32:280Z"
     ExpenseDataArray:
       title: Root Type for ExpenseDataArray
       description: Array of expense data
@@ -751,25 +736,19 @@ components:
         expenses:
           type: array
           items:
-            $ref: '#/components/schemas/ExpenseData'
+            $ref: "#/components/schemas/ExpenseData"
       example:
         Expenses:
-          - note: |
-              This is a note
-            id: |
-              R1rt2345
+          - note: This is a note
+            id: R1rt2345
             amount: 45.56
-            cost_type: |
-              This is a cost_type
+            cost_type: This is a cost_type
             status: rejected_by_creditor
             transaction_date: 2017-07-21T17:32:28.000Z
-          - note: |
-              This is a notes
-            id: |
-              R1rt23f45
+          - note: This is a notes
+            id: R1rt23f45
             amount: 45.16
-            cost_type: |
-              This is a cost_type
+            cost_type: This is a cost_type
             status: ready_for_creditor
             transaction_date: 2017-07-21T17:32:28.000Z
     CostTypes:
@@ -792,19 +771,19 @@ components:
           description: Descriptions cost-type
         managertype:
           type: string
-          description: >
-            A manager type to differentiate different lines of managers
+          description: A manager type to differentiate different lines of managers
         message:
           type: object
           description: Different messages for different languages
-      example: |-
-        {
-            "cid": "410200",
-            "ctype": "Omschrijving",
-            "description": {"nl: Omschrijving"}
-            "managertype": "linemanager",
-            "message": {"nl: { "long": "Vul dit veld in" }}
-        }
+      example:
+        - cid: "410200"
+          ctype: "Omschrijving"
+          description:
+            nl: "Omschrijving"
+          managertype: "linemanager"
+          message:
+            nl:
+              long: "Vul dit veld in"
     RejectionNotes:
       title: rejectionNotes
       description: RejectionNotes data
@@ -816,9 +795,9 @@ components:
           type: object
           description: Translations rejection note per language
       example:
-        translations:
-          nl: "Dit is een voorbeeld"
-          en: "This is an example"
+        - translations:
+            nl: "Dit is een voorbeeld"
+            en: "This is an example"
     BookingFile:
       title: Exported files
       description: Booking File Exported data
@@ -830,14 +809,10 @@ components:
           type: string
         payment_file:
           type: string
-      example: >-
-        {
-          "booking_file": "http://127.0.0.1:5000/finances/expenses/\
-        documents/booking.csv/kinds/booking_file",
-          "export_date": "2019-10-01T06:07:19.188000+00:00",
-          "payment_file": "http://127.0.0.1:5000/finances/expenses/\
-        documents/booking/kinds/payment_file"
-        }
+      example:
+        - booking_file: "http://127.0.0.1:5000/finances/expenses/documents/booking.csv/kinds/booking_file"
+          export_date: "2019-10-01T06:07:19.188000+00:00"
+          payment_file: "http://127.0.0.1:5000/finances/expenses/documents/booking/kinds/payment_file"
     ExportFile:
       title: Export file expenses
       description: File All Exported Data
@@ -884,7 +859,7 @@ components:
       schema:
         type: string
         format: date
-        default: '1970-01-01'
+        default: "1970-01-01"
       in: query
       required: false
     DateTo:
@@ -894,7 +869,7 @@ components:
       schema:
         type: string
         format: date
-        default: '1970-01-01'
+        default: "1970-01-01"
       in: query
       required: false
     DepartmentId:
@@ -940,24 +915,22 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ExpenseData'
+            $ref: "#/components/schemas/ExpenseData"
       required: true
     attachmentData:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/AttachmentData'
+            $ref: "#/components/schemas/AttachmentData"
   securitySchemes:
     oauth2:
       type: oauth2
       description: This API uses OAuth 2 with the implicit grant flow.
       flows:
         implicit:
-          authorizationUrl: >-
-            https://azuread.url/2.0/authorize
+          authorizationUrl: https://azuread.url/2.0/authorize
           scopes:
-            leasecoordinator.write: >
-              Read filtered expense and document information
+            leasecoordinator.write: Read filtered expense and document information
             finance.expenses: Read expense and document information
             creditor.write: Write all expenses and documents
             controller.write: Read all expense information
