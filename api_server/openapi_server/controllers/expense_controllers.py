@@ -1201,6 +1201,37 @@ class ManagerExpenses(ClaimExpenses):
 
         return {}, {}
 
+    def get_rejection_notes(self):
+        """
+        Get rejection_notes
+        :return:
+        """
+
+        rejection_notes = [
+            {
+                "translations": {
+                    "nl": "Deze kosten kun je declareren via Regweb (PSA)",
+                    "en": "These costs can be claimed via Regweb (PSA)",
+                    "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"
+                }
+            },
+            {
+                "translations": {
+                    "nl": "Deze kosten kun je declareren via de leasemaatschappij",
+                    "en": "These costs can be claimed via the lease company",
+                    "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"
+                }
+            },
+            {
+                "translations": {
+                    "nl": "Deze kosten zijn al gedeclareerd",
+                    "en": "These costs have already been claimed",
+                    "de": "Diese Kosten würden bereits geltend gemacht"
+                }
+            }
+        ]
+        return jsonify(rejection_notes)
+
 
 class ControllerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
@@ -1483,6 +1514,14 @@ def get_cost_types():  # noqa: E501
     """
     expense_instance = ClaimExpenses()
     return expense_instance.get_cost_types()
+
+
+def get_rejection_notes():  # noqa: E501
+    """Get all rejection_notes
+    :rtype: None
+    """
+    expense_instance = ManagerExpenses()
+    return expense_instance.get_rejection_notes()
 
 
 def get_document(document_id, document_type):
