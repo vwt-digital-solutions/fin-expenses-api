@@ -179,6 +179,7 @@ class ClaimExpenses:
             {
                 "ctype": row.get("Omschrijving", ""),
                 "cid": row.key.name,
+                "active": row.get("Active", ""),
                 "description": row.get("Description", {"nl": row.get("Omschrijving", row.key.name),
                                                        "en": row.get("Omschrijving", row.key.name),
                                                        "de": row.get("Omschrijving", row.key.name)}),
