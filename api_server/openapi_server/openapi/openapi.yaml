@@ -537,6 +537,30 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+  /managers/rejection-notes:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RejectionNotes'
+              examples:
+                RejectionNotes:
+                  value:
+                    - translations:
+                        nl: "Dit is een voorbeeld"
+                        en: "This is an example"
+          description: Successful response - returns all cost-types
+        default:
+          description: Rejection_notes retrieved successfully
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_rejection_notes
+      summary: Get all rejection_notes
+      description: Retrieve all rejection_notes
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /controllers/expenses:
     get:
       responses:
@@ -781,6 +805,20 @@ components:
             "managertype": "linemanager",
             "message": {"nl: { "long": "Vul dit veld in" }}
         }
+    RejectionNotes:
+      title: rejectionNotes
+      description: RejectionNotes data
+      required:
+        - translations
+      type: object
+      properties:
+        translations:
+          type: object
+          description: Translations rejection note per language
+      example:
+        translations:
+          nl: "Dit is een voorbeeld"
+          en: "This is an example"
     BookingFile:
       title: Exported files
       description: Booking File Exported data
