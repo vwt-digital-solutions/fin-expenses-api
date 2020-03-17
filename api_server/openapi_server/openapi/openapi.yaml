@@ -542,7 +542,7 @@ paths:
                     - translations:
                         nl: "Dit is een voorbeeld"
                         en: "This is an example"
-          description: Successful response - returns all cost-types
+          description: Successful response - returns all rejection notes
         default:
           description: Rejection notes retrieved successfully
       security:
