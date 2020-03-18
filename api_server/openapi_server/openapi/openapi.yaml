@@ -682,6 +682,15 @@ components:
         transaction_date:
           type: string
           format: date-time
+        rnote_id:
+          type: number
+          enum:
+            - 1
+            - 2
+            - 3
+            - 4
+        rnote:
+          type: string
       required:
         - status
       example:

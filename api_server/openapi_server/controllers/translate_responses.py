@@ -104,6 +104,11 @@ def make_response_translated(message, http_code):
             "en": "Employee not unique",
             "de": "Mitarbeiter nicht eindeutig"
         },
+        "Geen geldig afwijzing": {
+            "nl": "Geen geldig afwijzing",
+            "en": "Not a valid rejection",
+            "de": "Keine gültige Ablehnung"
+        },
         "Het declaratiebedrag moet hoger zijn dan €{},-": {
             "nl": "Het declaratiebedrag moet hoger zijn dan €{},-",
             "en": "The expense amount must be higher than 3 €{},-",

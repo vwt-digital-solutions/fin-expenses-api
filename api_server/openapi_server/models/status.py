@@ -15,7 +15,7 @@ class Status(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, status=None, creditor_note=None, manager_note=None, amount=None, note=None, cost_type=None, transaction_date=None):  # noqa: E501
+    def __init__(self, status=None, creditor_note=None, manager_note=None, amount=None, note=None, cost_type=None, transaction_date=None, rnote_id=None, rnote=None):  # noqa: E501
         """Status - a model defined in OpenAPI
 
         :param status: The status of this Status.  # noqa: E501
@@ -32,6 +32,10 @@ class Status(Model):
         :type cost_type: str
         :param transaction_date: The transaction_date of this Status.  # noqa: E501
         :type transaction_date: datetime
+        :param rnote_id: The rnote_id of this Status.  # noqa: E501
+        :type rnote_id: float
+        :param rnote: The rnote of this Status.  # noqa: E501
+        :type rnote: str
         """
         self.openapi_types = {
             'status': str,
@@ -40,7 +44,9 @@ class Status(Model):
             'amount': float,
             'note': str,
             'cost_type': str,
-            'transaction_date': datetime
+            'transaction_date': datetime,
+            'rnote_id': float,
+            'rnote': str
         }
 
         self.attribute_map = {
@@ -50,7 +56,9 @@ class Status(Model):
             'amount': 'amount',
             'note': 'note',
             'cost_type': 'cost_type',
-            'transaction_date': 'transaction_date'
+            'transaction_date': 'transaction_date',
+            'rnote_id': 'rnote_id',
+            'rnote': 'rnote'
         }
 
         self._status = status
@@ -60,6 +68,8 @@ class Status(Model):
         self._note = note
         self._cost_type = cost_type
         self._transaction_date = transaction_date
+        self._rnote_id = rnote_id
+        self._rnote = rnote
 
     @classmethod
     def from_dict(cls, dikt) -> 'Status':
@@ -226,3 +236,51 @@ class Status(Model):
         """
 
         self._transaction_date = transaction_date
+
+    @property
+    def rnote_id(self):
+        """Gets the rnote_id of this Status.
+
+
+        :return: The rnote_id of this Status.
+        :rtype: float
+        """
+        return self._rnote_id
+
+    @rnote_id.setter
+    def rnote_id(self, rnote_id):
+        """Sets the rnote_id of this Status.
+
+
+        :param rnote_id: The rnote_id of this Status.
+        :type rnote_id: float
+        """
+        allowed_values = [1, 2, 3, 4]  # noqa: E501
+        if rnote_id not in allowed_values:
+            raise ValueError(
+                "Invalid value for `rnote_id` ({0}), must be one of {1}"
+                .format(rnote_id, allowed_values)
+            )
+
+        self._rnote_id = rnote_id
+
+    @property
+    def rnote(self):
+        """Gets the rnote of this Status.
+
+
+        :return: The rnote of this Status.
+        :rtype: str
+        """
+        return self._rnote
+
+    @rnote.setter
+    def rnote(self, rnote):
+        """Sets the rnote of this Status.
+
+
+        :param rnote: The rnote of this Status.
+        :type rnote: str
+        """
+
+        self._rnote = rnote

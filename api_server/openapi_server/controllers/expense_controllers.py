@@ -51,29 +51,29 @@ FILTERED_OUT_ON_PROCESS = [
     "exported",
 ]
 
-REJECTION_NOTES = [
-  {
-      "rnote_id": 1, "form": "static", "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
-      "translations": {"nl": "Deze kosten kun je declareren via Regweb (PSA)",
-                       "en": "These costs can be claimed via Regweb (PSA)",
-                       "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"}
-  },
-  {
-      "rnote_id": 2, "form": "static", "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
-      "translations": {"nl": "Deze kosten kun je declareren via de leasemaatschappij",
-                       "en": "These costs can be claimed via the lease company",
-                       "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"}
-  },
-  {
-      "rnote_id": 3, "form": "static", "rnote": "Deze kosten zijn al gedeclareerd",
-      "translations": {"nl": "Deze kosten zijn al gedeclareerd", "en": "These costs have already been claimed",
-                       "de": "Diese Kosten würden bereits geltend gemacht"}
-  },
-  {
-      "rnote_id": 4, "form": "dynamic", "rnote": "note",
-      "translations": {"nl": "Andere reden:", "en": "Other reason:", "de": "Anderer Grund:"}
-  }
-]
+REJECTION_NOTES = {
+    1: {
+        "rnote_id": 1, "form": "static", "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
+        "translations": {"nl": "Deze kosten kun je declareren via Regweb (PSA)",
+                         "en": "These costs can be claimed via Regweb (PSA)",
+                         "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"}
+    },
+    2: {
+        "rnote_id": 2, "form": "static", "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
+        "translations": {"nl": "Deze kosten kun je declareren via de leasemaatschappij",
+                         "en": "These costs can be claimed via the lease company",
+                         "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"}
+    },
+    3: {
+        "rnote_id": 3, "form": "static", "rnote": "Deze kosten zijn al gedeclareerd",
+        "translations": {"nl": "Deze kosten zijn al gedeclareerd", "en": "These costs have already been claimed",
+                         "de": "Diese Kosten würden bereits geltend gemacht"}
+    },
+    4: {
+        "rnote_id": 4, "form": "dynamic", "rnote": "note",
+        "translations": {"nl": "Andere reden:", "en": "Other reason:", "de": "Anderer Grund:"}
+    }
+}
 
 
 class ClaimExpenses:
@@ -307,6 +307,18 @@ class ClaimExpenses:
     def get_all_expenses(self):
         pass
 
+    @staticmethod
+    def _merge_rejection_note(status):
+        if 'rnote' in status and 'rnote_id' not in status:
+            for key in REJECTION_NOTES:
+                if REJECTION_NOTES[key]['rnote'] == status['rnote']:
+                    status['rnote_id'] = REJECTION_NOTES[key]['rnote_id']
+
+            if 'rnote_id' not in status:
+                status['rnote_id'] = 4
+
+        return status
+
     def add_expenses(self, data):
         """
         Add expense with given data amount and given data note. An expense can have one of 6
@@ -411,9 +423,10 @@ class ClaimExpenses:
         :param note_check:
         :return:
         """
-        if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
-                                                     or data['status'] == 'rejected_by_creditor'):
-            return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
+        if note_check:
+            if not data.get('rnote_id') and (data['status'] == 'rejected_by_manager' or
+                                             data['status'] == 'rejected_by_creditor'):
+                return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
 
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
@@ -457,6 +470,13 @@ class ClaimExpenses:
             if not self._has_attachments(expense, data):
                 return make_response_translated("De declaratie moet minimaal één bijlage hebben", 403)
 
+            if 'rnote_id' in data:
+                rnote_id, rnote = self._process_rejection_note(data.get('rnote_id'), data.get('rnote'))
+                if not rnote_id or not rnote:
+                    return make_response_translated("Geen geldig afwijzing", 400)
+                data['rnote_id'] = rnote_id
+                data['rnote'] = rnote
+
             BusinessRulesEngine().duplicate_rule(data, expense['employee']['afas_data'], expense)
             # If there are no warnings to display: remove flags property from entity
             if "flags" not in data and "flags" in expense:
@@ -489,6 +509,9 @@ class ClaimExpenses:
             if item == "rnote":
                 need_to_save = True
                 expense["status"]["rnote"] = data[item]
+            elif item == "rnote_id":
+                need_to_save = True
+                expense["status"]["rnote_id"] = data[item]
             elif item != "status" and expense.get(item, None) != data[item]:
                 need_to_save = True
                 expense[item] = data[item]
@@ -543,6 +566,20 @@ class ClaimExpenses:
         )
 
         return True if len(list(blobs)) > 0 else False
+
+    @staticmethod
+    def _process_rejection_note(rnote_id, rnote=None):
+        if (rnote and not rnote_id) or not REJECTION_NOTES.get(rnote_id, None):
+            return False, False
+
+        rejection = REJECTION_NOTES.get(rnote_id)
+
+        if rejection['form'] == 'dynamic' and not rnote:
+            return False, False
+        elif rejection['form'] != 'dynamic':
+            rnote = rejection['rnote']
+
+        return rnote_id, rnote
 
     @staticmethod
     def get_iban_details(iban):
@@ -904,8 +941,7 @@ class ClaimExpenses:
 
         return cost_type_entity, cost_type_active
 
-    @staticmethod
-    def _process_expenses_info(expenses_info):
+    def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
             return jsonify([
@@ -917,7 +953,7 @@ class ClaimExpenses:
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                     "flags": ed.get("flags", {})
                 }
                 for ed in expenses_data
@@ -1101,7 +1137,6 @@ class EmployeeExpenses(ClaimExpenses):
             fields = {
                 "status",
                 "cost_type",
-                "rnote",
                 "note",
                 "transaction_date",
                 "amount",
@@ -1226,6 +1261,7 @@ class ManagerExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
+                "rnote_id",
                 "manager_type",
                 "flags"
             }
@@ -1240,7 +1276,14 @@ class ManagerExpenses(ClaimExpenses):
         """
 
         if REJECTION_NOTES:
-            return jsonify(REJECTION_NOTES)
+            return jsonify([
+                {
+                    "form": REJECTION_NOTES[key].get('form'),
+                    "rnote": REJECTION_NOTES[key].get('rnote'),
+                    "rnote_id": REJECTION_NOTES[key].get('rnote_id'),
+                    "translations": REJECTION_NOTES[key].get('translations')
+                }
+                for key in REJECTION_NOTES])
 
         return make_response('', 204)
 
@@ -1271,7 +1314,7 @@ class ControllerExpenses(ClaimExpenses):
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                 })
             return jsonify(results)
 
@@ -1312,6 +1355,8 @@ class CreditorExpenses(ClaimExpenses):
             results = []
 
             for expense in expenses_data:
+                expense['status'] = self._merge_rejection_note(expense["status"])
+
                 expense_row = {
                     "id": expense.id,
                     "amount": expense["amount"],
@@ -1322,7 +1367,6 @@ class CreditorExpenses(ClaimExpenses):
                     "employee": expense["employee"]["full_name"],
                     "status": expense["status"],
                     "auto_approved": expense.get("auto_approved", ""),
-                    "rnote": expense.get("status", {}).get("rnote", ""),
                     "manager": expense.get("employee", {}).get("afas_data", {}).get(
                         "Manager_personeelsnummer", "Manager not found: check expense"),
                     "export_date": expense["status"].get("export_date", ""),
@@ -1451,6 +1495,7 @@ class CreditorExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
+                "rnote_id",
                 "manager_type",
                 "flags"
             }
