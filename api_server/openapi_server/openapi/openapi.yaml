@@ -684,6 +684,7 @@ components:
           format: date-time
         rnote_id:
           type: number
+          format: int32
           enum:
             - 1
             - 2
