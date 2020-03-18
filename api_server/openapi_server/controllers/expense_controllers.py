@@ -298,8 +298,8 @@ class ClaimExpenses:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
-                    cost_type_entity = self._process_cost_type(data.cost_type)
-                    if cost_type_entity is None:
+                    cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
+                    if cost_type_entity is None or cost_type_active == "False":
                         return make_response_translated("Geen geldig kostensoort", 400)
                     data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
 
@@ -399,8 +399,8 @@ class ClaimExpenses:
             if not expense:
                 return make_response_translated("Declaratie niet gevonden", 404)
 
-            cost_type_entity = self._process_cost_type(data.get('cost_type', expense['cost_type']))
-            if cost_type_entity is None:
+            cost_type_entity, cost_type_active = self._process_cost_type(data.get('cost_type', expense['cost_type']))
+            if 'cost_type' in data and (cost_type_entity is None or cost_type_active == "False"):
                 return make_response_translated("Geen geldig kostensoort", 400)
 
             is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
@@ -872,9 +872,13 @@ class ClaimExpenses:
             cost_type_id = cost_type_split[1]
 
         key = self.ds_client.key("CostTypes", cost_type_id)
-        entity = self.ds_client.get(key=key)
+        cost_type_entity = self.ds_client.get(key=key)
 
-        return entity
+        cost_type_active = "False"
+        if cost_type_entity is not None:
+            cost_type_active = cost_type_entity.get('Active', "False")
+
+        return cost_type_entity, cost_type_active
 
     @staticmethod
     def _process_expenses_info(expenses_info):
@@ -1105,11 +1109,11 @@ class EmployeeExpenses(ClaimExpenses):
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        cost_type_entity = self._process_cost_type(expense['cost_type'])
+        cost_type_entity, cost_type_active = self._process_cost_type(expense['cost_type'])
         manager_type = "linemanager"
 
         if cost_type_entity is not None:
-            manager_type = cost_type_entity['ManagerType']
+            manager_type = cost_type_entity.get('ManagerType', "")
 
         if 'leasecoordinator.write' in \
                 self.employee_info.get('scopes', []) and \
