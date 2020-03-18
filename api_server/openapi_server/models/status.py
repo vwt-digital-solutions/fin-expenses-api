@@ -33,7 +33,7 @@ class Status(Model):
         :param transaction_date: The transaction_date of this Status.  # noqa: E501
         :type transaction_date: datetime
         :param rnote_id: The rnote_id of this Status.  # noqa: E501
-        :type rnote_id: float
+        :type rnote_id: int
         :param rnote: The rnote of this Status.  # noqa: E501
         :type rnote: str
         """
@@ -45,7 +45,7 @@ class Status(Model):
             'note': str,
             'cost_type': str,
             'transaction_date': datetime,
-            'rnote_id': float,
+            'rnote_id': int,
             'rnote': str
         }
 
@@ -243,7 +243,7 @@ class Status(Model):
 
 
         :return: The rnote_id of this Status.
-        :rtype: float
+        :rtype: int
         """
         return self._rnote_id
 
@@ -253,7 +253,7 @@ class Status(Model):
 
 
         :param rnote_id: The rnote_id of this Status.
-        :type rnote_id: float
+        :type rnote_id: int
         """
         allowed_values = [1, 2, 3, 4]  # noqa: E501
         if rnote_id not in allowed_values:

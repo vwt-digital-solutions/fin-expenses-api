@@ -683,7 +683,7 @@ components:
           type: string
           format: date-time
         rnote_id:
-          type: number
+          type: integer
           format: int32
           enum:
             - 1
