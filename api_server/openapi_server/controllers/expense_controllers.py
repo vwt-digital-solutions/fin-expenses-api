@@ -1109,11 +1109,11 @@ class EmployeeExpenses(ClaimExpenses):
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        cost_type_entity = self._process_cost_type(expense['cost_type'])
+        cost_type_entity, cost_type_active = self._process_cost_type(expense['cost_type'])
         manager_type = "linemanager"
 
         if cost_type_entity is not None:
-            manager_type = cost_type_entity['ManagerType']
+            manager_type = cost_type_entity.get('ManagerType', "")
 
         if 'leasecoordinator.write' in \
                 self.employee_info.get('scopes', []) and \
