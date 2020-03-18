@@ -335,7 +335,7 @@ class ClaimExpenses:
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
                     cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
-                    if cost_type_entity is None or cost_type_active == "False":
+                    if cost_type_entity is None or not cost_type_active:
                         return make_response_translated("Geen geldig kostensoort", 400)
                     data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
 
@@ -354,7 +354,7 @@ class ClaimExpenses:
                         ),
                         "amount": data.amount,
                         "note": data.note,
-                        "cost_type": data.cost_type,
+                        "cost_type": cost_type_entity.key.name,
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
@@ -436,9 +436,12 @@ class ClaimExpenses:
             if not expense:
                 return make_response_translated("Declaratie niet gevonden", 404)
 
+            # Check validity cost-type
             cost_type_entity, cost_type_active = self._process_cost_type(data.get('cost_type', expense['cost_type']))
-            if 'cost_type' in data and (cost_type_entity is None or cost_type_active == "False"):
-                return make_response_translated("Geen geldig kostensoort", 400)
+            if 'cost_type' in data:
+                if cost_type_entity is None or not cost_type_active:
+                    return make_response_translated("Geen geldig kostensoort", 400)
+                data['cost_type'] = cost_type_entity.key.name
 
             is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
 
@@ -935,9 +938,9 @@ class ClaimExpenses:
         key = self.ds_client.key("CostTypes", cost_type_id)
         cost_type_entity = self.ds_client.get(key=key)
 
-        cost_type_active = "False"
+        cost_type_active = False
         if cost_type_entity is not None:
-            cost_type_active = cost_type_entity.get('Active', "False")
+            cost_type_active = cost_type_entity.get('Active', False)
 
         return cost_type_entity, cost_type_active
 
