@@ -1,3 +1,4 @@
+import ast
 from flask import make_response, jsonify
 
 
@@ -102,11 +103,29 @@ def make_response_translated(message, http_code):
             "nl": "Medewerker niet uniek",
             "en": "Employee not unique",
             "de": "Mitarbeiter nicht eindeutig"
+        },
+        "Het declaratiebedrag moet hoger zijn dan €{},-": {
+            "nl": "Het declaratiebedrag moet hoger zijn dan €{},-",
+            "en": "The expense amount must be higher than 3 €{},-",
+            "de": "Der Kostenbetrag muss höher als €{},- sein"
         }
     }
+    detail = {}
+
+    try:
+        message_obj = ast.literal_eval(message)
+        message = message_obj.get('message', 'Er ging iets fout')
+        detail = error_translations.get(message, {})
+
+        if 'replacements' in message_obj:
+            message = message.format(*message_obj['replacements'])
+            for lan in detail:
+                detail[lan] = detail[lan].format(*message_obj['replacements'])
+    except Exception:
+        detail = error_translations.get(message, {})
 
     translated_response = {
-        "detail": error_translations.get(message, {}),
+        "detail": detail,
         "status": http_code,
         "title": message
     }
