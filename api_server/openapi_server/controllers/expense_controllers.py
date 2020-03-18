@@ -51,6 +51,30 @@ FILTERED_OUT_ON_PROCESS = [
     "exported",
 ]
 
+REJECTION_NOTES = [
+  {
+      "rnote_id": 1, "form": "static", "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
+      "translations": {"nl": "Deze kosten kun je declareren via Regweb (PSA)",
+                       "en": "These costs can be claimed via Regweb (PSA)",
+                       "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"}
+  },
+  {
+      "rnote_id": 2, "form": "static", "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
+      "translations": {"nl": "Deze kosten kun je declareren via de leasemaatschappij",
+                       "en": "These costs can be claimed via the lease company",
+                       "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"}
+  },
+  {
+      "rnote_id": 3, "form": "static", "rnote": "Deze kosten zijn al gedeclareerd",
+      "translations": {"nl": "Deze kosten zijn al gedeclareerd", "en": "These costs have already been claimed",
+                       "de": "Diese Kosten würden bereits geltend gemacht"}
+  },
+  {
+      "rnote_id": 4, "form": "dynamic", "rnote": "note",
+      "translations": {"nl": "Andere reden:", "en": "Other reason:", "de": "Anderer Grund:"}
+  }
+]
+
 
 class ClaimExpenses:
     """
@@ -1215,30 +1239,10 @@ class ManagerExpenses(ClaimExpenses):
         :return:
         """
 
-        rejection_notes = [
-            {
-                "translations": {
-                    "nl": "Deze kosten kun je declareren via Regweb (PSA)",
-                    "en": "These costs can be claimed via Regweb (PSA)",
-                    "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"
-                }
-            },
-            {
-                "translations": {
-                    "nl": "Deze kosten kun je declareren via de leasemaatschappij",
-                    "en": "These costs can be claimed via the lease company",
-                    "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"
-                }
-            },
-            {
-                "translations": {
-                    "nl": "Deze kosten zijn al gedeclareerd",
-                    "en": "These costs have already been claimed",
-                    "de": "Diese Kosten würden bereits geltend gemacht"
-                }
-            }
-        ]
-        return jsonify(rejection_notes)
+        if REJECTION_NOTES:
+            return jsonify(REJECTION_NOTES)
+
+        return make_response('', 204)
 
 
 class ControllerExpenses(ClaimExpenses):
