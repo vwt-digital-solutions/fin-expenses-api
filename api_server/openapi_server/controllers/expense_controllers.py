@@ -239,6 +239,9 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
+            cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"])
+            cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
             if expense:
                 if permission == "employee":
                     if not expense["employee"]["email"] == \
@@ -260,7 +263,7 @@ class ClaimExpenses:
                         "id": expense.id,
                         "amount": expense["amount"],
                         "note": expense["note"],
-                        "cost_type": expense["cost_type"],
+                        "cost_type": cost_type,
                         "claim_date": expense["claim_date"],
                         "transaction_date": expense["transaction_date"],
                         "employee": expense["employee"]["full_name"],
@@ -930,15 +933,21 @@ class ClaimExpenses:
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
-    def _process_cost_type(self, cost_type):
+    def _process_cost_type(self, cost_type, cost_type_list=None):
         cost_type_split = cost_type.split(":")
         cost_type_id = cost_type
 
         if len(cost_type_split) == 2:
             cost_type_id = cost_type_split[1]
 
-        key = self.ds_client.key("CostTypes", cost_type_id)
-        cost_type_entity = self.ds_client.get(key=key)
+        if cost_type_list is None:
+            key = self.ds_client.key("CostTypes", cost_type_id)
+            cost_type_entity = self.ds_client.get(key=key)
+        else:
+            for ct in cost_type_list:
+                if ct.key.name == cost_type_id:
+                    cost_type_entity = ct
+                    break
 
         cost_type_active = False
         if cost_type_entity is not None:
@@ -949,21 +958,27 @@ class ClaimExpenses:
     def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
-            return jsonify([
-                {
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
+
+            expenses_list = []
+            for ed in expenses_data:
+
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
+                expenses_list.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": self._merge_rejection_note(ed["status"]),
                     "flags": ed.get("flags", {})
-                }
-                for ed in expenses_data
-            ])
+                })
 
+            return jsonify(expenses_list)
         return make_response('', 204)
 
     def expense_journal(self, old_expense, expense):
@@ -1234,21 +1249,27 @@ class ManagerExpenses(ClaimExpenses):
     def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
-            return [
-                {
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
+
+            expenses_list = []
+            for ed in expenses_data:
+
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
+                expenses_list.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
                     "status": self._merge_rejection_note(ed["status"]),
                     "manager_type": ed.get("manager_type"),
                     "flags": ed.get("flags", {})
-                }
-                for ed in expenses_data
-            ]
+                })
+            return expenses_list
         return []
 
     def __init__(self):
@@ -1353,14 +1374,21 @@ class ControllerExpenses(ClaimExpenses):
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
+
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
             results = []
+
             for ed in expenses_data:
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
                 logging.debug(f'get_all_expenses: [{ed}]')
+
                 results.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
@@ -1402,16 +1430,20 @@ class CreditorExpenses(ClaimExpenses):
         query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
 
         if expenses_data:
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
             results = []
 
             for expense in expenses_data:
                 expense['status'] = self._merge_rejection_note(expense["status"])
 
+                cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
                 expense_row = {
                     "id": expense.id,
                     "amount": expense["amount"],
                     "note": expense["note"],
-                    "cost_type": expense["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": expense["claim_date"],
                     "transaction_date": expense["transaction_date"],
                     "employee": expense["employee"]["full_name"],
