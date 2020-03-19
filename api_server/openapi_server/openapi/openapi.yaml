@@ -225,7 +225,7 @@ paths:
     get:
       responses:
         "200":
-          description: Download Success
+          description: Successful response - returns object with employee profile
           content:
             application/json:
               schema:
@@ -237,12 +237,12 @@ paths:
         "403":
           description: Provided token does not have the required scope
         default:
-          description: Profile added/updated successfully!
+          description: Profile returned successfully!
       security:
         - oauth2: [finance.expenses]
       operationId: get_employee_profile
-      summary: Get user profile
-      description: Get a user profile
+      summary: Get employee profile
+      description: Get an employee profile
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
     post:
