@@ -1101,6 +1101,20 @@ class ClaimExpenses:
             logging.exception(
                 f'An exception occurred when sending an email: {error}')
 
+    def get_employee_profile(self):
+        if 'unique_name' not in self.employee_info:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
+        employee_profile = self.ds_client.get(key)
+
+        if not employee_profile:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        return make_response(jsonify({
+            'locale': employee_profile.get('locale', '')
+        }), 200)
+
     def add_employee_profile(self, employee_profile):
         if 'unique_name' not in self.employee_info:
             return make_response_translated("Medewerker niet gevonden", 403)
@@ -1916,6 +1930,11 @@ def api_base_url():
     return base_url
 
 
+def get_employee_profile():
+    expense_instance = ClaimExpenses()
+    return expense_instance.get_employee_profile()
+
+
 def add_employee_profile():
     if connexion.request.is_json:
         expense_instance = ClaimExpenses()
@@ -1924,10 +1943,6 @@ def add_employee_profile():
         return expense_instance.add_employee_profile(employee_profile)
 
     return make_response_translated("Er ging iets fout", 400)
-
-
-def get_employee_profile():
-    return 'do some magic!'
 
 
 def register_push_token():
