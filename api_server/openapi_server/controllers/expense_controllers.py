@@ -1196,7 +1196,7 @@ class ManagerExpenses(ClaimExpenses):
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                     "manager_type": ed.get("manager_type"),
                     "flags": ed.get("flags", {})
                 }
