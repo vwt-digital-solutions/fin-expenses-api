@@ -221,7 +221,7 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  /employees/registerpush:
+  /employees/register-push-tokens:
     post:
       requestBody:
         $ref: "#/components/requestBodies/pushToken"
