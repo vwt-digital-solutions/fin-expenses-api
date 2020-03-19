@@ -35,6 +35,7 @@ from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
+from openapi_server.models.push_token import PushToken  # noqa: E501
 from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
 
@@ -1099,6 +1100,23 @@ class ClaimExpenses:
             logging.exception(
                 f'An exception occurred when sending an email: {error}')
 
+    def register_push_token(self, push_token):
+        if 'unique_name' not in self.employee_info:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        key = self.ds_client.key("PushTokens", self.employee_info['unique_name'])
+        entity = datastore.Entity(key=key)
+        entity.update({
+            "push_token": push_token.push_token,
+            "app_version": push_token.app_version,
+            "os_platform": push_token.os_platform,
+            "os_version": push_token.os_version,
+            "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+        })
+        self.ds_client.put(entity)
+
+        return make_response('', 201)
+
 
 class EmployeeExpenses(ClaimExpenses):
     def __init__(self, employee_id):
@@ -1881,3 +1899,13 @@ def api_base_url():
             base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
+
+
+def register_push_token():
+    if connexion.request.is_json:
+        expense_instance = ClaimExpenses()
+        push_token = PushToken.from_dict(connexion.request.get_json())  # noqa: E501
+
+        return expense_instance.register_push_token(push_token)
+
+    return make_response_translated("Er ging iets fout", 400)
