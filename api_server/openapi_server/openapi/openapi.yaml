@@ -266,6 +266,7 @@ paths:
       description: Add or update an employee profile
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /employees/register-push-tokens:
     post:
       requestBody:
@@ -288,6 +289,7 @@ paths:
       description: Register a mobile push token for a user
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /finances/documents:
     get:
       operationId: get_document_list
@@ -606,9 +608,13 @@ paths:
               examples:
                 RejectionNotes:
                   value:
-                    - translations:
-                        nl: "Dit is een voorbeeld"
-                        en: "This is an example"
+                    - form: "dynamic"
+                      rnote: "Anders, reden:"
+                      rnote_id: 4
+                      translations:
+                        de: "Anderer Grund:"
+                        en: "Other reason:"
+                        nl: "Andere reden:"
           description: Successful response - returns all rejection notes
         default:
           description: Rejection notes retrieved successfully
@@ -862,19 +868,41 @@ components:
             nl:
               long: "Vul dit veld in"
     RejectionNotes:
-      title: rejectionNotes
-      description: RejectionNotes data
+      title: Rejection notes
+      description: Rejection notes data
       required:
+        - form
+        - rnote
+        - rnote_id
         - translations
       type: object
       properties:
+        form:
+          type: string
+          enum:
+            - "dynamic"
+            - "static"
+        rnote:
+          type: string
+        rnote_id:
+          type: integer
+          format: int32
+          enum:
+            - 1
+            - 2
+            - 3
+            - 4
         translations:
           type: object
-          description: Translations rejection note per language
+          description: Translations rejection note per locale
       example:
-        - translations:
-            nl: "Dit is een voorbeeld"
-            en: "This is an example"
+        - form: "dynamic"
+          rnote: "Anders, reden:"
+          rnote_id: 4
+          translations:
+            de: "Anderer Grund:"
+            en: "Other reason:"
+            nl: "Andere reden:"
     BookingFile:
       title: Exported files
       description: Booking File Exported data

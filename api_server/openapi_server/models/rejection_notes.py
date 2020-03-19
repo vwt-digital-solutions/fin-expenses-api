@@ -15,20 +15,35 @@ class RejectionNotes(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, translations=None):  # noqa: E501
+    def __init__(self, form=None, rnote=None, rnote_id=None, translations=None):  # noqa: E501
         """RejectionNotes - a model defined in OpenAPI
 
+        :param form: The form of this RejectionNotes.  # noqa: E501
+        :type form: str
+        :param rnote: The rnote of this RejectionNotes.  # noqa: E501
+        :type rnote: str
+        :param rnote_id: The rnote_id of this RejectionNotes.  # noqa: E501
+        :type rnote_id: int
         :param translations: The translations of this RejectionNotes.  # noqa: E501
         :type translations: object
         """
         self.openapi_types = {
+            'form': str,
+            'rnote': str,
+            'rnote_id': int,
             'translations': object
         }
 
         self.attribute_map = {
+            'form': 'form',
+            'rnote': 'rnote',
+            'rnote_id': 'rnote_id',
             'translations': 'translations'
         }
 
+        self._form = form
+        self._rnote = rnote
+        self._rnote_id = rnote_id
         self._translations = translations
 
     @classmethod
@@ -43,10 +58,87 @@ class RejectionNotes(Model):
         return util.deserialize_model(dikt, cls)
 
     @property
+    def form(self):
+        """Gets the form of this RejectionNotes.
+
+
+        :return: The form of this RejectionNotes.
+        :rtype: str
+        """
+        return self._form
+
+    @form.setter
+    def form(self, form):
+        """Sets the form of this RejectionNotes.
+
+
+        :param form: The form of this RejectionNotes.
+        :type form: str
+        """
+        allowed_values = ["dynamic", "static"]  # noqa: E501
+        if form not in allowed_values:
+            raise ValueError(
+                "Invalid value for `form` ({0}), must be one of {1}"
+                .format(form, allowed_values)
+            )
+
+        self._form = form
+
+    @property
+    def rnote(self):
+        """Gets the rnote of this RejectionNotes.
+
+
+        :return: The rnote of this RejectionNotes.
+        :rtype: str
+        """
+        return self._rnote
+
+    @rnote.setter
+    def rnote(self, rnote):
+        """Sets the rnote of this RejectionNotes.
+
+
+        :param rnote: The rnote of this RejectionNotes.
+        :type rnote: str
+        """
+        if rnote is None:
+            raise ValueError("Invalid value for `rnote`, must not be `None`")  # noqa: E501
+
+        self._rnote = rnote
+
+    @property
+    def rnote_id(self):
+        """Gets the rnote_id of this RejectionNotes.
+
+
+        :return: The rnote_id of this RejectionNotes.
+        :rtype: int
+        """
+        return self._rnote_id
+
+    @rnote_id.setter
+    def rnote_id(self, rnote_id):
+        """Sets the rnote_id of this RejectionNotes.
+
+
+        :param rnote_id: The rnote_id of this RejectionNotes.
+        :type rnote_id: int
+        """
+        allowed_values = [1, 2, 3, 4]  # noqa: E501
+        if rnote_id not in allowed_values:
+            raise ValueError(
+                "Invalid value for `rnote_id` ({0}), must be one of {1}"
+                .format(rnote_id, allowed_values)
+            )
+
+        self._rnote_id = rnote_id
+
+    @property
     def translations(self):
         """Gets the translations of this RejectionNotes.
 
-        Translations rejection note  # noqa: E501
+        Translations rejection note per locale  # noqa: E501
 
         :return: The translations of this RejectionNotes.
         :rtype: object
@@ -57,7 +149,7 @@ class RejectionNotes(Model):
     def translations(self, translations):
         """Sets the translations of this RejectionNotes.
 
-        Translations rejection note  # noqa: E501
+        Translations rejection note per locale  # noqa: E501
 
         :param translations: The translations of this RejectionNotes.
         :type translations: object
