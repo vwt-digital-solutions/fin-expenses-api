@@ -89,8 +89,8 @@ def make_response_translated(message, http_code):
             "en": "The submission of an expense is not authorized while modifying fields",
             "de": "Die Abgabe einer Erklärung ist beim Ändern von Feldern nicht gestattet"
         },
-        "Geen geldig kostensoort": {
-            "nl": "Geen geldig kostensoort",
+        "Geen geldige kostensoort": {
+            "nl": "Geen geldige kostensoort",
             "en": "Not a valid cost-type",
             "de": "Keine gültige Kostenart"
         },
@@ -104,8 +104,8 @@ def make_response_translated(message, http_code):
             "en": "Employee not unique",
             "de": "Mitarbeiter nicht eindeutig"
         },
-        "Geen geldig afwijzing": {
-            "nl": "Geen geldig afwijzing",
+        "Geen geldige afwijzing": {
+            "nl": "Geen geldige afwijzing",
             "en": "Not a valid rejection",
             "de": "Keine gültige Ablehnung"
         },

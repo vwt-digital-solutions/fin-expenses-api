@@ -341,7 +341,7 @@ class ClaimExpenses:
 
                     cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
                     if cost_type_entity is None or not cost_type_active:
-                        return make_response_translated("Geen geldig kostensoort", 400)
+                        return make_response_translated("Geen geldige kostensoort", 400)
                     data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
 
                 except ValueError as exception:
@@ -445,7 +445,7 @@ class ClaimExpenses:
             cost_type_entity, cost_type_active = self._process_cost_type(data.get('cost_type', expense['cost_type']))
             if 'cost_type' in data:
                 if cost_type_entity is None or not cost_type_active:
-                    return make_response_translated("Geen geldig kostensoort", 400)
+                    return make_response_translated("Geen geldige kostensoort", 400)
                 data['cost_type'] = cost_type_entity.key.name
 
             is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
@@ -481,7 +481,7 @@ class ClaimExpenses:
             if 'rnote_id' in data:
                 rnote_id, rnote = self._process_rejection_note(data.get('rnote_id'), data.get('rnote'))
                 if not rnote_id or not rnote:
-                    return make_response_translated("Geen geldig afwijzing", 400)
+                    return make_response_translated("Geen geldige afwijzing", 400)
                 data['rnote_id'] = rnote_id
                 data['rnote'] = rnote
 
@@ -632,7 +632,7 @@ class ClaimExpenses:
 
         # if nothing to report, return immediate
         if not expense_claims_to_export:
-            return make_response_translated("Geen exports beschikbaar", 200)
+            return make_response_translated("Geen exports beschikbaar", 204)
 
         now = datetime.datetime.utcnow()
 
