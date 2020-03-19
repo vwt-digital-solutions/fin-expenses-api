@@ -29,8 +29,8 @@ class BusinessRulesEngine:
                     employee["Bedrijf"] == config.CONDITION_PAO_COMPANY and \
                     expense_data["amount"] <= config.CONDITION_PAO_AMOUNT:
                 raise ValueError(
-                    "Het declaratiebedrag moet hoger zijn dan €{},-".format(
-                        config.CONDITION_PAO_AMOUNT))
+                    {"message": "Het declaratiebedrag moet hoger zijn dan €{},-",
+                     "replacements": [config.CONDITION_PAO_AMOUNT]})
 
     def employed_rule(self, employee):
         current_day = datetime.today().strftime('%Y-%m-%dT00:00:00Z')

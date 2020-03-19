@@ -15,26 +15,41 @@ class CostTypes(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, cid=None, ctype=None):  # noqa: E501
+    def __init__(self, cid=None, ctype=None, description=None, managertype=None, message=None):  # noqa: E501
         """CostTypes - a model defined in OpenAPI
 
         :param cid: The cid of this CostTypes.  # noqa: E501
         :type cid: str
         :param ctype: The ctype of this CostTypes.  # noqa: E501
         :type ctype: str
+        :param description: The description of this CostTypes.  # noqa: E501
+        :type description: object
+        :param managertype: The managertype of this CostTypes.  # noqa: E501
+        :type managertype: str
+        :param message: The message of this CostTypes.  # noqa: E501
+        :type message: object
         """
         self.openapi_types = {
             'cid': str,
-            'ctype': str
+            'ctype': str,
+            'description': object,
+            'managertype': str,
+            'message': object
         }
 
         self.attribute_map = {
             'cid': 'cid',
-            'ctype': 'ctype'
+            'ctype': 'ctype',
+            'description': 'description',
+            'managertype': 'managertype',
+            'message': 'message'
         }
 
         self._cid = cid
         self._ctype = ctype
+        self._description = description
+        self._managertype = managertype
+        self._message = message
 
     @classmethod
     def from_dict(cls, dikt) -> 'CostTypes':
@@ -51,7 +66,7 @@ class CostTypes(Model):
     def cid(self):
         """Gets the cid of this CostTypes.
 
-        A cost type doel organisation code  # noqa: E501
+        A cost type ID  # noqa: E501
 
         :return: The cid of this CostTypes.
         :rtype: str
@@ -62,7 +77,7 @@ class CostTypes(Model):
     def cid(self, cid):
         """Sets the cid of this CostTypes.
 
-        A cost type doel organisation code  # noqa: E501
+        A cost type ID  # noqa: E501
 
         :param cid: The cid of this CostTypes.
         :type cid: str
@@ -76,6 +91,7 @@ class CostTypes(Model):
     def ctype(self):
         """Gets the ctype of this CostTypes.
 
+        Description cost-type (old)  # noqa: E501
 
         :return: The ctype of this CostTypes.
         :rtype: str
@@ -86,6 +102,7 @@ class CostTypes(Model):
     def ctype(self, ctype):
         """Sets the ctype of this CostTypes.
 
+        Description cost-type (old)  # noqa: E501
 
         :param ctype: The ctype of this CostTypes.
         :type ctype: str
@@ -94,3 +111,74 @@ class CostTypes(Model):
             raise ValueError("Invalid value for `ctype`, must not be `None`")  # noqa: E501
 
         self._ctype = ctype
+
+    @property
+    def description(self):
+        """Gets the description of this CostTypes.
+
+        Descriptions cost-type  # noqa: E501
+
+        :return: The description of this CostTypes.
+        :rtype: object
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """Sets the description of this CostTypes.
+
+        Descriptions cost-type  # noqa: E501
+
+        :param description: The description of this CostTypes.
+        :type description: object
+        """
+        if description is None:
+            raise ValueError("Invalid value for `description`, must not be `None`")  # noqa: E501
+
+        self._description = description
+
+    @property
+    def managertype(self):
+        """Gets the managertype of this CostTypes.
+
+        A manager type to differentiate different lines of managers   # noqa: E501
+
+        :return: The managertype of this CostTypes.
+        :rtype: str
+        """
+        return self._managertype
+
+    @managertype.setter
+    def managertype(self, managertype):
+        """Sets the managertype of this CostTypes.
+
+        A manager type to differentiate different lines of managers   # noqa: E501
+
+        :param managertype: The managertype of this CostTypes.
+        :type managertype: str
+        """
+
+        self._managertype = managertype
+
+    @property
+    def message(self):
+        """Gets the message of this CostTypes.
+
+        Different messages for different languages  # noqa: E501
+
+        :return: The message of this CostTypes.
+        :rtype: object
+        """
+        return self._message
+
+    @message.setter
+    def message(self, message):
+        """Sets the message of this CostTypes.
+
+        Different messages for different languages  # noqa: E501
+
+        :param message: The message of this CostTypes.
+        :type message: object
+        """
+
+        self._message = message

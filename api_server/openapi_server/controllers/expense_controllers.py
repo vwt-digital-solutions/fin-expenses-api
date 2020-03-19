@@ -35,6 +35,9 @@ from email.mime.text import MIMEText
 
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
+from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
+from openapi_server.models.push_token import PushToken  # noqa: E501
+from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
 
 from OpenSSL import crypto
@@ -49,6 +52,30 @@ FILTERED_OUT_ON_PROCESS = [
     "approved",
     "exported",
 ]
+
+REJECTION_NOTES = {
+    1: {
+        "rnote_id": 1, "form": "static", "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
+        "translations": {"nl": "Deze kosten kun je declareren via Regweb (PSA)",
+                         "en": "These costs can be claimed via Regweb (PSA)",
+                         "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"}
+    },
+    2: {
+        "rnote_id": 2, "form": "static", "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
+        "translations": {"nl": "Deze kosten kun je declareren via de leasemaatschappij",
+                         "en": "These costs can be claimed via the lease company",
+                         "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"}
+    },
+    3: {
+        "rnote_id": 3, "form": "static", "rnote": "Deze kosten zijn al gedeclareerd",
+        "translations": {"nl": "Deze kosten zijn al gedeclareerd", "en": "These costs have already been claimed",
+                         "de": "Diese Kosten würden bereits geltend gemacht"}
+    },
+    4: {
+        "rnote_id": 4, "form": "dynamic", "rnote": "note",
+        "translations": {"nl": "Andere reden:", "en": "Other reason:", "de": "Anderer Grund:"}
+    }
+}
 
 
 class ClaimExpenses:
@@ -159,14 +186,14 @@ class ClaimExpenses:
         expense = self.ds_client.get(exp_key)
 
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
-            return make_response(jsonify('No match on email'), 403)
+            return make_response_translated("Geen overeenkomst op e-mail", 403)
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
 
         blob.delete()
 
-        return '', 204
+        return make_response('', 204)
 
     def get_cost_types(self):
         """
@@ -174,17 +201,25 @@ class ClaimExpenses:
         :return:
         """
 
-        cost_types = self.ds_client.query(kind="CostTypes")
-        results = [
-            {
-                "ctype": row.get("Omschrijving", ""),
-                "cid": row.get("Grootboek", ""),
-                "managertype": row.get("ManagerType", "linemanager"),
-                "message": row.get("Message", {})
-            }
-            for row in cost_types.fetch()
-        ]
-        return jsonify(results)
+        cost_types = self.ds_client.query(kind="CostTypes").fetch()
+
+        if cost_types:
+            results = [
+                {
+                    "ctype": row.get("Omschrijving", ""),
+                    "cid": row.key.name,
+                    "active": row.get("Active", ""),
+                    "description": row.get("Description", {"nl": row.get("Omschrijving", row.key.name),
+                                                           "en": row.get("Omschrijving", row.key.name),
+                                                           "de": row.get("Omschrijving", row.key.name)}),
+                    "managertype": row.get("ManagerType", "linemanager"),
+                    "message": row.get("Message", {})
+                }
+                for row in cost_types
+            ]
+            return jsonify(results)
+
+        return make_response('', 204)
 
     def get_manager_identifying_value(self):
         afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
@@ -204,31 +239,31 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
+            cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"])
+            cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
             if expense:
                 if permission == "employee":
                     if not expense["employee"]["email"] == \
                            self.employee_info["unique_name"]:
-                        return make_response(
-                            jsonify('No match on email'), 403)
+                        return make_response_translated("Geen overeenkomst op e-mail", 403)
                 elif permission == "manager":
                     if expense.get('manager_type', 'linemanager') == \
                             'leasecoordinator' and \
                             'leasecoordinator.write' not in \
                             self.employee_info.get('scopes', []):
-                        return make_response(
-                            jsonify('No match on leasecoordinator'), 403)
+                        return make_response_translated("Geen overeenkomst op leasecoordinator", 403)
                     elif expense.get('manager_type', 'linemanager') != \
                             'leasecoordinator' and \
                             not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
                             self.get_manager_identifying_value():
-                        return make_response(
-                            jsonify('No match on manager email'), 403)
+                        return make_response_translated("Geen overeenkomst op manager e-email", 403)
 
                 return jsonify({
                         "id": expense.id,
                         "amount": expense["amount"],
                         "note": expense["note"],
-                        "cost_type": expense["cost_type"],
+                        "cost_type": cost_type,
                         "claim_date": expense["claim_date"],
                         "transaction_date": expense["transaction_date"],
                         "employee": expense["employee"]["full_name"],
@@ -236,7 +271,7 @@ class ClaimExpenses:
                         "flags": expense.get("flags", {}),
                     })
 
-            return make_response(jsonify(None), 204)
+            return make_response('', 204)
 
     @abstractmethod
     def _check_attachment_permission(self, expense):
@@ -249,9 +284,9 @@ class ClaimExpenses:
             expense = self.ds_client.get(exp_key)
 
         if not expense:
-            return make_response(jsonify('Expense not found'), 404)
+            return make_response_translated("Declaratie niet gevonden", 404)
         if not self._check_attachment_permission(expense):
-            return make_response(jsonify('Unauthorized'), 403)
+            return make_response_translated("Ongeautoriseerd", 403)
 
         email_name = expense["employee"]["email"].split("@")[0]
 
@@ -277,6 +312,18 @@ class ClaimExpenses:
     def get_all_expenses(self):
         pass
 
+    @staticmethod
+    def _merge_rejection_note(status):
+        if 'rnote' in status and 'rnote_id' not in status:
+            for key in REJECTION_NOTES:
+                if REJECTION_NOTES[key]['rnote'] == status['rnote']:
+                    status['rnote_id'] = REJECTION_NOTES[key]['rnote_id']
+
+            if 'rnote_id' not in status:
+                status['rnote_id'] = 4
+
+        return status
+
     def add_expenses(self, data):
         """
         Add expense with given data amount and given data note. An expense can have one of 6
@@ -291,10 +338,14 @@ class ClaimExpenses:
                 try:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
-                    data.manager_type = self._process_expense_manager_type(
-                        data.cost_type)
+
+                    cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
+                    if cost_type_entity is None or not cost_type_active:
+                        return make_response_translated("Geen geldige kostensoort", 400)
+                    data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
+
                 except ValueError as exception:
-                    return make_response(jsonify(str(exception)), 400)
+                    return make_response_translated(str(exception), 400)
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
@@ -308,7 +359,7 @@ class ClaimExpenses:
                         ),
                         "amount": data.amount,
                         "note": data.note,
-                        "cost_type": data.cost_type,
+                        "cost_type": cost_type_entity.key.name,
                         "transaction_date": data.transaction_date,
                         "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
                         "status": dict(export_date="never", text=ready_text),
@@ -331,26 +382,26 @@ class ClaimExpenses:
 
                     return make_response(jsonify(response), 201)
             else:
-                return make_response(jsonify('Employee not found'), 403)
+                return make_response_translated("Medewerker niet gevonden", 403)
         else:
-            return make_response(jsonify('Employee not unique'), 403)
+            return make_response_translated("Medewerker niet uniek", 403)
 
-    def _process_status_text_update(self, item, expense):
+    def _process_status_text_update(self, data, expense):
         if expense['status']['text'] in ['rejected_by_creditor',
                                          'rejected_by_manager'] \
-                and item == 'ready_for_manager':
+                and data['status'] == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], expense['cost_type'], item)
+                expense['amount'], expense['cost_type'], data)
         else:
-            expense["status"]["text"] = item
+            expense["status"]["text"] = data['status']
 
-    def _determine_status_amount_update(self, amount, cost_type, item):
-        min_amount = self._process_expense_min_amount(cost_type)
-        manager_type = self._process_expense_manager_type(cost_type)
+    def _determine_status_amount_update(self, amount, cost_type, data):
+        min_amount = data['min_amount']
+        manager_type = data['manager_type']
 
         return "ready_for_creditor" if \
             min_amount > 0 and amount < min_amount and \
-            manager_type != 'leasecoordinator' else item
+            manager_type != 'leasecoordinator' else data['status']
 
     @abstractmethod
     def _prepare_context_update_expense(self, expense):
@@ -377,14 +428,25 @@ class ClaimExpenses:
         :param note_check:
         :return:
         """
-        if not data.get('rnote') and note_check and (data['status'] == 'rejected_by_manager'
-                                                     or data['status'] == 'rejected_by_creditor'):
-            return jsonify('Some data is missing'), 400
+        if note_check:
+            if not data.get('rnote_id') and (data['status'] == 'rejected_by_manager' or
+                                             data['status'] == 'rejected_by_creditor'):
+                return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
 
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
             old_expense = copy.deepcopy(expense)
+
+            if not expense:
+                return make_response_translated("Declaratie niet gevonden", 404)
+
+            # Check validity cost-type
+            cost_type_entity, cost_type_active = self._process_cost_type(data.get('cost_type', expense['cost_type']))
+            if 'cost_type' in data:
+                if cost_type_entity is None or not cost_type_active:
+                    return make_response_translated("Geen geldige kostensoort", 400)
+                data['cost_type'] = cost_type_entity.key.name
 
             is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
 
@@ -392,33 +454,36 @@ class ClaimExpenses:
                     'ready' in data.get('status', ''):
 
                 if len(data) > 1:
-                    return make_response(
-                        jsonify('Het indienen van een declaratie ' +
-                                'is niet toegestaan tijdens het aanpassen van velden'), 403)
+                    return make_response_translated(
+                        "Het indienen van een declaratie is niet toegestaan tijdens het aanpassen van velden", 403)
 
-                min_amount = self._process_expense_min_amount(
-                    data.get('cost_type', expense['cost_type']))
-                if min_amount == 0 or \
-                        min_amount <= data.get('amount', expense['amount']):
+                data['min_amount'] = cost_type_entity.get('MinAmount', 50)
+                if data['min_amount'] == 0 or \
+                        data['min_amount'] <= data.get('amount', expense['amount']):
                     data['status'] = "ready_for_manager"
                 else:
                     data['status'] = "ready_for_creditor"
 
             allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
             if not allowed_fields or not allowed_statuses:
-                return make_response(jsonify('The content of this method is not valid'), 403)
+                return make_response_translated("De inhoud van deze methode is niet geldig", 403)
 
             try:
                 BusinessRulesEngine().employed_rule(expense['employee']['afas_data'])
                 BusinessRulesEngine().pao_rule(data, expense['employee']['afas_data'])
-                data['manager_type'] = self._process_expense_manager_type(
-                    data['cost_type'] if 'cost_type' in data else
-                    expense['cost_type'])
+                data['manager_type'] = cost_type_entity.get('ManagerType', "linemanager")
             except ValueError as exception:
-                return make_response(jsonify(str(exception)), 400)
+                return make_response_translated(str(exception), 400)
 
             if not self._has_attachments(expense, data):
-                return make_response(jsonify('De declaratie moet minimaal één bijlage hebben'), 403)
+                return make_response_translated("De declaratie moet minimaal één bijlage hebben", 403)
+
+            if 'rnote_id' in data:
+                rnote_id, rnote = self._process_rejection_note(data.get('rnote_id'), data.get('rnote'))
+                if not rnote_id or not rnote:
+                    return make_response_translated("Geen geldige afwijzing", 400)
+                data['rnote_id'] = rnote_id
+                data['rnote'] = rnote
 
             BusinessRulesEngine().duplicate_rule(data, expense['employee']['afas_data'], expense)
             # If there are no warnings to display: remove flags property from entity
@@ -427,7 +492,7 @@ class ClaimExpenses:
 
             valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
             if not valid_update:
-                return make_response(jsonify('The content of this method is not valid'), 403)
+                return make_response_translated("De inhoud van deze methode is niet geldig", 403)
 
             self.expense_journal(old_expense, expense)
 
@@ -437,8 +502,7 @@ class ClaimExpenses:
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
             elif data['status'] == 'ready_for_manager' and is_draft and \
-                    self._process_expense_manager_type(
-                        data.get('cost_type', expense['cost_type'])) == 'linemanager':
+                    data['manager_type'] == 'linemanager':
                 self.send_notification('mail', 'add_expense',
                                        expense['employee']['afas_data'],
                                        expense.key.id_or_name)
@@ -453,6 +517,9 @@ class ClaimExpenses:
             if item == "rnote":
                 need_to_save = True
                 expense["status"]["rnote"] = data[item]
+            elif item == "rnote_id":
+                need_to_save = True
+                expense["status"]["rnote_id"] = data[item]
             elif item != "status" and expense.get(item, None) != data[item]:
                 need_to_save = True
                 expense[item] = data[item]
@@ -463,7 +530,7 @@ class ClaimExpenses:
                 f"transition [{allowed_statuses}]")
             if data['status'] in allowed_statuses:
                 need_to_save = True
-                self._process_status_text_update(data['status'], expense)
+                self._process_status_text_update(data, expense)
             else:
                 logging.info(
                     "Rejected unauthorized status transition for " +
@@ -509,6 +576,20 @@ class ClaimExpenses:
         return True if len(list(blobs)) > 0 else False
 
     @staticmethod
+    def _process_rejection_note(rnote_id, rnote=None):
+        if (rnote and not rnote_id) or not REJECTION_NOTES.get(rnote_id, None):
+            return False, False
+
+        rejection = REJECTION_NOTES.get(rnote_id)
+
+        if rejection['form'] == 'dynamic' and not rnote:
+            return False, False
+        elif rejection['form'] != 'dynamic':
+            rnote = rejection['rnote']
+
+        return rnote_id, rnote
+
+    @staticmethod
     def get_iban_details(iban):
         """
         Get the needed IBAN numbers of any dutch rekening number
@@ -551,7 +632,7 @@ class ClaimExpenses:
 
         # if nothing to report, return immediate
         if not expense_claims_to_export:
-            return {"Info": "No Exports Available"}, 200
+            return make_response_translated("Geen exports beschikbaar", 204)
 
         now = datetime.datetime.utcnow()
 
@@ -564,7 +645,7 @@ class ClaimExpenses:
         result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
         if not result[0]:
-            return {"Info": "Failed to upload payment file"}, 503
+            return make_response_translated("Kan betalingsbestand niet uploaden", 400)
 
         retval = {"file_list": [
             {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
@@ -573,7 +654,7 @@ class ClaimExpenses:
 
         self.update_exported_expenses(expense_claims_to_export, now)
 
-        return retval, 200
+        return make_response(jsonify(retval), 200)
 
     def create_booking_file(self, expense_claims_to_export, export_filename, document_date):
         """
@@ -602,6 +683,16 @@ class ClaimExpenses:
             expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
             cost_type_split = expense_detail["cost_type"].split(":")
+            grootboek_number = expense_detail["cost_type"]
+
+            if len(cost_type_split) == 2:
+                try:
+                    key = self.ds_client.key('CostTypes', cost_type_split[1])
+                    cost_entity = self.ds_client.get(key=key)
+                    grootboek_number = cost_entity.get('Grootboek', "")
+                except AttributeError:
+                    logging.warning("Old cost_type")
+                    grootboek_number = cost_type_split[1]
 
             booking_file_data.append(
                 {
@@ -617,7 +708,7 @@ class ClaimExpenses:
                     "Bron EC": "000",
                     "Bron VP": "00",
                     "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Doel-bedrijfs-nummer"],
-                    "Doel-gr boekrek": cost_type_split[1] if len(cost_type_split) >= 2 else "",
+                    "Doel-gr boekrek": grootboek_number,
                     "Doel Org code": config.BOOKING_FILE_STATICS["Doel-org-code"],
                     "Doel Proces": "000",
                     "Doel Produkt": "000",
@@ -842,54 +933,53 @@ class ClaimExpenses:
     def _create_expenses_query(self):
         return self.ds_client.query(kind="Expenses", order=["-claim_date"])
 
-    def _create_cost_types_list(self, field):
-        cost_types = {}
-        for cost_type in datastore.Client().query(kind="CostTypes").fetch():
-            if field in cost_type:
-                cost_types[cost_type['Grootboek']] = cost_type[field]
+    def _process_cost_type(self, cost_type, cost_type_list=None):
+        cost_type_split = cost_type.split(":")
+        cost_type_id = cost_type
 
-        return cost_types
+        if len(cost_type_split) == 2:
+            cost_type_id = cost_type_split[1]
 
-    def _process_cost_type(self, cost_type, cost_types_list):
-        grootboek_number = re.search("[0-9]{6}", cost_type)
+        if cost_type_list is None:
+            key = self.ds_client.key("CostTypes", cost_type_id)
+            cost_type_entity = self.ds_client.get(key=key)
+        else:
+            for ct in cost_type_list:
+                if ct.key.name == cost_type_id:
+                    cost_type_entity = ct
+                    break
 
-        if grootboek_number and int(grootboek_number.group()) in cost_types_list:
-            return cost_types_list[int(grootboek_number.group())]
+        cost_type_active = False
+        if cost_type_entity is not None:
+            cost_type_active = cost_type_entity.get('Active', False)
 
-        return None
+        return cost_type_entity, cost_type_active
 
-    def _process_expense_manager_type(self, cost_type):
-        cost_types_list = self._create_cost_types_list('ManagerType')
-        manager_type = self._process_cost_type(cost_type, cost_types_list)
-
-        return 'linemanager' if manager_type is None else manager_type
-
-    def _process_expense_min_amount(self, cost_type):
-        cost_types_list = self._create_cost_types_list('MinAmount')
-        min_amount = self._process_cost_type(cost_type, cost_types_list)
-
-        return 50 if min_amount is None else min_amount
-
-    @staticmethod
-    def _process_expenses_info(expenses_info):
+    def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
-            return jsonify([
-                {
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
+
+            expenses_list = []
+            for ed in expenses_data:
+
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
+                expenses_list.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                     "flags": ed.get("flags", {})
-                }
-                for ed in expenses_data
-            ])
+                })
 
-        return make_response(jsonify(None), 204)
+            return jsonify(expenses_list)
+        return make_response('', 204)
 
     def expense_journal(self, old_expense, expense):
         changed = []
@@ -1026,6 +1116,51 @@ class ClaimExpenses:
             logging.exception(
                 f'An exception occurred when sending an email: {error}')
 
+    def get_employee_profile(self):
+        if 'unique_name' not in self.employee_info:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
+        employee_profile = self.ds_client.get(key)
+
+        if not employee_profile:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        return make_response(jsonify({
+            'locale': employee_profile.get('locale', '')
+        }), 200)
+
+    def add_employee_profile(self, employee_profile):
+        if 'unique_name' not in self.employee_info:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
+        entity = datastore.Entity(key=key)
+        entity.update({
+            "locale": employee_profile.locale,
+            "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+        })
+        self.ds_client.put(entity)
+
+        return make_response('', 201)
+
+    def register_push_token(self, push_token):
+        if 'unique_name' not in self.employee_info:
+            return make_response_translated("Medewerker niet gevonden", 403)
+
+        key = self.ds_client.key("PushTokens", self.employee_info['unique_name'])
+        entity = datastore.Entity(key=key)
+        entity.update({
+            "push_token": push_token.push_token,
+            "app_version": push_token.app_version,
+            "os_platform": push_token.os_platform,
+            "os_version": push_token.os_version,
+            "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+        })
+        self.ds_client.put(entity)
+
+        return make_response('', 201)
+
 
 class EmployeeExpenses(ClaimExpenses):
     def __init__(self, employee_id):
@@ -1043,7 +1178,12 @@ class EmployeeExpenses(ClaimExpenses):
         expenses_info.add_filter(
             "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
         )
-        return self._process_expenses_info(expenses_info)
+        expense_data = self._process_expenses_info(expenses_info)
+
+        if expense_data:
+            return expense_data
+
+        return make_response('', 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is from employee
@@ -1062,7 +1202,6 @@ class EmployeeExpenses(ClaimExpenses):
             fields = {
                 "status",
                 "cost_type",
-                "rnote",
                 "note",
                 "transaction_date",
                 "amount",
@@ -1077,9 +1216,9 @@ class EmployeeExpenses(ClaimExpenses):
         expense_key = self.ds_client.key("Expenses", expense_id)
         expense = self.ds_client.get(expense_key)
         if not expense:
-            return make_response(jsonify('Attempt to add attachment to undefined expense claim', 400))
+            return make_response_translated("Declaratie niet gevonden", 404)
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
-            return make_response(jsonify('Unauthorized'), 403)
+            return make_response_translated("Ongeautoriseerd", 403)
 
         creation = self.create_attachment(
             data,
@@ -1088,16 +1227,21 @@ class EmployeeExpenses(ClaimExpenses):
         )
 
         if not creation:
-            return jsonify('Some data was missing or incorrect'), 400
+            return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
         return 201
 
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
+        cost_type_entity, cost_type_active = self._process_cost_type(expense['cost_type'])
+        manager_type = "linemanager"
+
+        if cost_type_entity is not None:
+            manager_type = cost_type_entity.get('ManagerType', "")
+
         if 'leasecoordinator.write' in \
                 self.employee_info.get('scopes', []) and \
-                self._process_expense_manager_type(
-                    expense['cost_type']) == 'leasecoordinator':
+                manager_type == 'leasecoordinator':
             return True
 
         return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
@@ -1105,21 +1249,27 @@ class ManagerExpenses(ClaimExpenses):
     def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
         if expenses_data:
-            return [
-                {
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
+
+            expenses_list = []
+            for ed in expenses_data:
+
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
+                expenses_list.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                     "manager_type": ed.get("manager_type"),
                     "flags": ed.get("flags", {})
-                }
-                for ed in expenses_data
-            ]
+                })
+            return expenses_list
         return []
 
     def __init__(self):
@@ -1163,7 +1313,7 @@ class ManagerExpenses(ClaimExpenses):
         if expense_data:
             return jsonify(expense_data)
 
-        return make_response(jsonify(None), 204)
+        return make_response('', 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
@@ -1182,12 +1332,31 @@ class ManagerExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
+                "rnote_id",
                 "manager_type",
                 "flags"
             }
             return fields, allowed_status_transitions[expense['status']['text']]
 
         return {}, {}
+
+    def get_rejection_notes(self):
+        """
+        Get rejection_notes
+        :return:
+        """
+
+        if REJECTION_NOTES:
+            return jsonify([
+                {
+                    "form": REJECTION_NOTES[key].get('form'),
+                    "rnote": REJECTION_NOTES[key].get('rnote'),
+                    "rnote_id": REJECTION_NOTES[key].get('rnote_id'),
+                    "translations": REJECTION_NOTES[key].get('translations')
+                }
+                for key in REJECTION_NOTES])
+
+        return make_response('', 204)
 
 
 class ControllerExpenses(ClaimExpenses):
@@ -1205,22 +1374,29 @@ class ControllerExpenses(ClaimExpenses):
         expenses_data = expenses_info.fetch()
 
         if expenses_data:
+
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
             results = []
+
             for ed in expenses_data:
+                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
                 logging.debug(f'get_all_expenses: [{ed}]')
+
                 results.append({
                     "id": ed.id,
                     "amount": ed["amount"],
                     "note": ed["note"],
-                    "cost_type": ed["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
-                    "status": ed["status"],
+                    "status": self._merge_rejection_note(ed["status"]),
                 })
             return jsonify(results)
 
-        return make_response(jsonify(None), 204)
+        return make_response('', 204)
 
     def _prepare_context_update_expense(self, expense):
         return {}, {}
@@ -1238,13 +1414,13 @@ class CreditorExpenses(ClaimExpenses):
         day_from = "1970-01-01T00:00:00Z"
         day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
-        if date_from != '':
+        if date_from != '1970-01-01':
             day_from = date_from + "T00:00:00Z"
-        if date_to != '':
+        if date_to != '1970-01-01':
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
-            return make_response(jsonify("Start date is later than end date"), 403)
+            return make_response_translated("Startdatum is later dan einddatum", 403)
 
         expenses_ds = self.ds_client.query(kind="Expenses")
         expenses_ds.add_filter("claim_date", ">=", day_from)
@@ -1254,20 +1430,25 @@ class CreditorExpenses(ClaimExpenses):
         query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
 
         if expenses_data:
+            cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
             results = []
 
             for expense in expenses_data:
+                expense['status'] = self._merge_rejection_note(expense["status"])
+
+                cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"], cost_type_list)
+                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+
                 expense_row = {
                     "id": expense.id,
                     "amount": expense["amount"],
                     "note": expense["note"],
-                    "cost_type": expense["cost_type"],
+                    "cost_type": cost_type,
                     "claim_date": expense["claim_date"],
                     "transaction_date": expense["transaction_date"],
                     "employee": expense["employee"]["full_name"],
                     "status": expense["status"],
                     "auto_approved": expense.get("auto_approved", ""),
-                    "rnote": expense.get("status", {}).get("rnote", ""),
                     "manager": expense.get("employee", {}).get("afas_data", {}).get(
                         "Manager_personeelsnummer", "Manager not found: check expense"),
                     "export_date": expense["status"].get("export_date", ""),
@@ -1286,20 +1467,20 @@ class CreditorExpenses(ClaimExpenses):
 
             return results
 
-        return make_response(jsonify("No expenses to return"), 204)
+        return make_response('', 204)
 
     def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
         day_from = "1970-01-01T00:00:00Z"
         day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
 
-        if date_from != '':
+        if date_from != '1970-01-01':
             day_from = date_from + "T00:00:00Z"
-        if date_to != '':
+        if date_to != '1970-01-01':
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
-            return make_response(jsonify("Start date is later than end date"), 403)
+            return make_response_translated("Startdatum is later dan einddatum", 403)
 
         expenses_ds = self.ds_client.query(kind="Expenses_Journal")
         expenses_ds.add_filter("Time", ">=", day_from)
@@ -1314,7 +1495,7 @@ class CreditorExpenses(ClaimExpenses):
                     results += self.expense_changes(expense)
             return results
 
-        return make_response(jsonify("No expenses to return"), 204)
+        return make_response('', 204)
 
     def expense_changes(self, expense):
         """
@@ -1396,6 +1577,7 @@ class CreditorExpenses(ClaimExpenses):
                 "status",
                 "cost_type",
                 "rnote",
+                "rnote_id",
                 "manager_type",
                 "flags"
             }
@@ -1416,7 +1598,7 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            if form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
+            if datetime.datetime(1970, 1, 1) <= form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
                     (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
                 html = {
                     '"': "&quot;",
@@ -1430,10 +1612,10 @@ def add_expense():
                 form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
                 form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
                 return expense_instance.add_expenses(form_data)
-            return jsonify('Date needs to be in the past'), 400
+            return jsonify('Date needs to be between 1970-01-01 and today'), 400
     except Exception:
         logging.exception('Exception on add_expense')
-        return jsonify("Something went wrong. Please try again later"), 500
+        return jsonify("Something is wrong with the request"), 400
 
 
 def get_all_creditor_expenses(expenses_list, date_from, date_to):
@@ -1442,7 +1624,7 @@ def get_all_creditor_expenses(expenses_list, date_from, date_to):
     :rtype: None
     """
     if expenses_list not in ["expenses_creditor", "expenses_all"]:
-        return make_response(jsonify("Not a valid query parameter"), 400)
+        return make_response_translated("Geen geldige queryparameter", 400)
 
     expense_instance = CreditorExpenses()
     expenses_data = expense_instance.get_all_expenses(expenses_list=expenses_list, date_from=date_from, date_to=date_to)
@@ -1473,6 +1655,14 @@ def get_cost_types():  # noqa: E501
     return expense_instance.get_cost_types()
 
 
+def get_rejection_notes():  # noqa: E501
+    """Get all rejection_notes
+    :rtype: None
+    """
+    expense_instance = ManagerExpenses()
+    return expense_instance.get_rejection_notes()
+
+
 def get_document(document_id, document_type):
     """
     Get a requested booking or payment file from a booking or payment identity in the format of
@@ -1491,7 +1681,7 @@ def get_document(document_id, document_type):
     except Exception as error:
         logging.exception(
             f'An exception occurred when retrieving a document: {error}')
-        return make_response('Something went wrong', 500)
+        return make_response_translated("Er ging iets fout", 400)
     else:
         if export_file:
             if document_type == 'payment_file':
@@ -1519,7 +1709,7 @@ def get_document(document_id, document_type):
                 },
             )
 
-        return make_response('Document not found', 404)
+        return make_response_translated("Document niet gevonden", 404)
 
 
 def get_expenses_format(expenses_data, format_expense):
@@ -1531,7 +1721,7 @@ def get_expenses_format(expenses_data, format_expense):
     :return:
     """
     if not expenses_data:
-        return jsonify("No results with current filter"), 204
+        return make_response('', 204)
 
     if isinstance(expenses_data, Response):
         return expenses_data
@@ -1563,9 +1753,9 @@ def get_expenses_format(expenses_data, format_expense):
                                  attachment_filename='tmp.csv')
         except Exception:
             logging.exception('Exception on writing/sending CSV in get_all_expenses')
-            return jsonify("Something went wrong"), 500
+            return make_response_translated("Er ging iets fout", 400)
 
-    return jsonify("Request missing an Accept header"), 400
+    return make_response_translated("Verzoek mist een Accept-header", 400)
 
 
 def get_document_list():
@@ -1770,3 +1960,28 @@ def api_base_url():
             base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
+
+
+def get_employee_profile():
+    expense_instance = ClaimExpenses()
+    return expense_instance.get_employee_profile()
+
+
+def add_employee_profile():
+    if connexion.request.is_json:
+        expense_instance = ClaimExpenses()
+        employee_profile = EmployeeProfile.from_dict(connexion.request.get_json())  # noqa: E501
+
+        return expense_instance.add_employee_profile(employee_profile)
+
+    return make_response_translated("Er ging iets fout", 400)
+
+
+def register_push_token():
+    if connexion.request.is_json:
+        expense_instance = ClaimExpenses()
+        push_token = PushToken.from_dict(connexion.request.get_json())  # noqa: E501
+
+        return expense_instance.register_push_token(push_token)
+
+    return make_response_translated("Er ging iets fout", 400)
