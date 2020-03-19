@@ -173,7 +173,7 @@ paths:
       description: Retrieve all expenses for a logged in employee
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  "/employees/expenses/{expenses_id}":
+  /employees/expenses/{expenses_id}:
     get:
       parameters:
         - $ref: "#/components/parameters/ExpensesId"
@@ -221,7 +221,29 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  "/finances/documents":
+  /employees/registerpush:
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/pushToken"
+      responses:
+        "201":
+          description: Successfuly registered a push token
+        "400":
+          description: Invalid input
+        "401":
+          description: Provided token is invalid
+        "403":
+          description: Provided token does not have the required scope
+        default:
+          description: Push token registered successfully!
+      security:
+        - oauth2: [finance.expenses]
+      operationId: register_push_token
+      summary: Register a push token
+      description: Register a mobile push token for a user
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+  /finances/documents:
     get:
       operationId: get_document_list
       summary: Get a list of all booking and payment files
@@ -264,7 +286,7 @@ paths:
         - oauth2: [creditor.write]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
-  "/finances/expenses/documents/{document_id}/kinds/{document_type}":
+  /finances/expenses/documents/{document_id}/kinds/{document_type}:
     get:
       operationId: get_document
       summary: Returns a CSV => of a booking file or XML => of payment file
@@ -293,7 +315,7 @@ paths:
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
     x-eac-ignore: true
-  "/finances/expenses/{expenses_id}":
+  /finances/expenses/{expenses_id}:
     put:
       summary: Update expense
       operationId: update_expenses_creditor
@@ -830,6 +852,29 @@ components:
       properties:
         export_file:
           type: string
+    PushToken:
+      title: Push token
+      description: Mobile push token to be registered per user
+      type: object
+      required:
+        - push_token
+        - app_version
+        - os_platform
+        - os_version
+      properties:
+        push_token:
+          type: string
+        app_version:
+          type: string
+        os_platform:
+          type: string
+        os_version:
+          type: string
+      example:
+        push_token: "e820497f-bb08-4e92-9193-1dbdcc603d4b"
+        app_version: "1.0"
+        os_platform: "iOS"
+        os_version: "13.4"
   parameters:
     DocumentDate:
       name: document_date
@@ -932,6 +977,11 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/AttachmentData"
+    pushToken:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PushToken"
   securitySchemes:
     oauth2:
       type: oauth2
