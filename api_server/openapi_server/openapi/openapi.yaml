@@ -221,6 +221,51 @@ paths:
         - oauth2: [finance.expenses]
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+  /employees/profiles:
+    get:
+      responses:
+        "200":
+          description: Download Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+        "400":
+          description: Invalid input
+        "401":
+          description: Provided token is invalid
+        "403":
+          description: Provided token does not have the required scope
+        default:
+          description: Profile added/updated successfully!
+      security:
+        - oauth2: [finance.expenses]
+      operationId: get_employee_profile
+      summary: Get user profile
+      description: Get a user profile
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/EmployeeProfile"
+      responses:
+        "201":
+          description: Successfuly added/updated a profile
+        "400":
+          description: Invalid input
+        "401":
+          description: Provided token is invalid
+        "403":
+          description: Provided token does not have the required scope
+        default:
+          description: Profile added/updated successfully!
+      security:
+        - oauth2: [finance.expenses]
+      operationId: add_employee_profile
+      summary: Add/update employee profile
+      description: Add or update an employee profile
+      x-openapi-router-controller:
+        openapi_server.controllers.expense_controllers
   /employees/register-push-tokens:
     post:
       requestBody:
@@ -852,6 +897,21 @@ components:
       properties:
         export_file:
           type: string
+    EmployeeProfile:
+      title: Employee profile
+      description: Employee profile
+      type: object
+      required:
+        - locale
+      properties:
+        locale:
+          type: string
+          enum:
+            - nl
+            - en
+            - de
+      example:
+        locale: "nl"
     PushToken:
       title: Push token
       description: Mobile push token to be registered per user
@@ -977,6 +1037,11 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/AttachmentData"
+    EmployeeProfile:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EmployeeProfile"
     pushToken:
       content:
         application/json:
