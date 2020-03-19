@@ -266,6 +266,7 @@ paths:
       description: Add or update an employee profile
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /employees/register-push-tokens:
     post:
       requestBody:
@@ -288,6 +289,7 @@ paths:
       description: Register a mobile push token for a user
       x-openapi-router-controller:
         openapi_server.controllers.expense_controllers
+    x-eac-ignore: true
   /finances/documents:
     get:
       operationId: get_document_list
