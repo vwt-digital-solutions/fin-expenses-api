@@ -29,7 +29,7 @@ class ExpenseSingle(Model):
         :param flags: The flags of this ExpenseSingle.  # noqa: E501
         :type flags: object
         :param id: The id of this ExpenseSingle.  # noqa: E501
-        :type id: int
+        :type id: str
         :param note: The note of this ExpenseSingle.  # noqa: E501
         :type note: str
         :param status: The status of this ExpenseSingle.  # noqa: E501
@@ -43,7 +43,7 @@ class ExpenseSingle(Model):
             'cost_type': str,
             'employee': str,
             'flags': object,
-            'id': int,
+            'id': str,
             'note': str,
             'status': object,
             'transaction_date': datetime
@@ -195,7 +195,7 @@ class ExpenseSingle(Model):
 
 
         :return: The id of this ExpenseSingle.
-        :rtype: int
+        :rtype: str
         """
         return self._id
 
@@ -205,12 +205,8 @@ class ExpenseSingle(Model):
 
 
         :param id: The id of this ExpenseSingle.
-        :type id: int
+        :type id: str
         """
-        if id is not None and id > 9223372036854775807:  # noqa: E501
-            raise ValueError("Invalid value for `id`, must be a value less than or equal to `9223372036854775807`")  # noqa: E501
-        if id is not None and id < 1:  # noqa: E501
-            raise ValueError("Invalid value for `id`, must be a value greater than or equal to `1`")  # noqa: E501
 
         self._id = id
 

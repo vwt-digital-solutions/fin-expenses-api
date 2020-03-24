@@ -853,9 +853,7 @@ components:
         flags:
           type: object
         id:
-          type: integer
-          minimum: 1
-          maximum: 9223372036854775807
+          type: string
         note:
           type: string
         status:
