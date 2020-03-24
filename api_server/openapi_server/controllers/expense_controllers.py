@@ -267,7 +267,7 @@ class ClaimExpenses:
                         "claim_date": expense["claim_date"],
                         "transaction_date": expense["transaction_date"],
                         "employee": expense["employee"]["full_name"],
-                        "status": expense["status"]["text"],
+                        "status": expense["status"],
                         "flags": expense.get("flags", {}),
                     })
 

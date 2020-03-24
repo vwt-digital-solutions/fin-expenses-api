@@ -182,7 +182,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExpenseData"
+                $ref: "#/components/schemas/ExpenseSingle"
           description: Successful response - returns information of expense
         "400":
           description: "Invalid input"
@@ -391,7 +391,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExpenseData"
+                $ref: "#/components/schemas/ExpenseSingle"
           description: Successful response - returns information of expense
         "400":
           description: "Invalid input"
@@ -553,7 +553,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExpenseData"
+                $ref: "#/components/schemas/ExpenseSingle"
           description: Successful response - returns information of expense
         "400":
           description: "Invalid input"
@@ -664,7 +664,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ExpenseData"
+                $ref: "#/components/schemas/ExpenseSingle"
           description: Successful response - returns information of expense
         "400":
           description: "Invalid input"
@@ -834,6 +834,49 @@ components:
             cost_type: This is a cost_type
             status: ready_for_creditor
             transaction_date: 2017-07-21T17:32:28.000Z
+    ExpenseSingle:
+      title: expenseSingle
+      description: Expense to retrieve
+      type: object
+      properties:
+        amount:
+          format: decimal
+          type: number
+          minimum: 0.01
+        claim_date:
+          type: string
+          format: date-time
+        cost_type:
+          type: string
+        employee:
+          type: string
+        flags:
+          type: object
+        id:
+          type: integer
+          minimum: 1
+          maximum: 9223372036854775807
+        note:
+          type: string
+        status:
+          type: object
+        transaction_date:
+          type: string
+          format: date-time
+      example:
+        amount: 99
+        claim_date: "2020-01-01T12:00:00Z"
+        cost_type: "123456"
+        employee: "Puk, Pietje"
+        flags:
+          duplicates:
+            2234567891011120
+            3234567891011120
+        id: 1234567891011120
+        note: "Test"
+        status:
+          text: "draft"
+        transaction_date: "2020-01-01T12:00:00Z"
     CostTypes:
       title: costTypes
       description: CostType data
