@@ -260,14 +260,14 @@ class ClaimExpenses:
                         return make_response_translated("Geen overeenkomst op manager e-email", 403)
 
                 return jsonify({
-                        "id": expense.id,
+                        "id": str(expense.id),
                         "amount": expense["amount"],
                         "note": expense["note"],
                         "cost_type": cost_type,
                         "claim_date": expense["claim_date"],
                         "transaction_date": expense["transaction_date"],
                         "employee": expense["employee"]["full_name"],
-                        "status": expense["status"]["text"],
+                        "status": expense["status"],
                         "flags": expense.get("flags", {}),
                     })
 
