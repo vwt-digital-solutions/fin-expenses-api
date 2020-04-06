@@ -986,19 +986,24 @@ components:
       description: Mobile push token to be registered per user
       type: object
       required:
-        - push_token
         - app_version
         - os_platform
         - os_version
       properties:
         push_token:
           type: string
+          maxLength: 255
         app_version:
           type: string
+          pattern: '^(\d+\.)?(\d+\.)?(\*|\d+)$'
         os_platform:
           type: string
+          enum:
+            - iOS
+            - Android
         os_version:
           type: string
+          pattern: '^(\d+\.)?(\d+\.)?(\*|\d+)$'
       example:
         push_token: "e820497f-bb08-4e92-9193-1dbdcc603d4b"
         app_version: "1.0"

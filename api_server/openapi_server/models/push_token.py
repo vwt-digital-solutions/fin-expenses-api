@@ -6,6 +6,7 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from openapi_server.models.base_model_ import Model
+import re
 from openapi_server import util
 
 
@@ -75,8 +76,8 @@ class PushToken(Model):
         :param push_token: The push_token of this PushToken.
         :type push_token: str
         """
-        if push_token is None:
-            raise ValueError("Invalid value for `push_token`, must not be `None`")  # noqa: E501
+        if push_token is not None and len(push_token) > 255:
+            raise ValueError("Invalid value for `push_token`, length must be less than or equal to `255`")  # noqa: E501
 
         self._push_token = push_token
 
@@ -100,6 +101,8 @@ class PushToken(Model):
         """
         if app_version is None:
             raise ValueError("Invalid value for `app_version`, must not be `None`")  # noqa: E501
+        if app_version is not None and not re.search(r'^(\d+\.)?(\d+\.)?(\*|\d+)$', app_version):  # noqa: E501
+            raise ValueError("Invalid value for `app_version`, must be a follow pattern or equal to `/^(\d+\.)?(\d+\.)?(\*|\d+)$/`")  # noqa: E501
 
         self._app_version = app_version
 
@@ -121,8 +124,12 @@ class PushToken(Model):
         :param os_platform: The os_platform of this PushToken.
         :type os_platform: str
         """
-        if os_platform is None:
-            raise ValueError("Invalid value for `os_platform`, must not be `None`")  # noqa: E501
+        allowed_values = ["iOS", "Android"]  # noqa: E501
+        if os_platform not in allowed_values:
+            raise ValueError(
+                "Invalid value for `os_platform` ({0}), must be one of {1}"
+                .format(os_platform, allowed_values)
+            )
 
         self._os_platform = os_platform
 
@@ -146,5 +153,7 @@ class PushToken(Model):
         """
         if os_version is None:
             raise ValueError("Invalid value for `os_version`, must not be `None`")  # noqa: E501
+        if os_version is not None and not re.search(r'^(\d+\.)?(\d+\.)?(\*|\d+)$', os_version):  # noqa: E501
+            raise ValueError("Invalid value for `os_version`, must be a follow pattern or equal to `/^(\d+\.)?(\d+\.)?(\*|\d+)$/`")  # noqa: E501
 
         self._os_version = os_version
