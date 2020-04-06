@@ -993,6 +993,7 @@ components:
         push_token:
           type: string
           maxLength: 255
+          nullable: true
         app_version:
           type: string
           pattern: '^(\d+\.)?(\d+\.)?(\*|\d+)$'
