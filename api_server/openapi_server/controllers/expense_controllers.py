@@ -448,8 +448,6 @@ class ClaimExpenses:
                     return make_response_translated("Geen geldige kostensoort", 400)
                 data['cost_type'] = cost_type_entity.key.name
 
-            is_draft = True if expense['status']['text'] == "draft" and data.get('status', '') != "draft" else False
-
             if (expense['status']['text'] == "draft" or "rejected" in expense['status']['text']) and \
                     'ready' in data.get('status', ''):
 
@@ -496,19 +494,12 @@ class ClaimExpenses:
 
             self.expense_journal(old_expense, expense)
 
-            if data['status'] in \
-                    ['rejected_by_manager', 'rejected_by_creditor']:
-                self.send_notification('mail', 'edit_expense',
-                                       expense['employee']['afas_data'],
-                                       expense.key.id_or_name)
-            elif data['status'] == 'ready_for_manager' and is_draft and \
-                    data['manager_type'] == 'linemanager':
-                self.send_notification('mail', 'add_expense',
-                                       expense['employee']['afas_data'],
-                                       expense.key.id_or_name)
+        if data['status'] in ['rejected_by_manager', 'rejected_by_creditor']:
+            self.send_notification('rejected_expense', expense['employee']['afas_data'], expense.key.id_or_name)
+        elif data['status'] == 'ready_for_manager' and data['manager_type'] == 'linemanager':
+            self.send_notification('assess_expense', expense['employee']['afas_data'], expense.key.id_or_name)
 
-            return make_response(jsonify(
-                self._prepare_response_update_expense(expense)), 200)
+        return make_response(jsonify(self._prepare_response_update_expense(expense)), 200)
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -1008,113 +999,125 @@ class ClaimExpenses:
         )
         self.ds_client.put(entity)
 
-    def send_message_internal(self, user_id, message, expense_id):
-        try:
-            message = (self.gmail_service.users().messages().send(
-                userId=user_id, body=message).execute())
-            logging.info(
-                f"Email '{message['id']}' for expense '{expense_id}' " +
-                "has been sent")
-        except errors.HttpError as error:
-            logging.error('An error occurred: %s' % error)
+    def get_employee_locale(self, unique_name):
+        key = self.ds_client.key("EmployeeProfiles", unique_name)
+        employee_profile = self.ds_client.get(key)
 
-    def create_message(self, to, mail_body):
-        try:
-            msg = MIMEMultipart('alternative')
-            msg['From'] = config.GMAIL_SENDER_ADDRESS
-            msg['Subject'] = mail_body['subject']
-            msg['Reply-To'] = mail_body['reply_to']
-            msg['To'] = to
+        if employee_profile and 'locale' in employee_profile:
+            return employee_profile['locale']
 
-            with open('gmail_template.html', 'r') as mail_template:
-                msg_html = mail_template.read()
+        return 'nl'
 
-            msg_html = msg_html.replace('$MAIL_TITLE',
-                                        mail_body['title'])
-            msg_html = msg_html.replace('$MAIL_BODY',
-                                        mail_body['body'])
+    def send_push_notification(self):
+        print('PUSH NOTIFICATION')
 
-            msg.attach(MIMEText(msg_html, 'html'))
-            raw = base64.urlsafe_b64encode(msg.as_bytes())
-            raw = raw.decode()
-            body = {'raw': raw}
-            return body
-        except Exception as error:
-            logging.error('An error occurred: %s' % error)
+    def generate_mail(self, to, mail_body, locale):
+        msg = MIMEMultipart('alternative')
+        msg['From'] = config.GMAIL_SENDER_ADDRESS
+        msg['Subject'] = mail_body['title'][locale]
+        msg['Reply-To'] = config.GMAIL_ADDEXPENSE_REPLYTO
+        msg['To'] = to
 
-    def send_message(self, expense_id, to, mail_body):
-        new_message = self.create_message(to, mail_body)
-        self.send_message_internal("me", new_message, expense_id)
+        with open('gmail_template.html', 'r') as mail_template:
+            msg_html = mail_template.read()
 
-    def send_notification(self, notification_type, message_type, afas_data, expense_id):
-        if notification_type == 'mail':
-            self.send_email_notification(message_type, afas_data, expense_id)
+        msg_html = msg_html.replace('$MAIL_TITLE', mail_body['title'][locale])
+        msg_html = msg_html.replace('$MAIL_SALUTATION', mail_body['salutation'][locale])
+        msg_html = msg_html.replace('$MAIL_BODY', mail_body['body'][locale])
+        msg_html = msg_html.replace('$MAIL_FOOTER', mail_body['footer'][locale])
+
+        with open('mail.html', 'w') as html_file:
+            html_file.write(msg_html)
+
+        msg.attach(MIMEText(msg_html, 'html'))
+        raw = base64.urlsafe_b64encode(msg.as_bytes())
+        raw = raw.decode()
+
+        return {'raw': raw}
+
+    def send_mail_notification(self, mail_body, afas_data, expense_id, locale):
+        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
+            try:
+                logging.info(f"Creating email for expense '{expense_id}'")
+                recipient_name = afas_data['Voornaam'] if 'Voornaam' in afas_data else 'ontvanger'
+
+                mail_body_feedback = {
+                    'nl': """Mochten er nog vragen zijn, mail gerust naar""",
+                    'en': """If you have any questions, feel free to mail to""",
+                    'de': """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an"""
+                }
+                mail_body['salutation'] = {
+                    'nl': 'Beste {}',
+                    'en': 'Dear {}',
+                    'de': 'Lieber {}'
+                }
+                mail_body['footer'] = {
+                    'nl': "Met vriendelijke groeten,<br />FSSC",
+                    'en': "Kind regards,<br />FSSC",
+                    'de': "Mit freundlichen Grüßen,<br />FSSC"
+                }
+
+                for loc in mail_body['salutation']:
+                    mail_body['salutation'][loc] = mail_body['salutation'][loc].format(recipient_name)
+                for loc in mail_body['body']:
+                    mail_body['body'][loc] = """{}. {} <a href="mailto:{}">{}</a>.""".format(
+                        mail_body['body'][loc], mail_body_feedback[loc], config.GMAIL_ADDEXPENSE_REPLYTO,
+                        config.GMAIL_ADDEXPENSE_REPLYTO)
+
+                message = (self.gmail_service.users().messages().send(
+                    userId="me", body=self.generate_mail(afas_data['email_address'], mail_body, locale)).execute())
+                logging.info(f"Email '{message['id']}' for expense '{expense_id}' has been sent")
+            except errors.HttpError as e:
+                logging.error('An exception occurred when sending an email: {}'.format(e))
+            except Exception as e:
+                logging.error('An error occurred: {}'.format(e))
         else:
-            logging.warning("No notification type specified")
+            logging.info("Dev mode active for sending e-mails")
 
-    def send_email_notification(self, mail_type, afas_data, expense_id):
-        try:
-            if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
-                mail_body = None
-                recipient = None
+    def send_notification(self, notification_type, afas_data, expense_id):
+        recipient = None
+        notification_body = None
 
-                if mail_type == 'add_expense' and \
-                        'Manager_personeelsnummer' in afas_data:
-                    query = self.ds_client.query(kind='AFAS_HRM')
-                    query.add_filter('Personeelsnummer', '=',
-                                     afas_data['Manager_personeelsnummer'])
-                    db_data = list(query.fetch(limit=1))
+        if notification_type == 'assess_expense' and 'Manager_personeelsnummer' in afas_data:
+            query = self.ds_client.query(kind='AFAS_HRM')
+            query.add_filter('Personeelsnummer', '=', afas_data['Manager_personeelsnummer'])
+            db_data = list(query.fetch(limit=1))
 
-                    if len(db_data) == 1 and 'email_address' in db_data[0]:
-                        recipient = db_data[0]
+            if len(db_data) == 1 and 'email_address' in db_data[0]:
+                recipient = db_data[0]
 
-                    mail_body = {
-                        'subject': 'Er staat een nieuwe declaratie voor je klaar!',
-                        'title': 'Nieuwe declaratie',
-                        'text': "Er staat een nieuwe declaratie voor je klaar " +
-                                "in de Declaratie-app, log in om deze " +
-                                "te beoordelen."
-                    }
-                elif mail_type == 'edit_expense' and 'email_address' in afas_data:
-                    recipient = afas_data
-                    mail_body = {
-                        'subject': 'Een declaratie heeft aanpassingen nodig!',
-                        'title': 'Aanpassing vereist',
-                        'text': "Een ingediende declaratie heeft wijzigingen " +
-                                "nodig in de Declaratie-app, log in om deze " +
-                                "aan te passen."
-                    }
+            notification_body = {
+                'title': {
+                    'nl': 'Nieuwe declaratie',
+                    'en': 'New expense',
+                    'de': 'Neue spesenabrechnung'
+                },
+                'body': {
+                    'nl': 'Er staat een nieuwe declaratie voor beoordeling klaar',
+                    'en': 'A new expense is ready for assessment',
+                    'de': 'Eine neue spesenabrechnung steht zur Bewertung bereit'
+                },
+            }
+        elif notification_type == 'rejected_expense' and 'email_address' in afas_data:
+            recipient = afas_data
+            notification_body = {
+                'title': {
+                    'nl': 'Aanpassing vereist',
+                    'en': 'Adjustments needed',
+                    'de': 'Anpassungen erforderlich'
+                },
+                'body': {
+                    'nl': 'Een declaratie heeft aanpassingen nodig',
+                    'en': 'An expense needs adjustments',
+                    'de': 'Ein spesenabrechnung muss angepasst werden'
+                },
+            }
 
-                if mail_body and recipient:
-                    logging.info(f"Creating email for expense '{expense_id}'")
-                    recipient_name = recipient['Voornaam'] \
-                        if 'Voornaam' in recipient else 'ontvanger'
-
-                    mail_body['body'] = """Beste {},<br /><br />
-                        {}
-                        Mochten er nog vragen zijn, mail gerust naar
-                        <a href="mailto:{}?subject=Declaratie-app%20%7C%20Nieuwe Declaratie">{}</a>.<br /><br />
-                        Met vriendelijke groeten,<br />FSSC""".format(
-                        recipient_name, mail_body['text'],
-                        config.GMAIL_ADDEXPENSE_REPLYTO,
-                        config.GMAIL_ADDEXPENSE_REPLYTO
-                    )
-
-                    mail_body['from'] = config.GMAIL_SENDER_ADDRESS
-                    mail_body['reply_to'] = config.GMAIL_ADDEXPENSE_REPLYTO
-
-                    del mail_body['text']
-
-                    self.send_message(expense_id, recipient['email_address'],
-                                      mail_body)
-                else:
-                    logging.info(
-                        f"No mail info found for expense '{expense_id}'")
-            else:
-                logging.info("Dev mode active for sending e-mails")
-        except Exception as error:
-            logging.exception(
-                f'An exception occurred when sending an email: {error}')
+        if notification_body and recipient and 'email_address' in recipient:
+            locale = self.get_employee_locale(recipient['email_address'])
+            self.send_mail_notification(notification_body, recipient, expense_id, locale)
+        else:
+            logging.info(f"No notification set for expense '{expense_id}'")
 
     def get_employee_profile(self):
         if 'unique_name' not in self.employee_info:

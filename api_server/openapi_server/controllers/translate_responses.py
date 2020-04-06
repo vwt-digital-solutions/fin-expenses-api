@@ -22,7 +22,7 @@ def make_response_translated(message, http_code):
         "Declaratie niet gevonden": {
             "nl": "Declaratie niet gevonden",
             "en": "Expense not found",
-            "de": "Ausgabe nicht gefunden"
+            "de": "Spesenabrechnung nicht gefunden"
         },
         "Ongeautoriseerd": {
             "nl": "Ongeautoriseerd",
@@ -77,7 +77,7 @@ def make_response_translated(message, http_code):
         "De declaratie moet minimaal één bijlage hebben": {
             "nl": "De declaratie moet minimaal één bijlage hebben",
             "en": "The expense must have at least one attachment",
-            "de": "Die Kosten müssen mindestens einen Anhang enthalten"
+            "de": "Die spesenabrechnung müssen mindestens einen Anhang enthalten"
         },
         "Dit account is niet meer actief": {
             "nl": "Dit account is niet meer actief",
@@ -87,7 +87,7 @@ def make_response_translated(message, http_code):
         "Het indienen van een declaratie is niet toegestaan tijdens het aanpassen van velden": {
             "nl": "Het indienen van een declaratie is niet toegestaan tijdens het aanpassen van velden",
             "en": "The submission of an expense is not authorized while modifying fields",
-            "de": "Die Abgabe einer Erklärung ist beim Ändern von Feldern nicht gestattet"
+            "de": "Die Abgabe einer spesenabrechnung ist beim Ändern von Feldern nicht gestattet"
         },
         "Geen geldige kostensoort": {
             "nl": "Geen geldige kostensoort",
@@ -115,7 +115,6 @@ def make_response_translated(message, http_code):
             "de": "Der Kostenbetrag muss höher als €{},- sein"
         }
     }
-    detail = {}
 
     try:
         message_obj = ast.literal_eval(message)
