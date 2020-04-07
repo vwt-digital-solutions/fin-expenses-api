@@ -58,5 +58,8 @@ def add_header(response):
     response.headers['X-Frame-Options'] = "SAMEORIGIN"
     response.headers['X-Content-Type-Options'] = "nosniff"
     response.headers['Referrer-Policy'] = "no-referrer-when-downgrade"
-    response.headers['Feature-Policy'] = " ".join(config.ORIGINS)
+    response.headers['Feature-Policy'] = "geolocation: 'none'; midi: 'none'; notifications: 'none'; push: 'none'; " \
+                                         "sync-xhr: 'none'; microphone: 'none'; camera: 'none'; " \
+                                         "magnetometer: 'none'; gyroscope: 'none'; speaker: 'none'; vibrate: 'none'; " \
+                                         "fullscreen: 'none'; payment: 'none';"
     return response
