@@ -501,9 +501,12 @@ class ClaimExpenses:
 
             self.expense_journal(old_expense, expense)
 
-        if data['status'] in ['rejected_by_manager', 'rejected_by_creditor']:
+        if data['status'] in ['rejected_by_manager', 'rejected_by_creditor'] and \
+                old_expense['status']['text'] in ['ready_for_manager', 'ready_for_creditor']:
             self.send_notification('rejected_expense', expense['employee']['afas_data'], expense.key.id_or_name)
-        elif data['status'] == 'ready_for_manager' and data['manager_type'] == 'linemanager':
+        elif data['status'] == 'ready_for_manager' and \
+                old_expense['status']['text'] in ['draft', 'rejected_by_manager', 'rejected_by_creditor'] and \
+                data['manager_type'] == 'linemanager':
             self.send_notification('assess_expense', expense['employee']['afas_data'], expense.key.id_or_name)
 
         return make_response(jsonify(self._prepare_response_update_expense(expense)), 200)
