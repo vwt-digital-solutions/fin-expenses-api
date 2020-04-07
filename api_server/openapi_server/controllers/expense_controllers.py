@@ -26,6 +26,8 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 
 import connexion
 import googleapiclient.discovery
+import firebase_admin
+from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
 from google.oauth2 import service_account
@@ -94,6 +96,11 @@ class ClaimExpenses:
         self.gmail_service = googleapiclient.discovery.build(
             'gmail', 'v1', credentials=delegated_credentials,
             cache_discovery=False)
+
+        if not len(firebase_admin._apps):
+            self.fb_app = firebase_admin.initialize_app()  # Firebase
+        else:
+            self.fb_app = firebase_admin.get_app()  # Firebase
 
         self.ds_client = datastore.Client()  # Datastore
         self.cs_client = storage.Client()  # CloudStores
@@ -1000,16 +1007,48 @@ class ClaimExpenses:
         self.ds_client.put(entity)
 
     def get_employee_locale(self, unique_name):
+        locale_list = ['nl', 'en', 'de']
         key = self.ds_client.key("EmployeeProfiles", unique_name)
-        employee_profile = self.ds_client.get(key)
+        emp_profile = self.ds_client.get(key)
 
-        if employee_profile and 'locale' in employee_profile:
-            return employee_profile['locale']
+        if emp_profile and 'locale' in emp_profile and emp_profile['locale'] in locale_list:
+            return emp_profile['locale']
 
         return 'nl'
 
-    def send_push_notification(self):
-        print('PUSH NOTIFICATION')
+    def get_employee_push_token(self, unique_name):
+        key = self.ds_client.key("PushTokens", unique_name)
+        push_token = self.ds_client.get(key)
+
+        if push_token and 'push_token' in push_token:
+            return push_token['push_token']
+
+        return None
+
+    def send_push_notification(self, mail_body, afas_data, expense_id, locale):
+        push_token = self.get_employee_push_token(afas_data['email_address'])
+
+        if push_token:
+            notification_data = {
+                'username': str(afas_data['email_address']),
+                'expense_id': str(expense_id)
+            }
+            notification = fb_messaging.Notification(
+                title=mail_body['title'][locale], body=mail_body['body'][locale])
+            message = fb_messaging.Message(token=push_token, notification=notification, data=notification_data)
+
+            try:
+                push_notification = fb_messaging.send(message)
+                logging.info("Push notification '{}' sent for expense {}".format(push_notification, expense_id))
+            except (firebase_admin.exceptions.FirebaseError, ValueError) as e:
+                logging.info('Something went wrong while sending the push notification: {}'.format(e))
+                return False
+            finally:
+                return True
+        else:
+            logging.debug('No push token found')
+
+        return False
 
     def generate_mail(self, to, mail_body, locale):
         msg = MIMEMultipart('alternative')
@@ -1115,7 +1154,10 @@ class ClaimExpenses:
 
         if notification_body and recipient and 'email_address' in recipient:
             locale = self.get_employee_locale(recipient['email_address'])
-            self.send_mail_notification(notification_body, recipient, expense_id, locale)
+            notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
+
+            if not notification_status:
+                self.send_mail_notification(notification_body, recipient, expense_id, locale)
         else:
             logging.info(f"No notification set for expense '{expense_id}'")
 
