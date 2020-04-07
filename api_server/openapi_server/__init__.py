@@ -50,3 +50,13 @@ if 'GAE_INSTANCE' in os.environ:
     CORS(app.app, origins=config.ORIGINS)
 else:
     CORS(app.app)
+
+
+@app.app.after_request
+def add_header(response):
+    response.headers['Content-Security-Policy'] = "default-src 'none'"
+    response.headers['X-Frame-Options'] = "SAMEORIGIN"
+    response.headers['X-Content-Type-Options'] = "nosniff"
+    response.headers['Referrer-Policy'] = "no-referrer-when-downgrade"
+    response.headers['Feature-Policy'] = " ".join(config.ORIGINS)
+    return response
