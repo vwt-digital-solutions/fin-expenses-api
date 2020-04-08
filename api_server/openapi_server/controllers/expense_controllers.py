@@ -1024,21 +1024,27 @@ class ClaimExpenses:
         push_token = self.ds_client.get(key)
 
         if push_token and 'push_token' in push_token:
-            return push_token['push_token']
+            return push_token['push_token'], True if push_token.get('os_platform', '') == 'Android' else False
 
-        return None
+        return None, None
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
-        push_token = self.get_employee_push_token(afas_data['email_address'])
+        push_token, is_android = self.get_employee_push_token(afas_data['email_address'])
 
         if push_token:
             notification_data = {
                 'username': str(afas_data['email_address']),
                 'expense_id': str(expense_id)
             }
-            notification = fb_messaging.Notification(
-                title=mail_body['title'][locale], body=mail_body['body'][locale], click_action='FCM_PLUGIN_ACTIVITY')
-            message = fb_messaging.Message(token=push_token, notification=notification, data=notification_data)
+            if is_android:
+                notification = fb_messaging.AndroidNotification(
+                    title=mail_body['title'][locale], body=mail_body['body'][locale], click_action='FCM_PLUGIN_ACTIVITY')
+                android_config = fb_messaging.AndroidConfig(priority='normal', notification=notification)
+                message = fb_messaging.Message(token=push_token, android=android_config, data=notification_data)
+            else:
+                notification = fb_messaging.Notification(
+                    title=mail_body['title'][locale], body=mail_body['body'][locale])
+                message = fb_messaging.Message(token=push_token, notification=notification, data=notification_data)
 
             try:
                 push_notification = fb_messaging.send(message)
