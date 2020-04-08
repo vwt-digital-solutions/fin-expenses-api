@@ -111,7 +111,7 @@ def make_response_translated(message, http_code):
         },
         "Het declaratiebedrag moet hoger zijn dan €{},-": {
             "nl": "Het declaratiebedrag moet hoger zijn dan €{},-",
-            "en": "The expense amount must be higher than 3 €{},-",
+            "en": "The expense amount must be higher than €{},-",
             "de": "Der Kostenbetrag muss höher als €{},- sein"
         }
     }

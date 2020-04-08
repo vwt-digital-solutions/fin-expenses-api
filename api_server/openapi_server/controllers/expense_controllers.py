@@ -1037,7 +1037,7 @@ class ClaimExpenses:
                 'expense_id': str(expense_id)
             }
             notification = fb_messaging.Notification(
-                title=mail_body['title'][locale], body=mail_body['body'][locale])
+                title=mail_body['title'][locale], body=mail_body['body'][locale], click_action='FCM_PLUGIN_ACTIVITY')
             message = fb_messaging.Message(token=push_token, notification=notification, data=notification_data)
 
             try:
