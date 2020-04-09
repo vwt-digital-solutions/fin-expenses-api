@@ -6,8 +6,9 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from openapi_server.models.base_model_ import Model
-import re
 from openapi_server import util
+
+import re  # noqa: E501
 
 
 class PushToken(Model):
@@ -16,7 +17,7 @@ class PushToken(Model):
     Do not edit the class manually.
     """
 
-    def __init__(self, push_token=None, app_version=None, os_platform=None, os_version=None):  # noqa: E501
+    def __init__(self, push_token=None, app_version=None, os_platform=None, os_version=None, device_id=None, bundle_id=None):  # noqa: E501
         """PushToken - a model defined in OpenAPI
 
         :param push_token: The push_token of this PushToken.  # noqa: E501
@@ -27,25 +28,35 @@ class PushToken(Model):
         :type os_platform: str
         :param os_version: The os_version of this PushToken.  # noqa: E501
         :type os_version: str
+        :param device_id: The device_id of this PushToken.  # noqa: E501
+        :type device_id: str
+        :param bundle_id: The bundle_id of this PushToken.  # noqa: E501
+        :type bundle_id: str
         """
         self.openapi_types = {
             'push_token': str,
             'app_version': str,
             'os_platform': str,
-            'os_version': str
+            'os_version': str,
+            'device_id': str,
+            'bundle_id': str
         }
 
         self.attribute_map = {
             'push_token': 'push_token',
             'app_version': 'app_version',
             'os_platform': 'os_platform',
-            'os_version': 'os_version'
+            'os_version': 'os_version',
+            'device_id': 'device_id',
+            'bundle_id': 'bundle_id'
         }
 
         self._push_token = push_token
         self._app_version = app_version
         self._os_platform = os_platform
         self._os_version = os_version
+        self._device_id = device_id
+        self._bundle_id = bundle_id
 
     @classmethod
     def from_dict(cls, dikt) -> 'PushToken':
@@ -157,3 +168,49 @@ class PushToken(Model):
             raise ValueError("Invalid value for `os_version`, must be a follow pattern or equal to `/^(\d+\.)?(\d+\.)?(\*|\d+)$/`")  # noqa: E501
 
         self._os_version = os_version
+
+    @property
+    def device_id(self):
+        """Gets the device_id of this PushToken.
+
+
+        :return: The device_id of this PushToken.
+        :rtype: str
+        """
+        return self._device_id
+
+    @device_id.setter
+    def device_id(self, device_id):
+        """Sets the device_id of this PushToken.
+
+
+        :param device_id: The device_id of this PushToken.
+        :type device_id: str
+        """
+        if device_id is not None and len(device_id) > 255:
+            raise ValueError("Invalid value for `device_id`, length must be less than or equal to `255`")  # noqa: E501
+
+        self._device_id = device_id
+
+    @property
+    def bundle_id(self):
+        """Gets the bundle_id of this PushToken.
+
+
+        :return: The bundle_id of this PushToken.
+        :rtype: str
+        """
+        return self._bundle_id
+
+    @bundle_id.setter
+    def bundle_id(self, bundle_id):
+        """Sets the bundle_id of this PushToken.
+
+
+        :param bundle_id: The bundle_id of this PushToken.
+        :type bundle_id: str
+        """
+        if bundle_id is not None and len(bundle_id) > 255:
+            raise ValueError("Invalid value for `bundle_id`, length must be less than or equal to `255`")  # noqa: E501
+
+        self._bundle_id = bundle_id

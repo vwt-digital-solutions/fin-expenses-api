@@ -1005,11 +1005,19 @@ components:
         os_version:
           type: string
           pattern: '^(\d+\.)?(\d+\.)?(\*|\d+)$'
+        device_id:
+          type: string
+          maxLength: 255
+        bundle_id:
+          type: string
+          maxLength: 255
       example:
         push_token: "e820497f-bb08-4e92-9193-1dbdcc603d4b"
         app_version: "1.0"
         os_platform: "iOS"
         os_version: "13.4"
+        device_id: "601f8286-6e1a-499f-94b7-9c0d6f7c7e3f"
+        bundle_id: "d5f8098a-004e-4e28-8cad-89b224880c21"
   parameters:
     DocumentDate:
       name: document_date

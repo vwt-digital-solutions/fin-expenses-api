@@ -5,6 +5,7 @@ import os
 import requests
 import re
 import csv
+import uuid
 
 import datetime
 import tempfile
@@ -38,7 +39,6 @@ from email.mime.text import MIMEText
 from openapi_server.models.attachment_data import AttachmentData
 from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
-from openapi_server.models.push_token import PushToken  # noqa: E501
 from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
 
@@ -1198,18 +1198,42 @@ class ClaimExpenses:
 
         return make_response('', 201)
 
+    def _delete_existing_push_tokens_filter(self, unique_name, device_id, bundle_id):
+        query = self.ds_client.query(kind='PushTokens')
+        query.add_filter('unique_name', '=', unique_name)
+        query.add_filter('device_id', '=', device_id)
+        query.add_filter('bundle_id', '=', bundle_id)
+        query.keys_only()
+        self.ds_client.delete_multi(keys=[entity.key for entity in query.fetch()])
+
     def register_push_token(self, push_token):
         if 'unique_name' not in self.employee_info:
             return make_response_translated("Medewerker niet gevonden", 403)
 
-        key = self.ds_client.key("PushTokens", self.employee_info['unique_name'])
+        if 'device_id' in push_token and 'bundle_id' in push_token:
+            unique_id = str(uuid.uuid4())
+            self._delete_existing_push_tokens_filter(unique_name=self.employee_info['unique_name'],
+                                                     device_id=push_token['device_id'],
+                                                     bundle_id=push_token['bundle_id'])
+        else:
+            unique_id = self.employee_info['unique_name']
+
+        if not push_token.get('push_token', None):
+            self.ds_client.delete(self.ds_client.key('PushTokens', unique_id))
+            return make_response(200)
+
+        key = self.ds_client.key('PushTokens', unique_id)
         entity = datastore.Entity(key=key)
+
         entity.update({
-            "push_token": push_token.push_token,
-            "app_version": push_token.app_version,
-            "os_platform": push_token.os_platform,
-            "os_version": push_token.os_version,
-            "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+            'device_id': push_token.get('device_id', None),
+            'bundle_id': push_token.get('bundle_id', None),
+            'os_platform': push_token.get('os_platform', None),
+            'os_version': push_token.get('os_version', None),
+            'push_token': push_token.get('push_token', None),
+            'app_version': push_token.get('app_version', None),
+            'unique_name': self.employee_info['unique_name'],
+            'last_updated': datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
         })
         self.ds_client.put(entity)
 
@@ -2034,7 +2058,7 @@ def add_employee_profile():
 def register_push_token():
     if connexion.request.is_json:
         expense_instance = ClaimExpenses()
-        push_token = PushToken.from_dict(connexion.request.get_json())  # noqa: E501
+        push_token = json.loads(connexion.request.get_data().decode())  # noqa: E501
 
         return expense_instance.register_push_token(push_token)
 
