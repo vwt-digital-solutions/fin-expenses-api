@@ -1020,43 +1020,66 @@ class ClaimExpenses:
         return 'nl'
 
     def get_employee_push_token(self, unique_name):
-        key = self.ds_client.key("PushTokens", unique_name)
-        push_token = self.ds_client.get(key)
+        query = self.ds_client.query(kind='PushTokens')
+        query.add_filter('unique_name', '=', unique_name)
+        query.add_filter('push_token', '>', '')
+        push_tokens = list(query.fetch())
 
-        if push_token and 'push_token' in push_token:
-            return push_token['push_token'], True if push_token.get('os_platform', '') == 'Android' else False
+        if len(push_tokens) <= 0:
+            key = self.ds_client.key("PushTokens", unique_name)
+            push_tokens = list(self.ds_client.get(key))
 
-        return None, None
+        return push_tokens
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
-        push_token, is_android = self.get_employee_push_token(afas_data['email_address'])
+        push_tokens = self.get_employee_push_token(afas_data['email_address'])
 
-        if push_token:
-            notification_data = {
-                'username': str(afas_data['email_address']),
-                'expense_id': str(expense_id)
-            }
-            if is_android:
-                notification = fb_messaging.AndroidNotification(
+        if push_tokens:
+            active_push_tokens = []
+
+            for token in push_tokens:
+                if 'push_token' in token:
+                    active_push_tokens.append(token['push_token'])
+
+            if len(active_push_tokens) > 0:
+                # Set notification data
+                notification_data = {
+                    'username': str(afas_data['email_address']),
+                    'expense_id': str(expense_id)
+                }
+
+                # Create Android message
+                android_notification = fb_messaging.AndroidNotification(
                     title=mail_body['title'][locale], body=mail_body['body'][locale], click_action='FCM_PLUGIN_ACTIVITY')
-                android_config = fb_messaging.AndroidConfig(priority='normal', notification=notification)
-                message = fb_messaging.Message(token=push_token, android=android_config, data=notification_data)
-            else:
-                notification = fb_messaging.Notification(
+                android_config = fb_messaging.AndroidConfig(priority='normal', notification=android_notification)
+
+                # Create ios message
+                ios_notification = fb_messaging.Notification(
                     title=mail_body['title'][locale], body=mail_body['body'][locale])
-                message = fb_messaging.Message(token=push_token, notification=notification, data=notification_data)
 
-            try:
-                push_notification = fb_messaging.send(message)
-                logging.info("Push notification '{}' sent for expense {}".format(push_notification, expense_id))
-            except (firebase_admin.exceptions.FirebaseError, ValueError) as e:
-                logging.info('Something went wrong while sending the push notification: {}'.format(e))
-                return False
-            finally:
-                return True
-        else:
-            logging.debug('No push token found')
+                # Merge multicast message
+                multicast_message = fb_messaging.MulticastMessage(tokens=active_push_tokens, data=notification_data,
+                                                                  notification=ios_notification, android=android_config)
 
+                try:
+                    # Send multicast message
+                    multicast_batch = fb_messaging.send_multicast(multicast_message)
+                    logging.info("Push message batch: {} success(es) and {} failure(s) [{}]".format(
+                        multicast_batch.success_count, multicast_batch.failure_count, expense_id))
+
+                    for response in multicast_batch.responses:
+                        if not response.success:
+                            logging.info("Push message '{}' trows exception: {}".format(
+                                response.message_id, str(response.exception)))
+                except (firebase_admin.exceptions.FirebaseError, ValueError) as exception:
+                    logging.info(
+                        "Something went wrong while sending the push message batch for expense '{}': {}".format(
+                            expense_id, str(exception)))
+                    return False
+                finally:
+                    return True
+
+        logging.debug('No push token(s) found')
         return False
 
     def generate_mail(self, to, mail_body, locale):
@@ -1197,15 +1220,6 @@ class ClaimExpenses:
         self.ds_client.put(entity)
 
         return make_response('', 201)
-
-    def _retrieve_existing_push_tokens_query(self, unique_name, device_id, bundle_id, keys_only=False):
-        query = self.ds_client.query(kind='PushTokens')
-        query.add_filter('unique_name', '=', unique_name)
-        query.add_filter('device_id', '=', device_id)
-        query.add_filter('bundle_id', '=', bundle_id)
-        if keys_only:
-            query.keys_only()
-        return query
 
     def register_push_token(self, push_token):
         if 'unique_name' not in self.employee_info:
