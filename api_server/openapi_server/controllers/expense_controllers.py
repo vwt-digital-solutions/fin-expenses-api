@@ -1214,11 +1214,11 @@ class ClaimExpenses:
         if 'device_id' in push_token and 'bundle_id' in push_token:
             push_identifier = "{}_{}_{}".format(
                 self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
-            unique_id = str(hashlib.sha256(push_identifier.encode('utf-8')).hexdigest())
+            unique_id = hashlib.sha256(push_identifier.encode('utf-8')).hexdigest()
         else:
             unique_id = self.employee_info['unique_name']
 
-        key = self.ds_client.key('PushTokens', unique_id)
+        key = self.ds_client.key('PushTokens', str(unique_id))
         entity = datastore.Entity(key=key)
 
         entity.update({
