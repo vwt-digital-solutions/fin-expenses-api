@@ -5,7 +5,7 @@ import os
 import requests
 import re
 import csv
-import uuid
+import hashlib
 
 import datetime
 import tempfile
@@ -1198,29 +1198,25 @@ class ClaimExpenses:
 
         return make_response('', 201)
 
-    def _delete_existing_push_tokens_filter(self, unique_name, device_id, bundle_id):
+    def _retrieve_existing_push_tokens_query(self, unique_name, device_id, bundle_id, keys_only=False):
         query = self.ds_client.query(kind='PushTokens')
         query.add_filter('unique_name', '=', unique_name)
         query.add_filter('device_id', '=', device_id)
         query.add_filter('bundle_id', '=', bundle_id)
-        query.keys_only()
-        self.ds_client.delete_multi(keys=[entity.key for entity in query.fetch()])
+        if keys_only:
+            query.keys_only()
+        return query
 
     def register_push_token(self, push_token):
         if 'unique_name' not in self.employee_info:
             return make_response_translated("Medewerker niet gevonden", 403)
 
         if 'device_id' in push_token and 'bundle_id' in push_token:
-            unique_id = str(uuid.uuid4())
-            self._delete_existing_push_tokens_filter(unique_name=self.employee_info['unique_name'],
-                                                     device_id=push_token['device_id'],
-                                                     bundle_id=push_token['bundle_id'])
+            push_identifier = "{}_{}_{}".format(
+                self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
+            unique_id = str(hashlib.sha256(push_identifier.encode('utf-8')).hexdigest())
         else:
             unique_id = self.employee_info['unique_name']
-
-        if not push_token.get('push_token', None):
-            self.ds_client.delete(self.ds_client.key('PushTokens', unique_id))
-            return make_response(200)
 
         key = self.ds_client.key('PushTokens', unique_id)
         entity = datastore.Entity(key=key)
