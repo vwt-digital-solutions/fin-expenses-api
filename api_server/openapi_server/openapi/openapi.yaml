@@ -989,6 +989,8 @@ components:
         - app_version
         - os_platform
         - os_version
+        - device_id
+        - bundle_id
       properties:
         push_token:
           type: string

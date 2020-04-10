@@ -187,6 +187,8 @@ class PushToken(Model):
         :param device_id: The device_id of this PushToken.
         :type device_id: str
         """
+        if device_id is None:
+            raise ValueError("Invalid value for `device_id`, must not be `None`")  # noqa: E501
         if device_id is not None and len(device_id) > 255:
             raise ValueError("Invalid value for `device_id`, length must be less than or equal to `255`")  # noqa: E501
 
@@ -210,6 +212,8 @@ class PushToken(Model):
         :param bundle_id: The bundle_id of this PushToken.
         :type bundle_id: str
         """
+        if bundle_id is None:
+            raise ValueError("Invalid value for `bundle_id`, must not be `None`")  # noqa: E501
         if bundle_id is not None and len(bundle_id) > 255:
             raise ValueError("Invalid value for `bundle_id`, length must be less than or equal to `255`")  # noqa: E501
 

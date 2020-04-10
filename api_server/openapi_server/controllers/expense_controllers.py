@@ -1023,13 +1023,8 @@ class ClaimExpenses:
         query = self.ds_client.query(kind='PushTokens')
         query.add_filter('unique_name', '=', unique_name)
         query.add_filter('push_token', '>', '')
-        push_tokens = list(query.fetch())
 
-        if len(push_tokens) <= 0:
-            key = self.ds_client.key("PushTokens", unique_name)
-            push_tokens = list(self.ds_client.get(key))
-
-        return push_tokens
+        return list(query.fetch())
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
         push_tokens = self.get_employee_push_token(afas_data['email_address'])
@@ -1225,12 +1220,9 @@ class ClaimExpenses:
         if 'unique_name' not in self.employee_info:
             return make_response_translated("Medewerker niet gevonden", 403)
 
-        if 'device_id' in push_token and 'bundle_id' in push_token:
-            push_identifier = "{}_{}_{}".format(
-                self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
-            unique_id = hashlib.sha256(push_identifier.encode('utf-8')).hexdigest()
-        else:
-            unique_id = self.employee_info['unique_name']
+        push_identifier = "{}_{}_{}".format(
+            self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
+        unique_id = hashlib.sha256(push_identifier.encode('utf-8')).hexdigest()
 
         key = self.ds_client.key('PushTokens', str(unique_id))
         entity = datastore.Entity(key=key)
