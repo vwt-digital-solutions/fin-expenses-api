@@ -31,12 +31,7 @@ class FirebaseSDK:
 
         try:
             if not project_response:
-                project_body = {
-                    'timeZone': 'Europe/Amsterdam',
-                    'regionCode': 'NL',
-                    'locationId': 'eur3'
-                }
-                self.fb_sdk.projects().addFirebase(project=self.project_full, body=project_body).execute()
+                self.fb_sdk.projects().addFirebase(project=self.project_full).execute()
         except gcp_errors.HttpError as e:
             logging.exception(e)
             sys.exit(1)
