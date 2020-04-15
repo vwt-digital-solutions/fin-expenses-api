@@ -3,6 +3,7 @@ config.py
 *.pem
 *.cert
 gmail_template.html
+startup.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -50,3 +50,21 @@ if 'GAE_INSTANCE' in os.environ:
     CORS(app.app, origins=config.ORIGINS)
 else:
     CORS(app.app)
+
+
+@app.app.after_request
+def add_header(response):
+    response.headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self' 'unsafe-inline'; " \
+                                                  "img-src 'self' data:; font-src 'self' fonts.gstatic.com data:; " \
+                                                  "style-src 'self' fonts.googleapis.com 'unsafe-inline'; " \
+                                                  "style-src-elem 'self' fonts.googleapis.com 'unsafe-inline'; " \
+                                                  "connect-src 'self'; form-action 'none'; frame-src data:; " \
+                                                  "frame-ancestors 'none'"
+    response.headers['X-Frame-Options'] = "SAMEORIGIN"
+    response.headers['X-Content-Type-Options'] = "nosniff"
+    response.headers['Referrer-Policy'] = "no-referrer-when-downgrade"
+    response.headers['Feature-Policy'] = "geolocation 'none'; midi 'none'; notifications 'none'; push 'none'; " \
+                                         "sync-xhr 'none'; microphone 'none'; camera 'none'; " \
+                                         "magnetometer 'none'; gyroscope 'none'; speaker 'none'; vibrate 'none'; " \
+                                         "fullscreen 'none'; payment 'none';"
+    return response
