@@ -23,9 +23,13 @@ class FirebaseSDK:
             self.initialize_firebase_apps()
 
     def create_firebase_project(self):
+        project_response = None
         try:
             project_response = self.fb_sdk.projects().get(name=self.project_full).execute()
+        except gcp_errors.HttpError:
+            pass
 
+        try:
             if not project_response:
                 project_body = {
                     'timeZone': 'Europe/Amsterdam',

@@ -1,4 +1,4 @@
-# Create Firebase apps
+# Automated Firebase project setup
 
 This function is meant to automate the creation of a Firebase project an its iOS and Android applications.
 
