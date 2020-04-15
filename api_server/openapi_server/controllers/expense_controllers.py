@@ -97,7 +97,7 @@ class ClaimExpenses:
             'gmail', 'v1', credentials=delegated_credentials,
             cache_discovery=False)
 
-        if not len(firebase_admin._apps):
+        if len(firebase_admin._apps) <= 0:
             self.fb_app = firebase_admin.initialize_app()  # Firebase
         else:
             self.fb_app = firebase_admin.get_app()  # Firebase
@@ -1071,8 +1071,8 @@ class ClaimExpenses:
                         "Something went wrong while sending the push message batch for expense '{}': {}".format(
                             expense_id, str(exception)))
                     return False
-                finally:
-                    return True
+
+                return True
 
         logging.debug('No push token(s) found')
         return False
