@@ -43,11 +43,12 @@ class FirebaseSDK:
         list_old_apps = []
         list_new_apps = config.FIREBASE_APPS
 
-        for old_app in list_apps['apps']:
-            list_old_apps.append({
-                'display_name': old_app['displayName'],
-                'platform': old_app['platform'].lower()
-            })
+        if 'apps' in list_apps:
+            for old_app in list_apps['apps']:
+                list_old_apps.append({
+                    'display_name': old_app['displayName'],
+                    'platform': old_app['platform'].lower()
+                })
 
         list_diff_apps = DeepDiff(
             list_old_apps, list_new_apps, ignore_order=True, exclude_regex_paths=r"root\[\d+\]\['bundle_id'\]")
@@ -64,9 +65,9 @@ class FirebaseSDK:
                     else:
                         logging.error("No correct platform found for {} app '{}'".format(
                             app['platform'], app['display_name']))
-                except gcp_errors.HttpError as exception:
+                except gcp_errors.HttpError:
                     logging.error("Failed adding {} app '{}' to Firebase project '{}'".format(
-                        app['platform'], app['display_name'], self.project), str(exception))
+                        app['platform'], app['display_name'], self.project))
                     continue
 
         logging.info("{} apps are active within Firebase project '{}'".format(len(list_new_apps), self.project))
