@@ -1156,12 +1156,12 @@ class ClaimExpenses:
                 'title': {
                     'nl': 'Nieuwe declaratie',
                     'en': 'New expense',
-                    'de': 'Neue spesenabrechnung'
+                    'de': 'Neue Spesenabrechnung'
                 },
                 'body': {
-                    'nl': 'Er staat een nieuwe declaratie voor beoordeling klaar',
+                    'nl': 'Er staat een nieuwe declaratie klaar om beoordeeld te worden',
                     'en': 'A new expense is ready for assessment',
-                    'de': 'Eine neue spesenabrechnung steht zur Bewertung bereit'
+                    'de': 'Eine neue Spesenabrechnung ist eingereicht worden und wartet auf Genehmigung'
                 },
             }
         elif notification_type == 'rejected_expense' and 'email_address' in afas_data:
@@ -1169,13 +1169,13 @@ class ClaimExpenses:
             notification_body = {
                 'title': {
                     'nl': 'Aanpassing vereist',
-                    'en': 'Adjustments needed',
-                    'de': 'Anpassungen erforderlich'
+                    'en': 'Adjustment needed',
+                    'de': 'Anpassung erforderlich'
                 },
                 'body': {
-                    'nl': 'Een declaratie heeft aanpassingen nodig',
-                    'en': 'An expense needs adjustments',
-                    'de': 'Ein spesenabrechnung muss angepasst werden'
+                    'nl': 'Je declaratie is niet goedgekeurd. Het is nodig deze aan te passen',
+                    'en': 'Your expense has not been approved. An adjustment is necessary',
+                    'de': 'Ihre Spesenabrechnung ist nicht genehmigt worden. Es ist erforderlich, dass diese geändert wird'
                 },
             }
 
