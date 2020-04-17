@@ -61,7 +61,7 @@ class FirebaseSDK:
                     if app['platform'] == 'ios':
                         self.create_firebase_ios_app(app)  # Create iOS app
                     elif app['platform'] == 'android':
-                        self.create_firebase_ios_android(app)  # Create Android app
+                        self.create_firebase_android_app(app)  # Create Android app
                     else:
                         logging.error("No correct platform found for {} app '{}'".format(
                             app['platform'], app['display_name']))
@@ -79,7 +79,7 @@ class FirebaseSDK:
         }
         self.fb_sdk.projects().iosApps().create(parent=self.project_full, body=app_body).execute()
 
-    def create_firebase_ios_android(self, app):
+    def create_firebase_android_app(self, app):
         app_body = {
             'displayName': app['display_name'],
             'packageName': app['bundle_id']
