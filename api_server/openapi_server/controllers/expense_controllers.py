@@ -6,6 +6,7 @@ import requests
 import re
 import csv
 import hashlib
+import unidecode
 
 import datetime
 import tempfile
@@ -737,7 +738,7 @@ class ClaimExpenses:
         return True, export_filename, booking_file
 
     def _gather_creditor_name(self, expense):
-        return expense["employee"]["afas_data"].get("Naam")
+        return unidecode.unidecode(expense["employee"]["afas_data"].get("Naam"))
 
     def create_payment_file(self, expense_claims_to_export, export_filename, document_time):
 
