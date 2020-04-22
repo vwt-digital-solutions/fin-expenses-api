@@ -29,7 +29,7 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 import connexion
 import googleapiclient.discovery
 import firebase_admin
-from oauth2client.client import GoogleCredentials
+import google.auth
 from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
@@ -2026,8 +2026,8 @@ def api_base_url():
 
 
 def initialise_gmail_service(subject, scopes):
-    credentials = GoogleCredentials.get_application_default()
-    delegated_credentials = get_delegated_credentials(credentials)
+    credentials, project_id = google.auth.default(scopes=['https://www.googleapis.com/auth/iam'])
+    delegated_credentials = get_delegated_credentials(credentials, subject, scopes)
     gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
                                                     cache_discovery=False)
     return gmail_service
