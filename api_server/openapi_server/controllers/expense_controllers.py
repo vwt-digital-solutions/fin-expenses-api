@@ -2033,7 +2033,7 @@ def initialise_gmail_service(subject, scopes):
         gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
                                                         cache_discovery=False)
     except Exception as e:
-        logging.debug(e)
+        logging.exception(e)
         pass
     finally:
         return gmail_service
