@@ -88,9 +88,8 @@ class ClaimExpenses:
     """
 
     def __init__(self):
-        # Decrypt Gmail SDK credentials & init G Mail service
-        delegated_credentials = service_account.Credentials.from_service_account_info(
-            json.loads(self.decrypt_gmailsdk_credentials()),
+        delegated_credentials = service_account.Credentials.from_service_account_file(
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'],
             scopes=['https://www.googleapis.com/auth/gmail.send'],
             subject=config.GMAIL_SUBJECT_ADDRESS)
 
@@ -107,18 +106,6 @@ class ClaimExpenses:
         self.cs_client = storage.Client()  # CloudStores
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
-
-    def decrypt_gmailsdk_credentials(self):
-        file_name = 'gmailsdk_credentials'
-        kms_client = kms_v1.KeyManagementServiceClient()
-        pk_passphrase = kms_client.crypto_key_path_path(
-            os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-            os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
-            config.GMAIL_CREDENTIALS_KEY)
-        decrypt_response = kms_client.decrypt(
-            pk_passphrase, open(f"{file_name}.enc", "rb").read())
-
-        return decrypt_response.plaintext.decode("utf-8").replace('\n', '')
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -1092,9 +1079,6 @@ class ClaimExpenses:
         msg_html = msg_html.replace('$MAIL_SALUTATION', mail_body['salutation'][locale])
         msg_html = msg_html.replace('$MAIL_BODY', mail_body['body'][locale])
         msg_html = msg_html.replace('$MAIL_FOOTER', mail_body['footer'][locale])
-
-        with open('mail.html', 'w') as html_file:
-            html_file.write(msg_html)
 
         msg.attach(MIMEText(msg_html, 'html'))
         raw = base64.urlsafe_b64encode(msg.as_bytes())
