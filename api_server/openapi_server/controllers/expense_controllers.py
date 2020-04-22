@@ -42,6 +42,7 @@ from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
 from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
+from openapi_server.auth import get_delegated_credentials
 
 from OpenSSL import crypto
 
@@ -2025,18 +2026,11 @@ def api_base_url():
 
 
 def initialise_gmail_service(subject, scopes):
-    gmail_service = None
-
-    try:
-        credentials, project = google.auth.default()
-        delegated_credentials = credentials.with_subject(subject).with_scopes(scopes)
-        gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
-                                                        cache_discovery=False)
-    except Exception as e:
-        logging.exception(e)
-        pass
-    finally:
-        return gmail_service
+    credentials, project_id = google.auth.default(scopes=['https://www.googleapis.com/auth/iam'])
+    delegated_credentials = get_delegated_credentials(credentials, subject, scopes)
+    gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
+                                                    cache_discovery=False)
+    return gmail_service
 
 
 def get_employee_profile():
