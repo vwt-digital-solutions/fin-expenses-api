@@ -29,7 +29,7 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 import connexion
 import googleapiclient.discovery
 import firebase_admin
-import google.auth
+from oauth2client.client import GoogleCredentials
 from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
@@ -42,6 +42,7 @@ from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
 from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
+from openapi_server.auth import get_delegated_credentials
 
 from OpenSSL import crypto
 
@@ -2025,18 +2026,11 @@ def api_base_url():
 
 
 def initialise_gmail_service(subject, scopes):
-    gmail_service = None
-
-    try:
-        credentials, project = google.auth.default()
-        delegated_credentials = credentials.with_subject(subject).with_scopes(scopes)
-        gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
-                                                        cache_discovery=False)
-    except Exception as e:
-        logging.exception(e)
-        pass
-    finally:
-        return gmail_service
+    credentials = GoogleCredentials.get_application_default()
+    delegated_credentials = get_delegated_credentials(credentials)
+    gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
+                                                    cache_discovery=False)
+    return gmail_service
 
 
 def get_employee_profile():
