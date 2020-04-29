@@ -29,10 +29,10 @@ from PyPDF2 import PdfFileReader, PdfFileWriter
 import connexion
 import googleapiclient.discovery
 import firebase_admin
+import google.auth
 from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
 from google.cloud import datastore, storage, kms_v1
-from google.oauth2 import service_account
 from apiclient import errors
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -42,6 +42,7 @@ from openapi_server.models.expense_data import ExpenseData
 from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
 from openapi_server.controllers.translate_responses import make_response_translated
 from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
+from openapi_server.auth import get_delegated_credentials
 
 from OpenSSL import crypto
 
@@ -88,16 +89,6 @@ class ClaimExpenses:
     """
 
     def __init__(self):
-        # Decrypt Gmail SDK credentials & init G Mail service
-        delegated_credentials = service_account.Credentials.from_service_account_info(
-            json.loads(self.decrypt_gmailsdk_credentials()),
-            scopes=['https://www.googleapis.com/auth/gmail.send'],
-            subject=config.GMAIL_SUBJECT_ADDRESS)
-
-        self.gmail_service = googleapiclient.discovery.build(
-            'gmail', 'v1', credentials=delegated_credentials,
-            cache_discovery=False)
-
         if len(firebase_admin._apps) <= 0:
             self.fb_app = firebase_admin.initialize_app()  # Firebase
         else:
@@ -107,18 +98,6 @@ class ClaimExpenses:
         self.cs_client = storage.Client()  # CloudStores
         self.employee_info = g.token
         self.bucket_name = config.GOOGLE_STORAGE_BUCKET
-
-    def decrypt_gmailsdk_credentials(self):
-        file_name = 'gmailsdk_credentials'
-        kms_client = kms_v1.KeyManagementServiceClient()
-        pk_passphrase = kms_client.crypto_key_path_path(
-            os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-            os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
-            config.GMAIL_CREDENTIALS_KEY)
-        decrypt_response = kms_client.decrypt(
-            pk_passphrase, open(f"{file_name}.enc", "rb").read())
-
-        return decrypt_response.plaintext.decode("utf-8").replace('\n', '')
 
     def get_employee_afas_data(self, unique_name):
         """
@@ -1093,9 +1072,6 @@ class ClaimExpenses:
         msg_html = msg_html.replace('$MAIL_BODY', mail_body['body'][locale])
         msg_html = msg_html.replace('$MAIL_FOOTER', mail_body['footer'][locale])
 
-        with open('mail.html', 'w') as html_file:
-            html_file.write(msg_html)
-
         msg.attach(MIMEText(msg_html, 'html'))
         raw = base64.urlsafe_b64encode(msg.as_bytes())
         raw = raw.decode()
@@ -1103,41 +1079,47 @@ class ClaimExpenses:
         return {'raw': raw}
 
     def send_mail_notification(self, mail_body, afas_data, expense_id, locale):
-        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS:
-            try:
-                logging.info(f"Creating email for expense '{expense_id}'")
-                recipient_name = afas_data['Voornaam'] if 'Voornaam' in afas_data else 'ontvanger'
+        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS and \
+                ('GAE_INSTANCE' in os.environ or 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ):
+            gmail_service = initialise_gmail_service(subject=config.GMAIL_SUBJECT_ADDRESS,
+                                                     scopes=['https://www.googleapis.com/auth/gmail.send'])
+            if gmail_service:
+                try:
+                    logging.info(f"Creating email for expense '{expense_id}'")
+                    recipient_name = afas_data['Voornaam'] if 'Voornaam' in afas_data else 'ontvanger'
 
-                mail_body_feedback = {
-                    'nl': """Mochten er nog vragen zijn, mail gerust naar""",
-                    'en': """If you have any questions, feel free to mail to""",
-                    'de': """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an"""
-                }
-                mail_body['salutation'] = {
-                    'nl': 'Beste {}',
-                    'en': 'Dear {}',
-                    'de': 'Lieber {}'
-                }
-                mail_body['footer'] = {
-                    'nl': "Met vriendelijke groeten,<br />FSSC",
-                    'en': "Kind regards,<br />FSSC",
-                    'de': "Mit freundlichen Grüßen,<br />FSSC"
-                }
+                    mail_body_feedback = {
+                        'nl': """Mochten er nog vragen zijn, mail gerust naar""",
+                        'en': """If you have any questions, feel free to mail to""",
+                        'de': """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an"""
+                    }
+                    mail_body['salutation'] = {
+                        'nl': 'Beste {}',
+                        'en': 'Dear {}',
+                        'de': 'Lieber {}'
+                    }
+                    mail_body['footer'] = {
+                        'nl': "Met vriendelijke groeten,<br />FSSC",
+                        'en': "Kind regards,<br />FSSC",
+                        'de': "Mit freundlichen Grüßen,<br />FSSC"
+                    }
 
-                for loc in mail_body['salutation']:
-                    mail_body['salutation'][loc] = mail_body['salutation'][loc].format(recipient_name)
-                for loc in mail_body['body']:
-                    mail_body['body'][loc] = """{}. {} <a href="mailto:{}">{}</a>.""".format(
-                        mail_body['body'][loc], mail_body_feedback[loc], config.GMAIL_ADDEXPENSE_REPLYTO,
-                        config.GMAIL_ADDEXPENSE_REPLYTO)
+                    for loc in mail_body['salutation']:
+                        mail_body['salutation'][loc] = mail_body['salutation'][loc].format(recipient_name)
+                    for loc in mail_body['body']:
+                        mail_body['body'][loc] = """{}. {} <a href="mailto:{}">{}</a>.""".format(
+                            mail_body['body'][loc], mail_body_feedback[loc], config.GMAIL_ADDEXPENSE_REPLYTO,
+                            config.GMAIL_ADDEXPENSE_REPLYTO)
 
-                message = (self.gmail_service.users().messages().send(
-                    userId="me", body=self.generate_mail(afas_data['email_address'], mail_body, locale)).execute())
-                logging.info(f"Email '{message['id']}' for expense '{expense_id}' has been sent")
-            except errors.HttpError as e:
-                logging.error('An exception occurred when sending an email: {}'.format(e))
-            except Exception as e:
-                logging.error('An error occurred: {}'.format(e))
+                    message = (gmail_service.users().messages().send(
+                        userId="me", body=self.generate_mail(afas_data['email_address'], mail_body, locale)).execute())
+                    logging.info(f"Email '{message['id']}' for expense '{expense_id}' has been sent")
+                except errors.HttpError as e:
+                    logging.error('An exception occurred when sending an email: {}'.format(e))
+                except Exception as e:
+                    logging.error('An error occurred: {}'.format(e))
+            else:
+                logging.info("Gmail service could not be created")
         else:
             logging.info("Dev mode active for sending e-mails")
 
@@ -2041,6 +2023,14 @@ def api_base_url():
             base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
 
     return base_url
+
+
+def initialise_gmail_service(subject, scopes):
+    credentials, project_id = google.auth.default(scopes=['https://www.googleapis.com/auth/iam'])
+    delegated_credentials = get_delegated_credentials(credentials, subject, scopes)
+    gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
+                                                    cache_discovery=False)
+    return gmail_service
 
 
 def get_employee_profile():
