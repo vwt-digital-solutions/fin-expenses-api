@@ -1,4 +1,5 @@
 from google.cloud import datastore
+import re
 import logging
 import json
 import datetime
@@ -38,17 +39,16 @@ def process_approve(request):
             changed = []
 
             # Only approve those expenses with concurrent cost-types
-            cost_type_split = expense['cost_type'].split(":")
-            cost_type_id = ""
+            cost_type_split = re.search(r"([0-9]{6})", expense['cost_type'])
 
-            if len(cost_type_split) == 2:
-                cost_type_id = int(cost_type_split[1])
-
-            if not cost_type_id:
+            if not cost_type_split:
                 logging.warning(
                     f"No correct cost_type found for expense {expense.key.id}")
                 continue
-            elif cost_type_id not in cost_type_list:
+            else:
+                cost_type_id = int(cost_type_split.group(0))
+
+            if cost_type_id not in cost_type_list:
                 continue
             else:
                 if round(Decimal(expense['amount']), 2) > Decimal(
