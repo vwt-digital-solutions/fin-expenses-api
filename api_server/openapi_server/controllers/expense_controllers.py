@@ -378,11 +378,11 @@ class ClaimExpenses:
                                          'rejected_by_manager'] \
                 and data['status'] == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], expense['cost_type'], data)
+                expense['amount'], data)
         else:
             expense["status"]["text"] = data['status']
 
-    def _determine_status_amount_update(self, amount, cost_type, data):
+    def _determine_status_amount_update(self, amount, data):
         min_amount = data['min_amount']
         manager_type = data['manager_type']
 
@@ -622,7 +622,6 @@ class ClaimExpenses:
 
         export_file_name = now.strftime('%Y%m%d%H%M%S')
 
-        result = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
         result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
         if not result[0]:
