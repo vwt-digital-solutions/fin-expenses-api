@@ -59,10 +59,20 @@ def make_response_translated(message, http_code):
             "en": "No exports available",
             "de": "Keine Exporte verfügbar"
         },
+        "Kan boekingsdossier niet uploaden": {
+            "nl": "Kan boekingsdossier niet uploaden",
+            "en": "Failed to upload booking file",
+            "de": "Buchungsdatei konnte nicht hochgeladen werden"
+        },
         "Kan betalingsbestand niet uploaden": {
             "nl": "Kan betalingsbestand niet uploaden",
             "en": "Failed to upload payment file",
             "de": "Zahlungsdatei konnte nicht hochgeladen werden"
+        },
+        "Kan boekingsdossier en betalingsbestand niet uploaden": {
+            "nl": "Kan boekingsdossier en betalingsbestand niet uploaden",
+            "en": "Failed to upload booking and payment files",
+            "de": "Fehler beim Hochladen der Buchungs- und Zahlungsdateien"
         },
         "De inhoud van deze methode is niet geldig": {
             "nl": "De inhoud van deze methode is niet geldig",
