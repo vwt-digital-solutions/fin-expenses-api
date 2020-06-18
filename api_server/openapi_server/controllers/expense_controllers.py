@@ -622,10 +622,15 @@ class ClaimExpenses:
 
         export_file_name = now.strftime('%Y%m%d%H%M%S')
 
-        result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
+        result_bk = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
+        result_pm = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
-        if not result[0]:
+        if not result_bk[0] and result_pm[0]:
+            return make_response_translated("Kan boekingsdossier niet uploaden", 400)
+        elif result_bk[0] and not result_pm[0]:
             return make_response_translated("Kan betalingsbestand niet uploaden", 400)
+        elif not result_bk[0] and not result_pm[0]:
+            return make_response_translated("Kan boekingsdossier en betalingsbestand niet uploaden", 400)
 
         retval = {"file_list": [
             {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
