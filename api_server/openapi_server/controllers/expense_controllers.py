@@ -378,11 +378,11 @@ class ClaimExpenses:
                                          'rejected_by_manager'] \
                 and data['status'] == 'ready_for_manager':
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], expense['cost_type'], data)
+                expense['amount'], data)
         else:
             expense["status"]["text"] = data['status']
 
-    def _determine_status_amount_update(self, amount, cost_type, data):
+    def _determine_status_amount_update(self, amount, data):
         min_amount = data['min_amount']
         manager_type = data['manager_type']
 
@@ -622,11 +622,15 @@ class ClaimExpenses:
 
         export_file_name = now.strftime('%Y%m%d%H%M%S')
 
-        result = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
-        result = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
+        result_bk = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
+        result_pm = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
 
-        if not result[0]:
+        if not result_bk[0] and result_pm[0]:
+            return make_response_translated("Kan boekingsdossier niet uploaden", 400)
+        elif result_bk[0] and not result_pm[0]:
             return make_response_translated("Kan betalingsbestand niet uploaden", 400)
+        elif not result_bk[0] and not result_pm[0]:
+            return make_response_translated("Kan boekingsdossier en betalingsbestand niet uploaden", 400)
 
         retval = {"file_list": [
             {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
