@@ -627,9 +627,9 @@ class ClaimExpenses:
 
         if not result_bk[0] and result_pm[0]:
             return make_response_translated("Kan boekingsdossier niet uploaden", 400)
-        elif result_bk[0] and not result_pm[0]:
+        if result_bk[0] and not result_pm[0]:
             return make_response_translated("Kan betalingsbestand niet uploaden", 400)
-        elif not result_bk[0] and not result_pm[0]:
+        if not result_bk[0] and not result_pm[0]:
             return make_response_translated("Kan boekingsdossier en betalingsbestand niet uploaden", 400)
 
         retval = {"file_list": [
