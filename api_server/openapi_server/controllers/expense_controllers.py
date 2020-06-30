@@ -326,7 +326,7 @@ class ClaimExpenses:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
-                    if not afas_data.get('iban'):
+                    if not afas_data.get('IBAN'):
                         return make_response_translated(
                             "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie", 403)
 
