@@ -104,6 +104,11 @@ def make_response_translated(message, http_code):
             "en": "Not a valid cost-type",
             "de": "Keine gültige Kostenart"
         },
+        "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie": {
+            "nl": "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie",
+            "en": "Your bank account number (IBAN) is not found in the personnel administration",
+            "de": "Ihre Bankkontonummer (IBAN) wird in der Personalverwaltung nicht gefunden"
+        },
         "Medewerker niet gevonden": {
             "nl": "Medewerker niet gevonden",
             "en": "Employee not found",
