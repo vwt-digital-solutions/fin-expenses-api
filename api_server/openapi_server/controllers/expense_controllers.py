@@ -326,6 +326,10 @@ class ClaimExpenses:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
+                    if not afas_data.get('IBAN'):
+                        return make_response_translated(
+                            "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie", 403)
+
                     cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
                     if cost_type_entity is None or not cost_type_active:
                         return make_response_translated("Geen geldige kostensoort", 400)
@@ -805,12 +809,16 @@ class ClaimExpenses:
             ET.SubElement(amount, "InstdAmt", Ccy="EUR").text = str(expense["amount"])
             ET.SubElement(transfer, "ChrgBr").text = "SLEV"
 
+            iban = expense["employee"]["afas_data"].get("IBAN")
+            if not iban:
+                iban = ''
+
             # Creditor Agent Tag Information
             amount_agent = ET.SubElement(transfer, "CdtrAgt")
             payment_creditor_agent_id = ET.SubElement(amount_agent, "FinInstnId")
             ET.SubElement(
                 payment_creditor_agent_id, "BIC"
-            ).text = self.get_iban_details(expense["employee"]["afas_data"]["IBAN"])
+            ).text = self.get_iban_details(iban)
 
             # Creditor name
             creditor_name = ET.SubElement(transfer, "Cdtr")
@@ -821,8 +829,7 @@ class ClaimExpenses:
             creditor_account_id = ET.SubElement(creditor_account, "Id")
 
             # <ValidationPass> on whitespaces
-            ET.SubElement(creditor_account_id, "IBAN").text = \
-                expense["employee"]["afas_data"]["IBAN"].replace(" ", "")
+            ET.SubElement(creditor_account_id, "IBAN").text = iban.replace(" ", "")
 
             # Remittance Information
             remittance_info = ET.SubElement(transfer, "RmtInf")
