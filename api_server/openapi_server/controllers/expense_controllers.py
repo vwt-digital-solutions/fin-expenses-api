@@ -1057,7 +1057,7 @@ class ClaimExpenses:
                         if not response.success:
                             logging.info("Push message '{}' trows exception: {}".format(
                                 response.message_id, str(response.exception)))
-                except (firebase_admin.exceptions.FirebaseError, ValueError) as exception:
+                except Exception as exception:
                     logging.info(
                         "Something went wrong while sending the push message batch for expense '{}': {}".format(
                             expense_id, str(exception)))
