@@ -127,6 +127,13 @@ paths:
       responses:
         "200":
           description: Succesfully deleted attachment for expense
+        "400":
+          description: Invalid input
+        "403":
+          description: The Access token does not have the required scope
+        "404":
+          description: Non-existing expenses_id or attachment
+
       summary: Delete attachment by expense id and attachment name
       operationId: delete_attachment
       security:
@@ -215,6 +222,8 @@ paths:
       responses:
         "200":
           description: Updated expense
+        "400":
+          description: Invalid input
         default:
           description: Status of an expense has been updated
       security:
@@ -377,6 +386,8 @@ paths:
       responses:
         "200":
           description: Updated expense
+        "400":
+          description: Invalid input
         default:
           description: Status of an expense has been updated
       security:
@@ -539,6 +550,8 @@ paths:
       responses:
         "200":
           description: Updated expense
+        "400":
+          description: Invalid input
         default:
           description: Status of an expense has been updated
       security:

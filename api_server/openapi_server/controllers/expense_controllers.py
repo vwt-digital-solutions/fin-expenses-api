@@ -172,6 +172,8 @@ class ClaimExpenses:
         exp_key = self.ds_client.key("Expenses", expenses_id)
         expense = self.ds_client.get(exp_key)
 
+        if not expense:
+            return make_response_translated("Declaratie niet gevonden", 404)
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
             return make_response_translated("Geen overeenkomst op e-mail", 403)
 
@@ -226,39 +228,39 @@ class ClaimExpenses:
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
+            if not expense:
+                return make_response_translated("Declaratie niet gevonden", 404)
+
             cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"])
             cost_type = None if cost_type_entity is None else cost_type_entity.key.name
 
-            if expense:
-                if permission == "employee":
-                    if not expense["employee"]["email"] == \
-                           self.employee_info["unique_name"]:
-                        return make_response_translated("Geen overeenkomst op e-mail", 403)
-                elif permission == "manager":
-                    if expense.get('manager_type', 'linemanager') == \
-                            'leasecoordinator' and \
-                            'leasecoordinator.write' not in \
-                            self.employee_info.get('scopes', []):
-                        return make_response_translated("Geen overeenkomst op leasecoordinator", 403)
-                    elif expense.get('manager_type', 'linemanager') != \
-                            'leasecoordinator' and \
-                            not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
-                            self.get_manager_identifying_value():
-                        return make_response_translated("Geen overeenkomst op manager e-email", 403)
+            if permission == "employee":
+                if not expense["employee"]["email"] == \
+                       self.employee_info["unique_name"]:
+                    return make_response_translated("Geen overeenkomst op e-mail", 403)
+            elif permission == "manager":
+                if expense.get('manager_type', 'linemanager') == \
+                        'leasecoordinator' and \
+                        'leasecoordinator.write' not in \
+                        self.employee_info.get('scopes', []):
+                    return make_response_translated("Geen overeenkomst op leasecoordinator", 403)
+                elif expense.get('manager_type', 'linemanager') != \
+                        'leasecoordinator' and \
+                        not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
+                        self.get_manager_identifying_value():
+                    return make_response_translated("Geen overeenkomst op manager e-email", 403)
 
-                return jsonify({
-                        "id": str(expense.id),
-                        "amount": expense["amount"],
-                        "note": expense["note"],
-                        "cost_type": cost_type,
-                        "claim_date": expense["claim_date"],
-                        "transaction_date": expense["transaction_date"],
-                        "employee": expense["employee"]["full_name"],
-                        "status": expense["status"],
-                        "flags": expense.get("flags", {}),
-                    })
-
-            return make_response('', 204)
+            return jsonify({
+                    "id": str(expense.id),
+                    "amount": expense["amount"],
+                    "note": expense["note"],
+                    "cost_type": cost_type,
+                    "claim_date": expense["claim_date"],
+                    "transaction_date": expense["transaction_date"],
+                    "employee": expense["employee"]["full_name"],
+                    "status": expense["status"],
+                    "flags": expense.get("flags", {}),
+                })
 
     @abstractmethod
     def _check_attachment_permission(self, expense):
@@ -1057,7 +1059,7 @@ class ClaimExpenses:
                         if not response.success:
                             logging.info("Push message '{}' trows exception: {}".format(
                                 response.message_id, str(response.exception)))
-                except (firebase_admin.exceptions.FirebaseError, ValueError) as exception:
+                except Exception as exception:
                     logging.info(
                         "Something went wrong while sending the push message batch for expense '{}': {}".format(
                             expense_id, str(exception)))
