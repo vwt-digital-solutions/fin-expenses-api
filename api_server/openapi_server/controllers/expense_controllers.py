@@ -879,9 +879,9 @@ class ClaimExpenses:
 
     def get_certificates(self):
 
-        passphrase = self.get_secret(os.environ['GCP_PROJECT'], config.PASSPHRASE)
-        key = self.get_secret(os.environ['GCP_PROJECT'], config.KEY)
-        certificate = self.get_secret(os.environ['GCP_PROJECT'], config.CERTIFICATE)
+        passphrase = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.PASSPHRASE)
+        key = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.KEY)
+        certificate = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.CERTIFICATE)
 
         pk = crypto.load_privatekey(crypto.FILETYPE_PEM, key, passphrase.encode())
 
