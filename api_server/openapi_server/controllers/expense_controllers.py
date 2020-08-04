@@ -7,7 +7,6 @@ import re
 import csv
 import hashlib
 import unidecode
-
 import datetime
 import tempfile
 
@@ -32,7 +31,7 @@ import firebase_admin
 import google.auth
 from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
-from google.cloud import datastore, storage, kms_v1
+from google.cloud import datastore, storage, secretmanager_v1
 from apiclient import errors
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -858,33 +857,49 @@ class ClaimExpenses:
 
         return True, export_filename, payment_file
 
+    def get_secret(self, project_id, secret_id):
+
+        client = secretmanager_v1.SecretManagerServiceClient()
+
+        secret_name = client.secret_version_path(
+            project_id,
+            secret_id,
+            'latest')
+
+        response = client.access_secret_version(secret_name)
+        payload = response.payload.data.decode('UTF-8')
+
+        return payload
+
+    def make_temp(self, str):
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+            temp_file.write(str)
+
+        return temp_file.name
+
+    def get_certificates(self):
+
+        passphrase = self.get_secret(os.environ['GCP_PROJECT'], config.PASSPHRASE)
+        key = self.get_secret(os.environ['GCP_PROJECT'], config.KEY)
+        certificate = self.get_secret(os.environ['GCP_PROJECT'], config.CERTIFICATE)
+
+        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, key, passphrase.encode())
+
+        key_file = self.make_temp(
+            str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+
+        cert_file = self.make_temp(certificate)
+
+        return (cert_file, key_file)
+
     def send_to_power2pay(self, payment_xml_string):
-        # Upload file to Power2Pay
-        client = kms_v1.KeyManagementServiceClient()
-        # Get the passphrase for the private key
-        pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-                                                    os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
-                                                    config.POWER2PAY_KEY_PASSPHRASE)
-        response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
-        passphrase = response.plaintext.decode("utf-8").replace('\n', '')
-        # Get the private key and decode using passphrase
-        pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-                                             os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring', config.POWER2PAY_KEY)
-        response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
-        # Write un-encrypted key to file (for requests library)
-        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
 
-        temp_key_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-        temp_key_file.write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
-        temp_key_file.close()
-
-        # Create the HTTP POST request
-        cert_file_path = "power2pay-cert.pem"
-        cert = (cert_file_path, temp_key_file.name)
+        cert = self.get_certificates()
 
         r = requests.post(config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True)
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
+
         return r.ok
 
     def get_all_documents_list(self):
