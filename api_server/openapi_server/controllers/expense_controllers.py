@@ -7,7 +7,6 @@ import re
 import csv
 import hashlib
 import unidecode
-
 import datetime
 import tempfile
 
@@ -32,7 +31,7 @@ import firebase_admin
 import google.auth
 from firebase_admin import messaging as fb_messaging
 from flask import make_response, jsonify, Response, g, request, send_file
-from google.cloud import datastore, storage, kms_v1
+from google.cloud import datastore, storage, secretmanager_v1
 from apiclient import errors
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -106,18 +105,19 @@ class ClaimExpenses:
         - Company Code
         - Any other detail we will be needing to complete the payment
         This link is made available through the HR-On boarding project
-        :param employee_number: Employee number. Used when no unique name available
         :param unique_name: An email address
         """
         # Fake AFAS data for E2E:
         if unique_name == 'opensource.e2e@vwtelecom.com':
             return config.e2e_afas_data
 
-        employee_afas_key = self.ds_client.key("AFAS_HRM", unique_name)
-        employee_afas_query = self.ds_client.get(employee_afas_key)
-        if employee_afas_query:
-            data = dict(employee_afas_query.items())
-            return data
+        for field in ['upn', 'email_address']:
+            query = self.ds_client.query(kind='AFAS_HRM')
+            query.add_filter(field, '=', unique_name)
+            db_data = list(query.fetch(limit=1))
+
+            if len(db_data) == 1 and field in db_data[0]:
+                return dict(db_data[0].items())
 
         logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
         return None
@@ -224,7 +224,9 @@ class ClaimExpenses:
         :param permission:
         :return:
         """
-        with self.ds_client.transaction():
+        manager_number = int(self.get_manager_identifying_value()) if permission == "manager" else None
+
+        with self.ds_client.transaction(read_only=True):
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
@@ -239,15 +241,11 @@ class ClaimExpenses:
                        self.employee_info["unique_name"]:
                     return make_response_translated("Geen overeenkomst op e-mail", 403)
             elif permission == "manager":
-                if expense.get('manager_type', 'linemanager') == \
-                        'leasecoordinator' and \
-                        'leasecoordinator.write' not in \
-                        self.employee_info.get('scopes', []):
+                if expense.get('manager_type', 'linemanager') == 'leasecoordinator' and \
+                        'leasecoordinator.write' not in self.employee_info.get('scopes', []):
                     return make_response_translated("Geen overeenkomst op leasecoordinator", 403)
-                elif expense.get('manager_type', 'linemanager') != \
-                        'leasecoordinator' and \
-                        not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
-                        self.get_manager_identifying_value():
+                elif expense.get('manager_type', 'linemanager') != 'leasecoordinator' and \
+                        not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == manager_number:
                     return make_response_translated("Geen overeenkomst op manager e-email", 403)
 
             return jsonify({
@@ -268,7 +266,7 @@ class ClaimExpenses:
 
     def get_attachment(self, expenses_id):
         """Get attachments with expenses_id"""
-        with self.ds_client.transaction():
+        with self.ds_client.transaction(read_only=True):
             exp_key = self.ds_client.key("Expenses", expenses_id)
             expense = self.ds_client.get(exp_key)
 
@@ -859,33 +857,49 @@ class ClaimExpenses:
 
         return True, export_filename, payment_file
 
+    def get_secret(self, project_id, secret_id):
+
+        client = secretmanager_v1.SecretManagerServiceClient()
+
+        secret_name = client.secret_version_path(
+            project_id,
+            secret_id,
+            'latest')
+
+        response = client.access_secret_version(secret_name)
+        payload = response.payload.data.decode('UTF-8')
+
+        return payload
+
+    def make_temp(self, str):
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+            temp_file.write(str)
+
+        return temp_file.name
+
+    def get_certificates(self):
+
+        passphrase = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.PASSPHRASE)
+        key = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.KEY)
+        certificate = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.CERTIFICATE)
+
+        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, key, passphrase.encode())
+
+        key_file = self.make_temp(
+            str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+
+        cert_file = self.make_temp(certificate)
+
+        return (cert_file, key_file)
+
     def send_to_power2pay(self, payment_xml_string):
-        # Upload file to Power2Pay
-        client = kms_v1.KeyManagementServiceClient()
-        # Get the passphrase for the private key
-        pk_passphrase = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-                                                    os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring',
-                                                    config.POWER2PAY_KEY_PASSPHRASE)
-        response = client.decrypt(pk_passphrase, open('passphrase.enc', "rb").read())
-        passphrase = response.plaintext.decode("utf-8").replace('\n', '')
-        # Get the private key and decode using passphrase
-        pk_enc = client.crypto_key_path_path(os.environ['GOOGLE_CLOUD_PROJECT'], 'europe-west1',
-                                             os.environ['GOOGLE_CLOUD_PROJECT'] + '-keyring', config.POWER2PAY_KEY)
-        response = client.decrypt(pk_enc, open('power2pay-pk.enc', "rb").read())
-        # Write un-encrypted key to file (for requests library)
-        pk = crypto.load_privatekey(crypto.FILETYPE_PEM, response.plaintext, passphrase.encode())
 
-        temp_key_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-        temp_key_file.write(str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
-        temp_key_file.close()
-
-        # Create the HTTP POST request
-        cert_file_path = "power2pay-cert.pem"
-        cert = (cert_file_path, temp_key_file.name)
+        cert = self.get_certificates()
 
         r = requests.post(config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True)
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
+
         return r.ok
 
     def get_all_documents_list(self):
@@ -1019,7 +1033,7 @@ class ClaimExpenses:
         return list(query.fetch())
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
-        push_tokens = self.get_employee_push_token(afas_data['email_address'])
+        push_tokens = self.get_employee_push_token(afas_data['upn'])
 
         if push_tokens:
             active_push_tokens = []
@@ -1031,7 +1045,7 @@ class ClaimExpenses:
             if len(active_push_tokens) > 0:
                 # Set notification data
                 notification_data = {
-                    'username': str(afas_data['email_address']),
+                    'username': str(afas_data['upn']),
                     'expense_id': str(expense_id)
                 }
 
@@ -1144,7 +1158,7 @@ class ClaimExpenses:
             query.add_filter('Personeelsnummer', '=', afas_data['Manager_personeelsnummer'])
             db_data = list(query.fetch(limit=1))
 
-            if len(db_data) == 1 and 'email_address' in db_data[0]:
+            if len(db_data) == 1:
                 recipient = db_data[0]
 
             notification_body = {
@@ -1159,7 +1173,7 @@ class ClaimExpenses:
                     'de': 'Eine neue Spesenabrechnung ist eingereicht worden und wartet auf Genehmigung'
                 },
             }
-        elif notification_type == 'rejected_expense' and 'email_address' in afas_data:
+        elif notification_type == 'rejected_expense':
             recipient = afas_data
             notification_body = {
                 'title': {
@@ -1174,8 +1188,8 @@ class ClaimExpenses:
                 },
             }
 
-        if notification_body and recipient and 'email_address' in recipient:
-            locale = self.get_employee_locale(recipient['email_address'])
+        if notification_body and recipient and 'upn' in recipient and 'email_address' in recipient:
+            locale = self.get_employee_locale(recipient['upn'])
             notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
 
             if not notification_status:
@@ -1251,7 +1265,7 @@ class EmployeeExpenses(ClaimExpenses):
     def get_all_expenses(self):
         expenses_info = self._create_expenses_query()
         expenses_info.add_filter(
-            "employee.afas_data.email_address", "=", self.employee_info["unique_name"]
+            "employee.email", "=", self.employee_info["unique_name"]
         )
         expense_data = self._process_expenses_info(expenses_info)
 
@@ -1349,6 +1363,7 @@ class ManagerExpenses(ClaimExpenses):
 
     def __init__(self):
         super().__init__()
+        self.manager_number = self.get_manager_identifying_value()
 
     def get_manager_identifying_value(self):
         afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
@@ -1363,9 +1378,7 @@ class ManagerExpenses(ClaimExpenses):
         # Retrieve manager's expenses
         expenses_info = self._create_expenses_query()
         expenses_info.add_filter("status.text", "=", "ready_for_manager")
-        expenses_info.add_filter(
-            "employee.afas_data.Manager_personeelsnummer", "=",
-            self.get_manager_identifying_value())
+        expenses_info.add_filter("employee.afas_data.Manager_personeelsnummer", "=", self.manager_number)
 
         for expense in self._process_expenses_info(expenses_info):
             if 'manager_type' in expense and \
@@ -1392,8 +1405,7 @@ class ManagerExpenses(ClaimExpenses):
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
-        if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == \
-               self.get_manager_identifying_value() and \
+        if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.manager_number and \
                 'leasecoordinator.write' not in self.employee_info.get('scopes', []):
             return {}, {}
 
