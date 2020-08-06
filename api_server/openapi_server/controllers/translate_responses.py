@@ -119,6 +119,11 @@ def make_response_translated(message, http_code):
             "en": "Employee not unique",
             "de": "Mitarbeiter nicht eindeutig"
         },
+        "Medewerker heeft onvoldoende gegevens": {
+            "nl": "Medewerker heeft onvoldoende gegevens",
+            "en": "Employee has insufficient data",
+            "de": "Mitarbeiter hat nicht genügend Daten"
+        },
         "Geen geldige afwijzing": {
             "nl": "Geen geldige afwijzing",
             "en": "Not a valid rejection",
