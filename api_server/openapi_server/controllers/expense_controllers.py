@@ -331,7 +331,7 @@ class ClaimExpenses:
                             "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie", 403)
                     if not afas_data.get('Manager_personeelsnummer'):
                         return make_response_translated(
-                            "Medewerker heeft onvoldoende gegevens", 403)
+                            "Medewerker heeft onvoldoende gegevens in de personeelsadministratie", 403)
 
                     cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
                     if cost_type_entity is None or not cost_type_active:
