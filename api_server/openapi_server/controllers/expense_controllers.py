@@ -1191,6 +1191,14 @@ class ClaimExpenses:
                 },
             }
 
+        if 'upn' not in recipient:
+            query = self.ds_client.query(kind='AFAS_HRM')
+            query.add_filter('Personeelsnummer', '=', recipient['Personeelsnummer'])
+            db_data = list(query.fetch(limit=1))
+
+            if len(db_data) == 1:
+                recipient = db_data[0]
+
         if notification_body and recipient and 'upn' in recipient and 'email_address' in recipient:
             locale = self.get_employee_locale(recipient['upn'])
             notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
