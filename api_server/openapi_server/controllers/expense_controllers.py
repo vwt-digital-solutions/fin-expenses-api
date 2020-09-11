@@ -1196,7 +1196,7 @@ class ClaimExpenses:
                 },
             }
 
-        if 'upn' not in recipient:
+        if recipient and 'upn' not in recipient:
             query = self.ds_client.query(kind='AFAS_HRM')
             query.add_filter('Personeelsnummer', '=', recipient['Personeelsnummer'])
             db_data = list(query.fetch(limit=1))
