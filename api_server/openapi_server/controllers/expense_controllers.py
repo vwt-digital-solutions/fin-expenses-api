@@ -1495,6 +1495,9 @@ class ControllerExpenses(ClaimExpenses):
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
+                    "company_name": ed["employee"]["afas_data"]["Bedrijf"],
+                    "department_code": ed["employee"]["afas_data"]["Afdeling Code"],
+                    "department_descr": ed["employee"]["afas_data"]["Afdelingsomschrijving"],
                     "status": self._merge_rejection_note(ed["status"]),
                 })
             return jsonify(results)
@@ -1550,6 +1553,9 @@ class CreditorExpenses(ClaimExpenses):
                     "claim_date": expense["claim_date"],
                     "transaction_date": expense["transaction_date"],
                     "employee": expense["employee"]["full_name"],
+                    "company_name": expense["employee"]["afas_data"]["Bedrijf"],
+                    "department_code": expense["employee"]["afas_data"]["Afdeling Code"],
+                    "department_descr": expense["employee"]["afas_data"]["Afdelingsomschrijving"],
                     "status": expense["status"],
                     "auto_approved": expense.get("auto_approved", ""),
                     "manager": expense.get("employee", {}).get("afas_data", {}).get(
