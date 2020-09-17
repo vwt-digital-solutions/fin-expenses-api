@@ -1216,9 +1216,12 @@ class ClaimExpenses:
                 recipient = db_data[0]
 
         if notification_body and recipient and 'upn' in recipient and 'email_address' in recipient:
-            locale = self.get_employee_locale(recipient['upn'])
-            notification_status = self.send_push_notification(
-                notification_body, recipient, expense_id, locale) if manager_type == 'linemanager' else False
+            if manager_type == 'leasecoordinator':
+                locale = 'nl'
+                notification_status = False
+            else:
+                locale = self.get_employee_locale(recipient['upn'])
+                notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
 
             if not notification_status:
                 self.send_mail_notification(notification_body, recipient, expense_id, locale)
