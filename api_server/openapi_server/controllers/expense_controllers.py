@@ -495,11 +495,14 @@ class ClaimExpenses:
 
         if data['status'] in ['rejected_by_manager', 'rejected_by_creditor'] and \
                 old_expense['status']['text'] in ['ready_for_manager', 'ready_for_creditor']:
-            self.send_notification('rejected_expense', expense['employee']['afas_data'], expense.key.id_or_name)
+            self.send_notification(
+                'rejected_expense', expense['employee']['afas_data'], expense.key.id_or_name,
+                data.get('manager_type', 'linemanager'))
         elif data['status'] == 'ready_for_manager' and \
-                old_expense['status']['text'] in ['draft', 'rejected_by_manager', 'rejected_by_creditor'] and \
-                data['manager_type'] == 'linemanager':
-            self.send_notification('assess_expense', expense['employee']['afas_data'], expense.key.id_or_name)
+                old_expense['status']['text'] in ['draft', 'rejected_by_manager', 'rejected_by_creditor']:
+            self.send_notification(
+                'assess_expense', expense['employee']['afas_data'], expense.key.id_or_name,
+                data.get('manager_type', 'linemanager'))
 
         return make_response(jsonify(self._prepare_response_update_expense(expense)), 200)
 
@@ -1128,9 +1131,9 @@ class ClaimExpenses:
                         'de': """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an"""
                     }
                     mail_body['salutation'] = {
-                        'nl': 'Beste {}',
-                        'en': 'Dear {}',
-                        'de': 'Lieber {}'
+                        'nl': 'Beste {},',
+                        'en': 'Dear {},',
+                        'de': 'Lieber {},'
                     }
                     mail_body['footer'] = {
                         'nl': "Met vriendelijke groeten,<br />FSSC",
@@ -1157,17 +1160,25 @@ class ClaimExpenses:
         else:
             logging.info("Dev mode active for sending e-mails")
 
-    def send_notification(self, notification_type, afas_data, expense_id):
+    def send_notification(self, notification_type, afas_data, expense_id, manager_type='linemanager'):
         recipient = None
         notification_body = None
 
-        if notification_type == 'assess_expense' and 'Manager_personeelsnummer' in afas_data:
-            query = self.ds_client.query(kind='AFAS_HRM')
-            query.add_filter('Personeelsnummer', '=', afas_data['Manager_personeelsnummer'])
-            db_data = list(query.fetch(limit=1))
+        if notification_type == 'assess_expense':
+            if manager_type == 'leasecoordinator' and hasattr(config, 'GMAIL_LEASECOORDINATOR_ADDRESS'):
+                recipient_mail = config.GMAIL_LEASECOORDINATOR_ADDRESS
+                recipient = {
+                    'upn': recipient_mail,
+                    'email_address': recipient_mail,
+                    'Voornaam': 'Lease Coördinator'
+                }
+            elif 'Manager_personeelsnummer' in afas_data:
+                query = self.ds_client.query(kind='AFAS_HRM')
+                query.add_filter('Personeelsnummer', '=', afas_data['Manager_personeelsnummer'])
+                db_data = list(query.fetch(limit=1))
 
-            if len(db_data) == 1:
-                recipient = db_data[0]
+                if len(db_data) == 1:
+                    recipient = db_data[0]
 
             notification_body = {
                 'title': {
@@ -1205,13 +1216,17 @@ class ClaimExpenses:
                 recipient = db_data[0]
 
         if notification_body and recipient and 'upn' in recipient and 'email_address' in recipient:
-            locale = self.get_employee_locale(recipient['upn'])
-            notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
+            if manager_type == 'leasecoordinator':
+                locale = 'nl'
+                notification_status = False
+            else:
+                locale = self.get_employee_locale(recipient['upn'])
+                notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
 
             if not notification_status:
                 self.send_mail_notification(notification_body, recipient, expense_id, locale)
         else:
-            logging.info(f"No notification set for expense '{expense_id}'")
+            logging.info(f"No notification sent for expense '{expense_id}'")
 
     def get_employee_profile(self):
         if 'unique_name' not in self.employee_info:
@@ -1495,6 +1510,9 @@ class ControllerExpenses(ClaimExpenses):
                     "claim_date": ed["claim_date"],
                     "transaction_date": ed["transaction_date"],
                     "employee": ed["employee"]["full_name"],
+                    "company_name": ed["employee"]["afas_data"]["Bedrijf"],
+                    "department_code": ed["employee"]["afas_data"]["Afdeling Code"],
+                    "department_descr": ed["employee"]["afas_data"]["Afdelingsomschrijving"],
                     "status": self._merge_rejection_note(ed["status"]),
                 })
             return jsonify(results)
@@ -1550,6 +1568,9 @@ class CreditorExpenses(ClaimExpenses):
                     "claim_date": expense["claim_date"],
                     "transaction_date": expense["transaction_date"],
                     "employee": expense["employee"]["full_name"],
+                    "company_name": expense["employee"]["afas_data"]["Bedrijf"],
+                    "department_code": expense["employee"]["afas_data"]["Afdeling Code"],
+                    "department_descr": expense["employee"]["afas_data"]["Afdelingsomschrijving"],
                     "status": expense["status"],
                     "auto_approved": expense.get("auto_approved", ""),
                     "manager": expense.get("employee", {}).get("afas_data", {}).get(
