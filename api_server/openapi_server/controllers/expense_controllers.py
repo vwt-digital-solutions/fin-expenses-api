@@ -1864,8 +1864,6 @@ def get_expenses_format(expenses_data, format_expense):
                     csv_file, fieldnames=field_names, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 csv_writer.writeheader()
 
-                expenses_data.pop(0)
-
                 for expense in expenses_data:
                     if "status" in expense:
                         expense["status"] = expense["status"]["text"]
