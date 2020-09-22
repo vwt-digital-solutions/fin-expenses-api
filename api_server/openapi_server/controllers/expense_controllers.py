@@ -1858,18 +1858,22 @@ def get_expenses_format(expenses_data, format_expense):
         logging.debug("Creating csv file")
         try:
             with tempfile.NamedTemporaryFile("w") as csv_file:
-                count = 0
-                for expense in expenses_data:
-                    if count == 0:
-                        field_names = list(expense.keys())
-                        csv_writer = csv.DictWriter(csv_file, fieldnames=field_names)
-                        csv_writer.writeheader()
-                        count = 1
+                # Set CSV writer and header
+                field_names = list(expenses_data[0].keys())
+                csv_writer = csv.DictWriter(
+                    csv_file, fieldnames=field_names, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                csv_writer.writeheader()
 
+                for expense in expenses_data:
                     if "status" in expense:
                         expense["status"] = expense["status"]["text"]
 
+                    for field in expense:
+                        if isinstance(expense[field], str):
+                            expense[field] = expense[field].replace("\n", " ")
+
                     csv_writer.writerow(expense)
+
                 csv_file.flush()
                 return send_file(csv_file.name,
                                  mimetype='text/csv',
