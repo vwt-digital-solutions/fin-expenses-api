@@ -428,8 +428,8 @@ class ClaimExpenses:
         :return:
         """
         if note_check:
-            if not data.get('rnote_id') and (data['status'] == 'rejected_by_manager' or
-                                             data['status'] == 'rejected_by_creditor'):
+            if not data.get('rnote_id') and (data.get('status') == 'rejected_by_manager' or
+                                             data.get('status') == 'rejected_by_creditor'):
                 return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
 
         with self.ds_client.transaction():
