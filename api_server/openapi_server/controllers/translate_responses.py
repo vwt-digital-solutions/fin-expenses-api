@@ -49,6 +49,11 @@ def make_response_translated(message, http_code):
             "en": "Something went wrong",
             "de": "Etwas ist schief gelaufen"
         },
+        "Er ging iets fout tijdens het uploaden van bestanden": {
+            "nl": "Er ging iets fout tijdens het uploaden van bestanden",
+            "en": "Something went wrong during the file upload",
+            "de": "Beim Hochladen der Datei ist ein Fehler aufgetreten"
+        },
         "Sommige gegevens ontbraken of waren onjuist": {
             "nl": "Sommige gegevens ontbraken of waren onjuist",
             "en": "Some data was missing or incorrect",
@@ -109,15 +114,30 @@ def make_response_translated(message, http_code):
             "en": "Your bank account number (IBAN) is not found in the personnel administration",
             "de": "Ihre Bankkontonummer (IBAN) wird in der Personalverwaltung nicht gefunden"
         },
-        "Medewerker niet gevonden": {
-            "nl": "Medewerker niet gevonden",
-            "en": "Employee not found",
-            "de": "Mitarbeiter nicht gefunden"
+        "Medewerker niet bekend in de personeelsadministratie": {
+            "nl": "Medewerker niet bekend in de personeelsadministratie",
+            "en": "Employee not found in the personnel administration",
+            "de": "Mitarbeiter nicht gefunden in der Personalverwaltung"
+        },
+        "Manager nummer niet bekend in de personeelsadministratie": {
+            "nl": "Manager nummer niet bekend in de personeelsadministratie",
+            "en": "Manager number not known in the personnel administration",
+            "de": "Managernummer in der Personalverwaltung nicht bekannt"
+        },
+        "Medewerker profiel niet gevonden": {
+            "nl": "Medewerker profiel niet gevonden",
+            "en": "Employee profile not found",
+            "de": "Mitarbeiterprofil nicht gefunden"
         },
         "Medewerker niet uniek": {
             "nl": "Medewerker niet uniek",
             "en": "Employee not unique",
             "de": "Mitarbeiter nicht eindeutig"
+        },
+        "Unieke identificatie niet in token gevonden": {
+            "nl": "Unieke identificatie niet in token gevonden",
+            "en": "Unique identifier not found in token",
+            "de": "Eindeutige Kennung im Token nicht gefunden"
         },
         "Medewerker heeft onvoldoende gegevens in de personeelsadministratie": {
             "nl": "Medewerker heeft onvoldoende gegevens in de personeelsadministratie",

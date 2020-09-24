@@ -116,13 +116,12 @@ class ClaimExpenses:
         except Exception:
             logging.error(f"Could not transform unique name '{unique_name}' to lowercase")
         else:
-            for field in ['upn', 'email_address']:
-                query = self.ds_client.query(kind='AFAS_HRM')
-                query.add_filter(field, '=', unique_name)
-                db_data = list(query.fetch(limit=1))
+            query = self.ds_client.query(kind='AFAS_HRM')
+            query.add_filter('upn', '=', unique_name)
+            db_data = list(query.fetch(limit=1))
 
-                if len(db_data) == 1 and field in db_data[0]:
-                    return dict(db_data[0].items())
+            if len(db_data) == 1:
+                return dict(db_data[0].items())
 
         logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
         return None
@@ -336,7 +335,7 @@ class ClaimExpenses:
                             "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie", 403)
                     if not afas_data.get('Manager_personeelsnummer'):
                         return make_response_translated(
-                            "Medewerker heeft onvoldoende gegevens in de personeelsadministratie", 403)
+                            "Manager nummer niet bekend in de personeelsadministratie", 403)
 
                     cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
                     if cost_type_entity is None or not cost_type_active:
@@ -381,9 +380,9 @@ class ClaimExpenses:
 
                     return make_response(jsonify(response), 201)
             else:
-                return make_response_translated("Medewerker niet gevonden", 403)
+                return make_response_translated("Medewerker niet bekend in de personeelsadministratie", 403)
         else:
-            return make_response_translated("Medewerker niet uniek", 403)
+            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
 
     def _process_status_text_update(self, data, expense):
         if expense['status']['text'] in ['rejected_by_creditor',
@@ -1230,13 +1229,13 @@ class ClaimExpenses:
 
     def get_employee_profile(self):
         if 'unique_name' not in self.employee_info:
-            return make_response_translated("Medewerker niet gevonden", 403)
+            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
 
         key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
         employee_profile = self.ds_client.get(key)
 
         if not employee_profile:
-            return make_response_translated("Medewerker niet gevonden", 403)
+            return make_response_translated("Medewerker profiel niet gevonden", 403)
 
         return make_response(jsonify({
             'locale': employee_profile.get('locale', '')
@@ -1244,7 +1243,7 @@ class ClaimExpenses:
 
     def add_employee_profile(self, employee_profile):
         if 'unique_name' not in self.employee_info:
-            return make_response_translated("Medewerker niet gevonden", 403)
+            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
 
         key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
         entity = datastore.Entity(key=key)
@@ -1258,7 +1257,7 @@ class ClaimExpenses:
 
     def register_push_token(self, push_token):
         if 'unique_name' not in self.employee_info:
-            return make_response_translated("Medewerker niet gevonden", 403)
+            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
 
         push_identifier = "{}_{}_{}".format(
             self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
@@ -1347,7 +1346,7 @@ class EmployeeExpenses(ClaimExpenses):
         )
 
         if not creation:
-            return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
+            return make_response_translated("Er ging iets fout tijdens het uploaden van bestanden", 400)
         return 201
 
 
