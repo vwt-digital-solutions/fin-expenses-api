@@ -51,7 +51,7 @@ def process_approve(request):
             if cost_type_id not in cost_type_list:
                 continue
             else:
-                if round(Decimal(expense['amount']), 2) > Decimal(
+                if round(Decimal(expense['amount']), 2) >= Decimal(
                         cost_type_list[cost_type_id]):
                     logging.info(f'Auto approving expense {expense.key.id}')
 
