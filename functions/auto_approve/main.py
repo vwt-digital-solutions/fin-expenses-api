@@ -3,7 +3,7 @@ import re
 import logging
 import json
 import datetime
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 
 from flask import make_response, jsonify
 from utils import shift_to_business_days
@@ -50,9 +50,16 @@ def process_approve(request):
 
             if cost_type_id not in cost_type_list:
                 continue
+
+            try:
+                amount_expense = round(Decimal(expense['amount']), 2)
+                amount_cost_type = Decimal(cost_type_list[cost_type_id])
+            except (ValueError, DecimalException):
+                pass
+                logging.debug(f"Incorrect amounts for expense {expense.key.id}")
+                continue
             else:
-                if round(Decimal(expense['amount']), 2) >= Decimal(
-                        cost_type_list[cost_type_id]):
+                if amount_expense >= amount_cost_type:
                     logging.info(f'Auto approving expense {expense.key.id}')
 
                     old_auto_value = expense['auto_approved'] if \
