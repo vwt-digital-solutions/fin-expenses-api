@@ -148,7 +148,8 @@ class ClaimExpenses:
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                     temp_file.write(content)
                     temp_file.close()
-                    reader = PdfFileReader(open(temp_file.name, 'rb'))  # Read the bytes from temp with original b64
+                    reader = PdfFileReader(
+                        open(temp_file.name, 'rb'), strict = false)  # Read the bytes from temp with original b64
                     [writer.addPage(reader.getPage(i)) for i in range(0, reader.getNumPages())]  # Add pages
                     writer.removeLinks()  # Remove all linking in PDF (not external website links)
                     with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_flat_file:
