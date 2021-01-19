@@ -39,8 +39,6 @@ def validate_schema(self, data, url):
     return None
 
 
-print("[DEBUG] [CONNEXION] PRE INIT")
-
 RequestBodyValidator.validate_schema = validate_schema
 
 app = connexion.App(__name__, specification_dir='./openapi/')
@@ -52,8 +50,6 @@ if 'GAE_INSTANCE' in os.environ:
     CORS(app.app, origins=config.ORIGINS)
 else:
     CORS(app.app)
-
-print("[DEBUG] [CONNEXION] POST INIT")
 
 
 @app.app.after_request
