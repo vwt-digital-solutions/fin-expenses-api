@@ -1,10 +1,10 @@
-from google.cloud import datastore
 import re
 import logging
 import json
 import datetime
 from decimal import Decimal, DecimalException
 
+from google.cloud import datastore
 from flask import make_response, jsonify
 from utils import shift_to_business_days
 
