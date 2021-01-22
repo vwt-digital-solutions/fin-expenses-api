@@ -12,7 +12,7 @@ To run this function make sure the following configuration is existing:
 ## Run
 Use the script below to execute the function:
 ~~~bash
-python3 setup_firebase.py
+python3 setup_firebase.py -p ${PROJECT_ID}
 ~~~
 
 ## License

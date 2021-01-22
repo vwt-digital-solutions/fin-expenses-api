@@ -1,5 +1,6 @@
 import sys
 import config
+import argparse
 import logging
 import google.auth
 
@@ -7,6 +8,11 @@ from googleapiclient import discovery, errors as gcp_errors
 from deepdiff import DeepDiff
 
 logging.getLogger().setLevel(logging.INFO)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-p', '--project', required=True)
+args = parser.parse_args()
+project = args.project
 
 
 class FirebaseSDK:
