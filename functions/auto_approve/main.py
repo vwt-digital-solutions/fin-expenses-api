@@ -5,7 +5,6 @@ import datetime
 from decimal import Decimal, DecimalException
 
 from google.cloud import datastore
-from flask import make_response, jsonify
 from utils import shift_to_business_days
 
 logging.basicConfig(level=logging.INFO)
@@ -93,13 +92,9 @@ def process_approve(request):
                     expenses_to_update.append(expense_journal)
 
         client.put_multi(expenses_to_update)
+        return "OK", 204
     else:
-        problem = {'type': 'MissingParameter',
-                   'title': 'Expected time interval for pending approvals not found',
-                   'status': 400}
-        response = make_response(jsonify(problem), 400)
-        response.headers['Content-Type'] = 'application/problem+json'
-        return response
+        return "Expected time interval for pending approvals not found", 400
 
 
 if __name__ == '__main__':
