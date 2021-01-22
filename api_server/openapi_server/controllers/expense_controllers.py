@@ -195,12 +195,9 @@ class ClaimExpenses:
         :return:
         """
 
-        print("[DEBUG] [COST-TYPES] PRE FETCH")
         cost_types = self.ds_client.query(kind="CostTypes").fetch()
-        print("[DEBUG] [COST-TYPES] POST FETCH")
 
         if cost_types:
-            print("[DEBUG] [COST-TYPES] PRE RESPONSE")
             results = [
                 {
                     "ctype": row.get("Omschrijving", ""),
@@ -880,7 +877,7 @@ class ClaimExpenses:
             secret_id,
             'latest')
 
-        response = client.access_secret_version(secret_name)
+        response = client.access_secret_version(request={"name": secret_name})
         payload = response.payload.data.decode('UTF-8')
 
         return payload
@@ -1778,7 +1775,6 @@ def get_cost_types():  # noqa: E501
     """Get all cost_type
     :rtype: None
     """
-    print("[DEBUG] [COST-TYPES] INIT FUNCTION")
     expense_instance = ClaimExpenses()
     return expense_instance.get_cost_types()
 
