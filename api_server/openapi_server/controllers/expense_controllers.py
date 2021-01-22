@@ -877,7 +877,7 @@ class ClaimExpenses:
             secret_id,
             'latest')
 
-        response = client.access_secret_version(secret_name)
+        response = client.access_secret_version(request={"name": secret_name})
         payload = response.payload.data.decode('UTF-8')
 
         return payload
