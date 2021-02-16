@@ -14,7 +14,7 @@ google-cloud-firestore==2.0.2
 google-cloud-secret-manager==2.1.0
 google-cloud-storage==1.35.0
 gunicorn==20.0.4
-jwkaas==0.7
+jwkaas==0.9
 numpy==1.19.5
 pandas==1.2.1
 pyOpenSSL==20.0.1
