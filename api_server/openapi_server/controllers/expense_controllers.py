@@ -1,49 +1,48 @@
 import base64
 import copy
-import json
-import os
-import requests
-import re
 import csv
-import hashlib
-import unidecode
 import datetime
+import hashlib
+import json
+import logging
+import os
+import re
 import tempfile
-
-from defusedxml import defuse_stdlib
 import xml.etree.cElementTree as ET  # nosec
-import defusedxml.minidom as MD
 from abc import abstractmethod
 from decimal import Decimal
-from io import BytesIO
-from typing import Dict, Any
-import dateutil
-
-import pytz
-import config
-import logging
-import pandas as pd
-from PyPDF2 import PdfFileReader, PdfFileWriter
-
-import connexion
-import googleapiclient.discovery
-import firebase_admin
-import google.auth
-from firebase_admin import messaging as fb_messaging
-from flask import make_response, jsonify, Response, g, request, send_file
-from google.cloud import datastore, storage, secretmanager_v1
-from apiclient import errors
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from io import BytesIO
+from typing import Any, Dict
 
-from openapi_server.models.attachment_data import AttachmentData
-from openapi_server.models.expense_data import ExpenseData
-from openapi_server.models.employee_profile import EmployeeProfile  # noqa: E501
-from openapi_server.controllers.translate_responses import make_response_translated
-from openapi_server.controllers.businessrules_controller import BusinessRulesEngine
+import config
+import connexion
+import dateutil
+import defusedxml.minidom as MD
+import firebase_admin
+import google.auth
+import googleapiclient.discovery
+import pandas as pd
+import pytz
+import requests
+import unidecode
+from apiclient import errors
+from defusedxml import defuse_stdlib
+from firebase_admin import messaging as fb_messaging
+from flask import Response, g, jsonify, make_response, request, send_file
+from google.cloud import datastore, secretmanager_v1, storage
 from openapi_server.auth import get_delegated_credentials
-
+from openapi_server.controllers.businessrules_controller import \
+    BusinessRulesEngine
+from openapi_server.controllers.translate_responses import \
+    make_response_translated
+from openapi_server.models.attachment_data import AttachmentData
+from openapi_server.models.employee_profile import \
+    EmployeeProfile  # noqa: E501
+from openapi_server.models.expense_data import ExpenseData
 from OpenSSL import crypto
+from PyPDF2 import PdfFileReader, PdfFileWriter
 
 logger = logging.getLogger(__name__)
 defuse_stdlib()
@@ -58,26 +57,45 @@ FILTERED_OUT_ON_PROCESS = [
 
 REJECTION_NOTES = {
     1: {
-        "rnote_id": 1, "form": "static", "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
-        "translations": {"nl": "Deze kosten kun je declareren via Regweb (PSA)",
-                         "en": "These costs can be claimed via Regweb (PSA)",
-                         "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden"}
+        "rnote_id": 1,
+        "form": "static",
+        "rnote": "Deze kosten kun je declareren via Regweb (PSA)",
+        "translations": {
+            "nl": "Deze kosten kun je declareren via Regweb (PSA)",
+            "en": "These costs can be claimed via Regweb (PSA)",
+            "de": "Diese Kosten können über Regweb (PSA) geltend gemacht werden",
+        },
     },
     2: {
-        "rnote_id": 2, "form": "static", "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
-        "translations": {"nl": "Deze kosten kun je declareren via de leasemaatschappij",
-                         "en": "These costs can be claimed via the lease company",
-                         "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden"}
+        "rnote_id": 2,
+        "form": "static",
+        "rnote": "Deze kosten kun je declareren via de leasemaatschappij",
+        "translations": {
+            "nl": "Deze kosten kun je declareren via de leasemaatschappij",
+            "en": "These costs can be claimed via the lease company",
+            "de": "Diese Kosten können über die Leasinggesellschaft geltend gemacht werden",
+        },
     },
     3: {
-        "rnote_id": 3, "form": "static", "rnote": "Deze kosten zijn al gedeclareerd",
-        "translations": {"nl": "Deze kosten zijn al gedeclareerd", "en": "These costs have already been claimed",
-                         "de": "Diese Kosten würden bereits geltend gemacht"}
+        "rnote_id": 3,
+        "form": "static",
+        "rnote": "Deze kosten zijn al gedeclareerd",
+        "translations": {
+            "nl": "Deze kosten zijn al gedeclareerd",
+            "en": "These costs have already been claimed",
+            "de": "Diese Kosten würden bereits geltend gemacht",
+        },
     },
     4: {
-        "rnote_id": 4, "form": "dynamic", "rnote": "note",
-        "translations": {"nl": "Andere reden:", "en": "Other reason:", "de": "Anderer Grund:"}
-    }
+        "rnote_id": 4,
+        "form": "dynamic",
+        "rnote": "note",
+        "translations": {
+            "nl": "Andere reden:",
+            "en": "Other reason:",
+            "de": "Anderer Grund:",
+        },
+    },
 }
 
 
@@ -108,16 +126,18 @@ class ClaimExpenses:
         :param unique_name: An email address
         """
         # Fake AFAS data for E2E:
-        if unique_name == 'opensource.e2e@vwtelecom.com':
+        if unique_name == "opensource.e2e@vwtelecom.com":
             return config.e2e_afas_data
 
         try:
             unique_name = str(unique_name).lower()
         except Exception:
-            logging.error(f"Could not transform unique name '{unique_name}' to lowercase")
+            logging.error(
+                f"Could not transform unique name '{unique_name}' to lowercase"
+            )
         else:
-            query = self.ds_client.query(kind='AFAS_HRM')
-            query.add_filter('upn', '=', unique_name)
+            query = self.ds_client.query(kind="AFAS_HRM")
+            query.add_filter("upn", "=", unique_name)
             db_data = list(query.fetch(limit=1))
 
             if len(db_data) == 1:
@@ -130,36 +150,52 @@ class ClaimExpenses:
         """Creates an attachment"""
         today = pytz.UTC.localize(datetime.datetime.now())
         email_name = email.split("@")[0]
-        filename = f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}" \
-                   f"-{attachment.name}"
+        filename = (
+            f"{today.hour:02d}:{today.minute:02d}:{today.second:02d}-{today.year}{today.month}{today.day}"
+            f"-{attachment.name}"
+        )
         bucket = self.cs_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{filename}")
 
         try:
-            if ',' not in attachment.content:
+            if "," not in attachment.content:
                 return False
-            content_type = re.search(r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0])
-            content = base64.b64decode(attachment.content.split(",")[1])  # Set the content from base64
+            content_type = re.search(
+                r"(?<=^data:)(.*)(?=;base64)", attachment.content.split(",")[0]
+            )
+            content = base64.b64decode(
+                attachment.content.split(",")[1]
+            )  # Set the content from base64
             if not content_type or not content:
                 return False
             content_type = content_type.group()
-            if content_type == 'application/pdf':
+            if content_type == "application/pdf":
                 writer = PdfFileWriter()  # Create a PdfFileWriter to store the new PDF
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                     temp_file.write(content)
                     temp_file.close()
                     reader = PdfFileReader(
-                        open(temp_file.name, 'rb'), strict=False)  # Read the bytes from temp with original b64
-                    [writer.addPage(reader.getPage(i)) for i in range(0, reader.getNumPages())]  # Add pages
+                        open(temp_file.name, "rb"), strict=False
+                    )  # Read the bytes from temp with original b64
+                    [
+                        writer.addPage(reader.getPage(i))
+                        for i in range(0, reader.getNumPages())
+                    ]  # Add pages
                     writer.removeLinks()  # Remove all linking in PDF (not external website links)
-                    with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_flat_file:
-                        writer.write(temp_flat_file)  # Let the writer write into the temp file
+                    with tempfile.NamedTemporaryFile(
+                        mode="w+b", delete=False
+                    ) as temp_flat_file:
+                        writer.write(
+                            temp_flat_file
+                        )  # Let the writer write into the temp file
                         temp_flat_file.close()  # Close the temp file (stays in `with`)
-                        content = open(temp_flat_file.name, 'rb').read()  # Read the content from the temp file
+                        content = open(
+                            temp_flat_file.name, "rb"
+                        ).read()  # Read the content from the temp file
 
             blob.upload_from_string(
                 content,  # Upload content (can be decoded b64 from request or read data from temp flat file
-                content_type=content_type
+                content_type=content_type,
             )
             return True
         except Exception:
@@ -183,11 +219,13 @@ class ClaimExpenses:
             return make_response_translated("Geen overeenkomst op e-mail", 403)
 
         bucket = self.cs_client.get_bucket(self.bucket_name)
-        blob = bucket.blob(f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}")
+        blob = bucket.blob(
+            f"exports/attachments/{email_name}/{expenses_id}/{attachments_name}"
+        )
 
         blob.delete()
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def get_cost_types(self):
         """
@@ -203,17 +241,22 @@ class ClaimExpenses:
                     "ctype": row.get("Omschrijving", ""),
                     "cid": row.key.name,
                     "active": row.get("Active", ""),
-                    "description": row.get("Description", {"nl": row.get("Omschrijving", row.key.name),
-                                                           "en": row.get("Omschrijving", row.key.name),
-                                                           "de": row.get("Omschrijving", row.key.name)}),
+                    "description": row.get(
+                        "Description",
+                        {
+                            "nl": row.get("Omschrijving", row.key.name),
+                            "en": row.get("Omschrijving", row.key.name),
+                            "de": row.get("Omschrijving", row.key.name),
+                        },
+                    ),
                     "managertype": row.get("ManagerType", "linemanager"),
-                    "message": row.get("Message", {})
+                    "message": row.get("Message", {}),
                 }
                 for row in cost_types
             ]
             return jsonify(results)
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def get_manager_identifying_value(self):
         afas_data = self.get_employee_afas_data(self.employee_info["unique_name"])
@@ -229,7 +272,11 @@ class ClaimExpenses:
         :param permission:
         :return:
         """
-        manager_number = int(self.get_manager_identifying_value()) if permission == "manager" else None
+        manager_number = (
+            int(self.get_manager_identifying_value())
+            if permission == "manager"
+            else None
+        )
 
         with self.ds_client.transaction(read_only=True):
             exp_key = self.ds_client.key("Expenses", expenses_id)
@@ -238,22 +285,37 @@ class ClaimExpenses:
             if not expense:
                 return make_response_translated("Declaratie niet gevonden", 404)
 
-            cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"])
+            cost_type_entity, cost_type_active = self._process_cost_type(
+                expense["cost_type"]
+            )
             cost_type = None if cost_type_entity is None else cost_type_entity.key.name
 
             if permission == "employee":
-                if not expense["employee"]["email"] == \
-                       self.employee_info["unique_name"]:
+                if (
+                    not expense["employee"]["email"]
+                    == self.employee_info["unique_name"]
+                ):
                     return make_response_translated("Geen overeenkomst op e-mail", 403)
             elif permission == "manager":
-                if expense.get('manager_type', 'linemanager') == 'leasecoordinator' and \
-                        'leasecoordinator.write' not in self.employee_info.get('scopes', []):
-                    return make_response_translated("Geen overeenkomst op leasecoordinator", 403)
-                elif expense.get('manager_type', 'linemanager') != 'leasecoordinator' and \
-                        not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == manager_number:
-                    return make_response_translated("Geen overeenkomst op manager e-email", 403)
+                if expense.get(
+                    "manager_type", "linemanager"
+                ) == "leasecoordinator" and "leasecoordinator.write" not in self.employee_info.get(
+                    "scopes", []
+                ):
+                    return make_response_translated(
+                        "Geen overeenkomst op leasecoordinator", 403
+                    )
+                elif (
+                    expense.get("manager_type", "linemanager") != "leasecoordinator"
+                    and not expense["employee"]["afas_data"]["Manager_personeelsnummer"]
+                    == manager_number
+                ):
+                    return make_response_translated(
+                        "Geen overeenkomst op manager e-email", 403
+                    )
 
-            return jsonify({
+            return jsonify(
+                {
                     "id": str(expense.id),
                     "amount": expense["amount"],
                     "note": expense["note"],
@@ -263,7 +325,8 @@ class ClaimExpenses:
                     "employee": expense["employee"]["full_name"],
                     "status": expense["status"],
                     "flags": expense.get("flags", {}),
-                })
+                }
+            )
 
     @abstractmethod
     def _check_attachment_permission(self, expense):
@@ -293,8 +356,8 @@ class ClaimExpenses:
             stream_read = base64.b64encode(stream.read(len(content)))
             content_result = {
                 "content_type": blob.content_type,
-                "content": stream_read.decode('utf-8'),
-                "name": blob.name.split('/')[-1]
+                "content": stream_read.decode("utf-8"),
+                "name": blob.name.split("/")[-1],
             }
             results.append(content_result)
 
@@ -306,13 +369,13 @@ class ClaimExpenses:
 
     @staticmethod
     def _merge_rejection_note(status):
-        if 'rnote' in status and 'rnote_id' not in status:
+        if "rnote" in status and "rnote_id" not in status:
             for key in REJECTION_NOTES:
-                if REJECTION_NOTES[key]['rnote'] == status['rnote']:
-                    status['rnote_id'] = REJECTION_NOTES[key]['rnote_id']
+                if REJECTION_NOTES[key]["rnote"] == status["rnote"]:
+                    status["rnote_id"] = REJECTION_NOTES[key]["rnote_id"]
 
-            if 'rnote_id' not in status:
-                status['rnote_id'] = 4
+            if "rnote_id" not in status:
+                status["rnote_id"] = 4
 
         return status
 
@@ -331,17 +394,25 @@ class ClaimExpenses:
                     BusinessRulesEngine().employed_rule(afas_data)
                     BusinessRulesEngine().pao_rule(data, afas_data)
 
-                    if not afas_data.get('IBAN'):
+                    if not afas_data.get("IBAN"):
                         return make_response_translated(
-                            "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie", 403)
-                    if not afas_data.get('Manager_personeelsnummer'):
+                            "Uw bankrekeningnummer (IBAN) is niet bekend in de personeelsadministratie",
+                            403,
+                        )
+                    if not afas_data.get("Manager_personeelsnummer"):
                         return make_response_translated(
-                            "Manager nummer niet bekend in de personeelsadministratie", 403)
+                            "Manager nummer niet bekend in de personeelsadministratie",
+                            403,
+                        )
 
-                    cost_type_entity, cost_type_active = self._process_cost_type(data.cost_type)
+                    cost_type_entity, cost_type_active = self._process_cost_type(
+                        data.cost_type
+                    )
                     if cost_type_entity is None or not cost_type_active:
                         return make_response_translated("Geen geldige kostensoort", 400)
-                    data.manager_type = cost_type_entity.get('ManagerType', "linemanager")
+                    data.manager_type = cost_type_entity.get(
+                        "ManagerType", "linemanager"
+                    )
 
                 except ValueError as exception:
                     return make_response_translated(str(exception), 400)
@@ -360,14 +431,20 @@ class ClaimExpenses:
                         "note": data.note,
                         "cost_type": cost_type_entity.key.name,
                         "transaction_date": data.transaction_date,
-                        "claim_date": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                        "claim_date": datetime.datetime.utcnow().isoformat(
+                            timespec="seconds"
+                        )
+                        + "Z",
                         "status": dict(export_date="never", text=ready_text),
                         "manager_type": data.manager_type,
                     }
                     response = {}
 
-                    modified_data = BusinessRulesEngine().to_dict(data) if isinstance(data, ExpenseData) \
+                    modified_data = (
+                        BusinessRulesEngine().to_dict(data)
+                        if isinstance(data, ExpenseData)
                         else data
+                    )
                     BusinessRulesEngine().duplicate_rule(modified_data, afas_data)
                     if "flags" in modified_data:
                         new_expense["flags"] = modified_data["flags"]
@@ -381,26 +458,36 @@ class ClaimExpenses:
 
                     return make_response(jsonify(response), 201)
             else:
-                return make_response_translated("Medewerker niet bekend in de personeelsadministratie", 403)
+                return make_response_translated(
+                    "Medewerker niet bekend in de personeelsadministratie", 403
+                )
         else:
-            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
+            return make_response_translated(
+                "Unieke identificatie niet in token gevonden", 403
+            )
 
     def _process_status_text_update(self, data, expense):
-        if expense['status']['text'] in ['rejected_by_creditor',
-                                         'rejected_by_manager'] \
-                and data['status'] == 'ready_for_manager':
+        if (
+            expense["status"]["text"] in ["rejected_by_creditor", "rejected_by_manager"]
+            and data["status"] == "ready_for_manager"
+        ):
             expense["status"]["text"] = self._determine_status_amount_update(
-                expense['amount'], data)
+                expense["amount"], data
+            )
         else:
-            expense["status"]["text"] = data['status']
+            expense["status"]["text"] = data["status"]
 
     def _determine_status_amount_update(self, amount, data):
-        min_amount = data['min_amount']
-        manager_type = data['manager_type']
+        min_amount = data["min_amount"]
+        manager_type = data["manager_type"]
 
-        return "ready_for_creditor" if \
-            min_amount > 0 and amount < min_amount and \
-            manager_type != 'leasecoordinator' else data['status']
+        return (
+            "ready_for_creditor"
+            if min_amount > 0
+            and amount < min_amount
+            and manager_type != "leasecoordinator"
+            else data["status"]
+        )
 
     @abstractmethod
     def _prepare_context_update_expense(self, expense):
@@ -416,7 +503,7 @@ class ClaimExpenses:
             "transaction_date": expense["transaction_date"],
             "employee": expense["employee"]["full_name"],
             "status": expense["status"],
-            "flags": expense.get("flags", {})
+            "flags": expense.get("flags", {}),
         }
 
     def update_expenses(self, expenses_id, data, note_check=False):
@@ -428,9 +515,13 @@ class ClaimExpenses:
         :return:
         """
         if note_check:
-            if not data.get('rnote_id') and (data.get('status') == 'rejected_by_manager' or
-                                             data.get('status') == 'rejected_by_creditor'):
-                return make_response_translated("Sommige gegevens ontbraken of waren onjuist", 400)
+            if not data.get("rnote_id") and (
+                data.get("status") == "rejected_by_manager"
+                or data.get("status") == "rejected_by_creditor"
+            ):
+                return make_response_translated(
+                    "Sommige gegevens ontbraken of waren onjuist", 400
+                )
 
         with self.ds_client.transaction():
             exp_key = self.ds_client.key("Expenses", expenses_id)
@@ -441,70 +532,107 @@ class ClaimExpenses:
                 return make_response_translated("Declaratie niet gevonden", 404)
 
             # Check validity cost-type
-            cost_type_entity, cost_type_active = self._process_cost_type(data.get('cost_type', expense['cost_type']))
-            if 'cost_type' in data:
+            cost_type_entity, cost_type_active = self._process_cost_type(
+                data.get("cost_type", expense["cost_type"])
+            )
+            if "cost_type" in data:
                 if cost_type_entity is None or not cost_type_active:
                     return make_response_translated("Geen geldige kostensoort", 400)
-                data['cost_type'] = cost_type_entity.key.name
+                data["cost_type"] = cost_type_entity.key.name
 
-            if (expense['status']['text'] == "draft" or "rejected" in expense['status']['text']) and \
-                    'ready' in data.get('status', ''):
+            if (
+                expense["status"]["text"] == "draft"
+                or "rejected" in expense["status"]["text"]
+            ) and "ready" in data.get("status", ""):
 
                 if len(data) > 1:
                     return make_response_translated(
-                        "Het indienen van een declaratie is niet toegestaan tijdens het aanpassen van velden", 403)
+                        "Het indienen van een declaratie is niet toegestaan tijdens het aanpassen van velden",
+                        403,
+                    )
 
-                data['min_amount'] = cost_type_entity.get('MinAmount', 50)
-                if data['min_amount'] == 0 or \
-                        data['min_amount'] <= data.get('amount', expense['amount']):
-                    data['status'] = "ready_for_manager"
+                data["min_amount"] = cost_type_entity.get("MinAmount", 50)
+                if data["min_amount"] == 0 or data["min_amount"] <= data.get(
+                    "amount", expense["amount"]
+                ):
+                    data["status"] = "ready_for_manager"
                 else:
-                    data['status'] = "ready_for_creditor"
+                    data["status"] = "ready_for_creditor"
 
-            allowed_fields, allowed_statuses = self._prepare_context_update_expense(expense)
+            allowed_fields, allowed_statuses = self._prepare_context_update_expense(
+                expense
+            )
             if not allowed_fields or not allowed_statuses:
-                return make_response_translated("De inhoud van deze methode is niet geldig", 403)
+                return make_response_translated(
+                    "De inhoud van deze methode is niet geldig", 403
+                )
 
             try:
-                BusinessRulesEngine().employed_rule(expense['employee']['afas_data'])
-                BusinessRulesEngine().pao_rule(data, expense['employee']['afas_data'])
-                data['manager_type'] = cost_type_entity.get('ManagerType', "linemanager")
+                BusinessRulesEngine().employed_rule(expense["employee"]["afas_data"])
+                BusinessRulesEngine().pao_rule(data, expense["employee"]["afas_data"])
+                data["manager_type"] = cost_type_entity.get(
+                    "ManagerType", "linemanager"
+                )
             except ValueError as exception:
                 return make_response_translated(str(exception), 400)
 
             if not self._has_attachments(expense, data):
-                return make_response_translated("De declaratie moet minimaal één bijlage hebben", 403)
+                return make_response_translated(
+                    "De declaratie moet minimaal één bijlage hebben", 403
+                )
 
-            if 'rnote_id' in data:
-                rnote_id, rnote = self._process_rejection_note(data.get('rnote_id'), data.get('rnote'))
+            if "rnote_id" in data:
+                rnote_id, rnote = self._process_rejection_note(
+                    data.get("rnote_id"), data.get("rnote")
+                )
                 if not rnote_id or not rnote:
                     return make_response_translated("Geen geldige afwijzing", 400)
-                data['rnote_id'] = rnote_id
-                data['rnote'] = rnote
+                data["rnote_id"] = rnote_id
+                data["rnote"] = rnote
 
-            BusinessRulesEngine().duplicate_rule(data, expense['employee']['afas_data'], expense)
+            BusinessRulesEngine().duplicate_rule(
+                data, expense["employee"]["afas_data"], expense
+            )
             # If there are no warnings to display: remove flags property from entity
             if "flags" not in data and "flags" in expense:
                 del expense["flags"]
 
-            valid_update = self._update_expenses(data, allowed_fields, allowed_statuses, expense)
+            valid_update = self._update_expenses(
+                data, allowed_fields, allowed_statuses, expense
+            )
             if not valid_update:
-                return make_response_translated("De inhoud van deze methode is niet geldig", 403)
+                return make_response_translated(
+                    "De inhoud van deze methode is niet geldig", 403
+                )
 
             self.expense_journal(old_expense, expense)
 
-        if data['status'] in ['rejected_by_manager', 'rejected_by_creditor'] and \
-                old_expense['status']['text'] in ['ready_for_manager', 'ready_for_creditor']:
+        if data["status"] in [
+            "rejected_by_manager",
+            "rejected_by_creditor",
+        ] and old_expense["status"]["text"] in [
+            "ready_for_manager",
+            "ready_for_creditor",
+        ]:
             self.send_notification(
-                'rejected_expense', expense['employee']['afas_data'], expense.key.id_or_name,
-                data.get('manager_type', 'linemanager'))
-        elif data['status'] == 'ready_for_manager' and \
-                old_expense['status']['text'] in ['draft', 'rejected_by_manager', 'rejected_by_creditor']:
+                "rejected_expense",
+                expense["employee"]["afas_data"],
+                expense.key.id_or_name,
+                data.get("manager_type", "linemanager"),
+            )
+        elif data["status"] == "ready_for_manager" and old_expense["status"][
+            "text"
+        ] in ["draft", "rejected_by_manager", "rejected_by_creditor"]:
             self.send_notification(
-                'assess_expense', expense['employee']['afas_data'], expense.key.id_or_name,
-                data.get('manager_type', 'linemanager'))
+                "assess_expense",
+                expense["employee"]["afas_data"],
+                expense.key.id_or_name,
+                data.get("manager_type", "linemanager"),
+            )
 
-        return make_response(jsonify(self._prepare_response_update_expense(expense)), 200)
+        return make_response(
+            jsonify(self._prepare_response_update_expense(expense)), 200
+        )
 
     def _update_expenses(self, data, allowed_fields, allowed_statuses, expense):
         items_to_update = list(allowed_fields.intersection(set(data.keys())))
@@ -520,18 +648,20 @@ class ClaimExpenses:
                 need_to_save = True
                 expense[item] = data[item]
 
-        if 'status' in items_to_update:
+        if "status" in items_to_update:
             logger.debug(
                 f"Employee status to update [{data['status']}] old [{expense['status']['text']}], legal "
-                f"transition [{allowed_statuses}]")
-            if data['status'] in allowed_statuses:
+                f"transition [{allowed_statuses}]"
+            )
+            if data["status"] in allowed_statuses:
                 need_to_save = True
                 self._process_status_text_update(data, expense)
             else:
                 logging.info(
-                    "Rejected unauthorized status transition for " +
-                    f"{expense.key.id_or_name}: {expense['status']['text']} " +
-                    f"> {data['status']}")
+                    "Rejected unauthorized status transition for "
+                    + f"{expense.key.id_or_name}: {expense['status']['text']} "
+                    + f"> {data['status']}"
+                )
                 return False
 
         if need_to_save:
@@ -556,10 +686,17 @@ class ClaimExpenses:
                 self.ds_client.put(expense)
 
     def _has_attachments(self, expense, data):
-        allowed_statuses_new = ['draft', 'cancelled', 'rejected_by_manager', 'rejected_by_creditor']
-        allowed_statuses_old = ['rejected_by_manager', 'rejected_by_creditor']
-        if data.get('status', '') in allowed_statuses_new or \
-                expense['status']['text'] in allowed_statuses_old:
+        allowed_statuses_new = [
+            "draft",
+            "cancelled",
+            "rejected_by_manager",
+            "rejected_by_creditor",
+        ]
+        allowed_statuses_old = ["rejected_by_manager", "rejected_by_creditor"]
+        if (
+            data.get("status", "") in allowed_statuses_new
+            or expense["status"]["text"] in allowed_statuses_old
+        ):
             return True
 
         email_name = expense["employee"]["email"].split("@")[0]
@@ -578,10 +715,10 @@ class ClaimExpenses:
 
         rejection = REJECTION_NOTES.get(rnote_id)
 
-        if rejection['form'] == 'dynamic' and not rnote:
+        if rejection["form"] == "dynamic" and not rnote:
             return False, False
-        elif rejection['form'] != 'dynamic':
-            rnote = rejection['rnote']
+        elif rejection["form"] != "dynamic":
+            rnote = rejection["rnote"]
 
         return rnote_id, rnote
 
@@ -597,16 +734,16 @@ class ClaimExpenses:
         if len(detail) > 8:
             bank_code = detail[4:8]
             bank_data = config.BIC_NUMBERS
-            bic = next((r["bic"] for r in bank_data if r["identifier"] == bank_code), None)
+            bic = next(
+                (r["bic"] for r in bank_data if r["identifier"] == bank_code), None
+            )
         else:
             bic = None
 
         if bic:
             return bic
 
-        return (
-            "NOTPROVIDED"
-        )  # Bank will determine the BIC based on the Debtor Account
+        return "NOTPROVIDED"  # Bank will determine the BIC based on the Debtor Account
 
     def filter_expenses_to_export(self):
         """
@@ -635,28 +772,44 @@ class ClaimExpenses:
         local_tz = pytz.timezone(VWT_TIME_ZONE)
         local_now = now.replace(tzinfo=pytz.utc).astimezone(local_tz)
 
-        export_file_name = now.strftime('%Y%m%d%H%M%S')
+        export_file_name = now.strftime("%Y%m%d%H%M%S")
 
-        result_bk = self.create_booking_file(expense_claims_to_export, export_file_name, local_now)
-        result_pm = self.create_payment_file(expense_claims_to_export, export_file_name, local_now)
+        result_bk = self.create_booking_file(
+            expense_claims_to_export, export_file_name, local_now
+        )
+        result_pm = self.create_payment_file(
+            expense_claims_to_export, export_file_name, local_now
+        )
 
         if not result_bk[0] and result_pm[0]:
+            logging.error("Could not upload booking file")
             return make_response_translated("Kan boekingsdossier niet uploaden", 400)
         if result_bk[0] and not result_pm[0]:
+            logging.error("Could not upload payment file")
             return make_response_translated("Kan betalingsbestand niet uploaden", 400)
         if not result_bk[0] and not result_pm[0]:
-            return make_response_translated("Kan boekingsdossier en betalingsbestand niet uploaden", 400)
+            logging.error("Could not upload booking and payment file")
+            return make_response_translated(
+                "Kan boekingsdossier en betalingsbestand niet uploaden", 400
+            )
 
-        retval = {"file_list": [
-            {"booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
-             "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
-             "export_date": now.isoformat(timespec="seconds") + 'Z'}]}
+        retval = {
+            "file_list": [
+                {
+                    "booking_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/booking_file",
+                    "payment_file": f"{api_base_url()}finances/expenses/documents/{export_file_name}/kinds/payment_file",
+                    "export_date": now.isoformat(timespec="seconds") + "Z",
+                }
+            ]
+        }
 
         self.update_exported_expenses(expense_claims_to_export, now)
 
         return make_response(jsonify(retval), 200)
 
-    def create_booking_file(self, expense_claims_to_export, export_filename, document_date):
+    def create_booking_file(
+        self, expense_claims_to_export, export_filename, document_date
+    ):
         """
         Create a booking file
         :return:
@@ -676,19 +829,25 @@ class ClaimExpenses:
             # )
             logger.debug(f" transaction date [{expense_detail['transaction_date']}]")
 
-            trans_date = dateutil.parser.parse(expense_detail['transaction_date']).strftime('%d-%m-%Y')
+            trans_date = dateutil.parser.parse(
+                expense_detail["transaction_date"]
+            ).strftime("%d-%m-%Y")
 
             boekingsomschrijving_bron = f"{expense_detail['employee']['afas_data']['Personeelsnummer']} {trans_date}"
 
             expense_detail["boekingsomschrijving_bron"] = boekingsomschrijving_bron
 
             grootboek_number = expense_detail["cost_type"]
-            cost_type_split = grootboek_number.split(":")[1] if ":" in grootboek_number else grootboek_number
+            cost_type_split = (
+                grootboek_number.split(":")[1]
+                if ":" in grootboek_number
+                else grootboek_number
+            )
 
             try:
-                key = self.ds_client.key('CostTypes', cost_type_split)
+                key = self.ds_client.key("CostTypes", cost_type_split)
                 cost_entity = self.ds_client.get(key=key)
-                grootboek_number = cost_entity['Grootboek']
+                grootboek_number = cost_entity["Grootboek"]
             except Exception:
                 logging.warning("Old cost_type")
                 grootboek_number = cost_type_split
@@ -699,14 +858,20 @@ class ClaimExpenses:
                     "Document-datum": document_date.strftime("%d%m%Y"),
                     "Boekings-jaar": document_date.strftime("%Y"),
                     "Periode": document_date.strftime("%m"),
-                    "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Bron-bedrijfs-nummer"],
-                    "Bron gr boekrek": config.BOOKING_FILE_STATICS["Bron-grootboek-rekening"],
+                    "Bron-bedrijfs-nummer": config.BOOKING_FILE_STATICS[
+                        "Bron-bedrijfs-nummer"
+                    ],
+                    "Bron gr boekrek": config.BOOKING_FILE_STATICS[
+                        "Bron-grootboek-rekening"
+                    ],
                     "Bron Org Code": config.BOOKING_FILE_STATICS["Bron-org-code"],
                     "Bron Process": "000",
                     "Bron Produkt": "000",
                     "Bron EC": "000",
                     "Bron VP": "00",
-                    "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS["Doel-bedrijfs-nummer"],
+                    "Doel-bedrijfs-nummer": config.BOOKING_FILE_STATICS[
+                        "Doel-bedrijfs-nummer"
+                    ],
                     "Doel-gr boekrek": grootboek_number,
                     "Doel Org code": config.BOOKING_FILE_STATICS["Doel-org-code"],
                     "Doel Proces": "000",
@@ -737,7 +902,9 @@ class ClaimExpenses:
     def _gather_creditor_name(self, expense):
         return unidecode.unidecode(expense["employee"]["afas_data"].get("Naam"))
 
-    def create_payment_file(self, expense_claims_to_export, export_filename, document_time):
+    def create_payment_file(
+        self, expense_claims_to_export, export_filename, document_time
+    ):
 
         """
         Creates an XML file from claim expenses that have been exported. Thus a claim must have a status
@@ -750,9 +917,7 @@ class ClaimExpenses:
 
         # Set namespaces
         ET.register_namespace("", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03")
-        root = ET.Element(
-            "{urn:iso:std:iso:20022:tech:xsd:pain.001.001.03}Document"
-        )
+        root = ET.Element("{urn:iso:std:iso:20022:tech:xsd:pain.001.001.03}Document")
 
         root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
@@ -760,16 +925,20 @@ class ClaimExpenses:
 
         ctrl_sum = Decimal(0)
         for expense in expense_claims_to_export:
-            ctrl_sum += Decimal(str(expense['amount']))
+            ctrl_sum += Decimal(str(expense["amount"]))
 
         # Group Header
         header = ET.SubElement(customer_header, "GrpHdr")
         ET.SubElement(header, "MsgId").text = message_id
-        ET.SubElement(header, "CreDtTm").text = document_time.isoformat(timespec="seconds")
+        ET.SubElement(header, "CreDtTm").text = document_time.isoformat(
+            timespec="seconds"
+        )
         ET.SubElement(header, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
-        ET.SubElement(header, "CtrlSum").text = str(ctrl_sum)  # Total amount of the batch
+        ET.SubElement(header, "CtrlSum").text = str(
+            ctrl_sum
+        )  # Total amount of the batch
         initiating_party = ET.SubElement(header, "InitgPty")
         ET.SubElement(initiating_party, "Nm").text = config.OWN_ACCOUNT["bedrijf"]
 
@@ -780,7 +949,9 @@ class ClaimExpenses:
         ET.SubElement(payment_info, "NbOfTxs").text = str(
             len(expense_claims_to_export)  # Number Of Transactions in the batch
         )
-        ET.SubElement(payment_info, "CtrlSum").text = str(ctrl_sum)  # Total amount of the batch
+        ET.SubElement(payment_info, "CtrlSum").text = str(
+            ctrl_sum
+        )  # Total amount of the batch
 
         # Payment Type Information
         payment_typ_info = ET.SubElement(payment_info, "PmtTpInf")
@@ -788,7 +959,9 @@ class ClaimExpenses:
         payment_tp_service_level = ET.SubElement(payment_typ_info, "SvcLvl")
         ET.SubElement(payment_tp_service_level, "Cd").text = "SEPA"
 
-        ET.SubElement(payment_info, "ReqdExctnDt").text = document_time.date().isoformat()
+        ET.SubElement(
+            payment_info, "ReqdExctnDt"
+        ).text = document_time.date().isoformat()
 
         # Debitor Information
         payment_debitor_info = ET.SubElement(payment_info, "Dbtr")
@@ -801,18 +974,16 @@ class ClaimExpenses:
 
         # Debitor Agent Tags Information
         payment_debitor_agent = ET.SubElement(payment_info, "DbtrAgt")
-        payment_debitor_agent_id = ET.SubElement(
-            payment_debitor_agent, "FinInstnId"
-        )
-        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT[
-            "bic"
-        ]
+        payment_debitor_agent_id = ET.SubElement(payment_debitor_agent, "FinInstnId")
+        ET.SubElement(payment_debitor_agent_id, "BIC").text = config.OWN_ACCOUNT["bic"]
         for expense in expense_claims_to_export:
             # Transaction Transfer Information
             transfer = ET.SubElement(payment_info, "CdtTrfTxInf")
             transfer_payment_id = ET.SubElement(transfer, "PmtId")
             ET.SubElement(transfer_payment_id, "InstrId").text = payment_info_id
-            ET.SubElement(transfer_payment_id, "EndToEndId").text = expense["boekingsomschrijving_bron"]
+            ET.SubElement(transfer_payment_id, "EndToEndId").text = expense[
+                "boekingsomschrijving_bron"
+            ]
 
             # Amount
             amount = ET.SubElement(transfer, "Amt")
@@ -821,7 +992,7 @@ class ClaimExpenses:
 
             iban = expense["employee"]["afas_data"].get("IBAN")
             if not iban:
-                iban = ''
+                iban = ""
 
             # Creditor Agent Tag Information
             amount_agent = ET.SubElement(transfer, "CdtrAgt")
@@ -832,7 +1003,9 @@ class ClaimExpenses:
 
             # Creditor name
             creditor_name = ET.SubElement(transfer, "Cdtr")
-            ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(expense)
+            ET.SubElement(creditor_name, "Nm").text = self._gather_creditor_name(
+                expense
+            )
 
             # Creditor Account
             creditor_account = ET.SubElement(transfer, "CdtrAcct")
@@ -843,7 +1016,9 @@ class ClaimExpenses:
 
             # Remittance Information
             remittance_info = ET.SubElement(transfer, "RmtInf")
-            ET.SubElement(remittance_info, "Ustrd").text = expense["boekingsomschrijving_bron"]
+            ET.SubElement(remittance_info, "Ustrd").text = expense[
+                "boekingsomschrijving_bron"
+            ]
 
         payment_xml_string = ET.tostring(root, encoding="utf8", method="xml")
 
@@ -854,9 +1029,7 @@ class ClaimExpenses:
         )
         blob.upload_from_string(payment_xml_string, content_type="application/xml")
 
-        payment_file = MD.parseString(payment_xml_string).toprettyxml(
-            encoding="utf-8"
-        )
+        payment_file = MD.parseString(payment_xml_string).toprettyxml(encoding="utf-8")
 
         if config.POWER2PAY_URL:
             if not self.send_to_power2pay(payment_xml_string):
@@ -872,32 +1045,39 @@ class ClaimExpenses:
 
         client = secretmanager_v1.SecretManagerServiceClient()
 
-        secret_name = client.secret_version_path(
-            project_id,
-            secret_id,
-            'latest')
+        secret_name = client.secret_version_path(project_id, secret_id, "latest")
 
         response = client.access_secret_version(request={"name": secret_name})
-        payload = response.payload.data.decode('UTF-8')
+        payload = response.payload.data.decode("UTF-8")
 
         return payload
 
     def make_temp(self, str):
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
             temp_file.write(str)
 
         return temp_file.name
 
     def get_certificates(self):
 
-        passphrase = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.PASSPHRASE)
-        key = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.KEY)
-        certificate = self.get_secret(os.environ['GOOGLE_CLOUD_PROJECT'], config.CERTIFICATE)
+        passphrase = self.get_secret(
+            os.environ["GOOGLE_CLOUD_PROJECT"], config.PASSPHRASE
+        )
+        key = self.get_secret(os.environ["GOOGLE_CLOUD_PROJECT"], config.KEY)
+        certificate = self.get_secret(
+            os.environ["GOOGLE_CLOUD_PROJECT"], config.CERTIFICATE
+        )
 
         pk = crypto.load_privatekey(crypto.FILETYPE_PEM, key, passphrase.encode())
 
         key_file = self.make_temp(
-            str(crypto.dump_privatekey(crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None), 'utf-8'))
+            str(
+                crypto.dump_privatekey(
+                    crypto.FILETYPE_PEM, pk, cipher=None, passphrase=None
+                ),
+                "utf-8",
+            )
+        )
 
         cert_file = self.make_temp(certificate)
 
@@ -907,7 +1087,9 @@ class ClaimExpenses:
 
         cert = self.get_certificates()
 
-        r = requests.post(config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True)
+        r = requests.post(
+            config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True
+        )
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
 
@@ -916,26 +1098,27 @@ class ClaimExpenses:
     def get_all_documents_list(self):
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
-        all_exports_files = {'file_list': []}
-        blobs = expenses_bucket.list_blobs(
-            prefix=f"exports/booking_file"
-        )
+        all_exports_files = {"file_list": []}
+        blobs = expenses_bucket.list_blobs(prefix=f"exports/booking_file")
 
         for blob in blobs:
-            name = blob.name.split('/')[-1]
+            name = blob.name.split("/")[-1]
 
-            all_exports_files['file_list'].append({
-                "export_date": datetime.datetime.strptime(name, '%Y%m%d%H%M%S'),
-                "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
-                "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file"
-            })
+            all_exports_files["file_list"].append(
+                {
+                    "export_date": datetime.datetime.strptime(name, "%Y%m%d%H%M%S"),
+                    "booking_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/booking_file",
+                    "payment_file": f"{api_base_url()}finances/expenses/documents/{name}/kinds/payment_file",
+                }
+            )
 
-        all_exports_files['file_list'] = sorted(all_exports_files['file_list'], key=lambda k: k['export_date'],
-                                                reverse=True)
+        all_exports_files["file_list"] = sorted(
+            all_exports_files["file_list"], key=lambda k: k["export_date"], reverse=True
+        )
         return all_exports_files
 
     def get_single_document_reference(self, document_id, document_type):
-        document_date = datetime.datetime.strptime(document_id, '%Y%m%d%H%M%S')
+        document_date = datetime.datetime.strptime(document_id, "%Y%m%d%H%M%S")
         expenses_bucket = self.cs_client.get_bucket(self.bucket_name)
 
         blob = expenses_bucket.blob(
@@ -969,7 +1152,7 @@ class ClaimExpenses:
 
         cost_type_active = False
         if cost_type_entity is not None:
-            cost_type_active = cost_type_entity.get('Active', False)
+            cost_type_active = cost_type_entity.get("Active", False)
 
         return cost_type_entity, cost_type_active
 
@@ -981,45 +1164,60 @@ class ClaimExpenses:
             expenses_list = []
             for ed in expenses_data:
 
-                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
-                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+                cost_type_entity, cost_type_active = self._process_cost_type(
+                    ed["cost_type"], cost_type_list
+                )
+                cost_type = (
+                    None if cost_type_entity is None else cost_type_entity.key.name
+                )
 
-                expenses_list.append({
-                    "id": ed.id,
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": cost_type,
-                    "claim_date": ed["claim_date"],
-                    "transaction_date": ed["transaction_date"],
-                    "employee": ed["employee"]["full_name"],
-                    "status": self._merge_rejection_note(ed["status"]),
-                    "flags": ed.get("flags", {})
-                })
+                expenses_list.append(
+                    {
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": cost_type,
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
+                        "employee": ed["employee"]["full_name"],
+                        "status": self._merge_rejection_note(ed["status"]),
+                        "flags": ed.get("flags", {}),
+                    }
+                )
 
             return jsonify(expenses_list)
-        return make_response('', 204)
+        return make_response("", 204)
 
     def expense_journal(self, old_expense, expense):
         changed = []
 
         def default(o):
             if isinstance(o, (datetime.date, datetime.datetime)):
-                return o.isoformat(timespec="seconds") + 'Z'
+                return o.isoformat(timespec="seconds") + "Z"
 
         for attribute in list(set(old_expense) | set(expense)):
             if attribute not in old_expense:
                 changed.append({attribute: {"new": expense[attribute]}})
             elif attribute not in expense:
-                changed.append({attribute: {"old": old_expense[attribute], "new": None}})
+                changed.append(
+                    {attribute: {"old": old_expense[attribute], "new": None}}
+                )
             elif old_expense[attribute] != expense[attribute]:
-                changed.append({attribute: {"old": old_expense[attribute], "new": expense[attribute]}})
+                changed.append(
+                    {
+                        attribute: {
+                            "old": old_expense[attribute],
+                            "new": expense[attribute],
+                        }
+                    }
+                )
 
         key = self.ds_client.key("Expenses_Journal")
         entity = datastore.Entity(key=key)
         entity.update(
             {
                 "Expenses_Id": expense.key.id,
-                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z',
+                "Time": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 "Attributes_Changed": json.dumps(changed, default=default),
                 "User": self.employee_info["unique_name"],
             }
@@ -1027,259 +1225,345 @@ class ClaimExpenses:
         self.ds_client.put(entity)
 
     def get_employee_locale(self, unique_name):
-        locale_list = ['nl', 'en', 'de']
+        locale_list = ["nl", "en", "de"]
         key = self.ds_client.key("EmployeeProfiles", unique_name)
         emp_profile = self.ds_client.get(key)
 
-        if emp_profile and 'locale' in emp_profile and emp_profile['locale'] in locale_list:
-            return emp_profile['locale']
+        if (
+            emp_profile
+            and "locale" in emp_profile
+            and emp_profile["locale"] in locale_list
+        ):
+            return emp_profile["locale"]
 
-        return 'nl'
+        return "nl"
 
     def get_employee_push_token(self, unique_name):
-        query = self.ds_client.query(kind='PushTokens')
-        query.add_filter('unique_name', '=', unique_name)
-        query.add_filter('push_token', '>', '')
+        query = self.ds_client.query(kind="PushTokens")
+        query.add_filter("unique_name", "=", unique_name)
+        query.add_filter("push_token", ">", "")
 
         return list(query.fetch())
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
-        push_tokens = self.get_employee_push_token(afas_data['upn'])
+        push_tokens = self.get_employee_push_token(afas_data["upn"])
 
         if push_tokens:
             active_push_tokens = []
 
             for token in push_tokens:
-                if 'push_token' in token:
-                    active_push_tokens.append(token['push_token'])
+                if "push_token" in token:
+                    active_push_tokens.append(token["push_token"])
 
             if len(active_push_tokens) > 0:
                 # Set notification data
                 notification_data = {
-                    'username': str(afas_data['upn']),
-                    'expense_id': str(expense_id)
+                    "username": str(afas_data["upn"]),
+                    "expense_id": str(expense_id),
                 }
 
                 # Create Android message
                 android_notification = fb_messaging.AndroidNotification(
-                    title=mail_body['title'][locale], body=mail_body['body'][locale], click_action='FCM_PLUGIN_ACTIVITY')
-                android_config = fb_messaging.AndroidConfig(priority='normal', notification=android_notification)
+                    title=mail_body["title"][locale],
+                    body=mail_body["body"][locale],
+                    click_action="FCM_PLUGIN_ACTIVITY",
+                )
+                android_config = fb_messaging.AndroidConfig(
+                    priority="normal", notification=android_notification
+                )
 
                 # Create ios message
                 ios_notification = fb_messaging.Notification(
-                    title=mail_body['title'][locale], body=mail_body['body'][locale])
+                    title=mail_body["title"][locale], body=mail_body["body"][locale]
+                )
 
                 # Merge multicast message
-                multicast_message = fb_messaging.MulticastMessage(tokens=active_push_tokens, data=notification_data,
-                                                                  notification=ios_notification, android=android_config)
+                multicast_message = fb_messaging.MulticastMessage(
+                    tokens=active_push_tokens,
+                    data=notification_data,
+                    notification=ios_notification,
+                    android=android_config,
+                )
 
                 try:
                     # Send multicast message
                     multicast_batch = fb_messaging.send_multicast(multicast_message)
-                    logging.info("Push message batch: {} success(es) and {} failure(s) [{}]".format(
-                        multicast_batch.success_count, multicast_batch.failure_count, expense_id))
+                    logging.info(
+                        "Push message batch: {} success(es) and {} failure(s) [{}]".format(
+                            multicast_batch.success_count,
+                            multicast_batch.failure_count,
+                            expense_id,
+                        )
+                    )
 
                     for response in multicast_batch.responses:
                         if not response.success:
-                            logging.info("Push message '{}' trows exception: {}".format(
-                                response.message_id, str(response.exception)))
+                            logging.info(
+                                "Push message '{}' trows exception: {}".format(
+                                    response.message_id, str(response.exception)
+                                )
+                            )
                 except Exception as exception:
                     logging.info(
                         "Something went wrong while sending the push message batch for expense '{}': {}".format(
-                            expense_id, str(exception)))
+                            expense_id, str(exception)
+                        )
+                    )
                     return False
 
                 return True
 
-        logging.debug('No push token(s) found')
+        logging.debug("No push token(s) found")
         return False
 
     def generate_mail(self, to, mail_body, locale):
-        msg = MIMEMultipart('alternative')
-        msg['From'] = config.GMAIL_SENDER_ADDRESS
-        msg['Subject'] = mail_body['title'][locale]
-        msg['Reply-To'] = config.GMAIL_ADDEXPENSE_REPLYTO
-        msg['To'] = to
+        msg = MIMEMultipart("alternative")
+        msg["From"] = config.GMAIL_SENDER_ADDRESS
+        msg["Subject"] = mail_body["title"][locale]
+        msg["Reply-To"] = config.GMAIL_ADDEXPENSE_REPLYTO
+        msg["To"] = to
 
-        with open('gmail_template.html', 'r') as mail_template:
+        with open("gmail_template.html", "r") as mail_template:
             msg_html = mail_template.read()
 
-        msg_html = msg_html.replace('$MAIL_TITLE', mail_body['title'][locale])
-        msg_html = msg_html.replace('$MAIL_SALUTATION', mail_body['salutation'][locale])
-        msg_html = msg_html.replace('$MAIL_BODY', mail_body['body'][locale])
-        msg_html = msg_html.replace('$MAIL_FOOTER', mail_body['footer'][locale])
+        msg_html = msg_html.replace("$MAIL_TITLE", mail_body["title"][locale])
+        msg_html = msg_html.replace("$MAIL_SALUTATION", mail_body["salutation"][locale])
+        msg_html = msg_html.replace("$MAIL_BODY", mail_body["body"][locale])
+        msg_html = msg_html.replace("$MAIL_FOOTER", mail_body["footer"][locale])
 
-        msg.attach(MIMEText(msg_html, 'html'))
+        msg.attach(MIMEText(msg_html, "html"))
         raw = base64.urlsafe_b64encode(msg.as_bytes())
         raw = raw.decode()
 
-        return {'raw': raw}
+        return {"raw": raw}
 
     def send_mail_notification(self, mail_body, afas_data, expense_id, locale):
-        if hasattr(config, 'GMAIL_STATUS') and config.GMAIL_STATUS and \
-                ('GAE_INSTANCE' in os.environ or 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ):
-            gmail_service = initialise_gmail_service(subject=config.GMAIL_SUBJECT_ADDRESS,
-                                                     scopes=['https://www.googleapis.com/auth/gmail.send'])
+        if (
+            hasattr(config, "GMAIL_STATUS")
+            and config.GMAIL_STATUS
+            and (
+                "GAE_INSTANCE" in os.environ
+                or "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
+            )
+        ):
+            gmail_service = initialise_gmail_service(
+                subject=config.GMAIL_SUBJECT_ADDRESS,
+                scopes=["https://www.googleapis.com/auth/gmail.send"],
+            )
             if gmail_service:
                 try:
                     logging.info(f"Creating email for expense '{expense_id}'")
-                    recipient_name = afas_data['Voornaam'] if 'Voornaam' in afas_data else 'ontvanger'
+                    recipient_name = (
+                        afas_data["Voornaam"]
+                        if "Voornaam" in afas_data
+                        else "ontvanger"
+                    )
 
                     mail_body_feedback = {
-                        'nl': """Mochten er nog vragen zijn, mail gerust naar""",
-                        'en': """If you have any questions, feel free to mail to""",
-                        'de': """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an"""
+                        "nl": """Mochten er nog vragen zijn, mail gerust naar""",
+                        "en": """If you have any questions, feel free to mail to""",
+                        "de": """Wenn Sie Fragen haben, senden Sie uns bitte eine E-Mail an""",
                     }
-                    mail_body['salutation'] = {
-                        'nl': 'Beste {},',
-                        'en': 'Dear {},',
-                        'de': 'Lieber {},'
+                    mail_body["salutation"] = {
+                        "nl": "Beste {},",
+                        "en": "Dear {},",
+                        "de": "Lieber {},",
                     }
-                    mail_body['footer'] = {
-                        'nl': "Met vriendelijke groeten,<br />FSSC",
-                        'en': "Kind regards,<br />FSSC",
-                        'de': "Mit freundlichen Grüßen,<br />FSSC"
+                    mail_body["footer"] = {
+                        "nl": "Met vriendelijke groeten,<br />FSSC",
+                        "en": "Kind regards,<br />FSSC",
+                        "de": "Mit freundlichen Grüßen,<br />FSSC",
                     }
 
-                    for loc in mail_body['salutation']:
-                        mail_body['salutation'][loc] = mail_body['salutation'][loc].format(recipient_name)
-                    for loc in mail_body['body']:
-                        mail_body['body'][loc] = """{}. {} <a href="mailto:{}">{}</a>.""".format(
-                            mail_body['body'][loc], mail_body_feedback[loc], config.GMAIL_ADDEXPENSE_REPLYTO,
-                            config.GMAIL_ADDEXPENSE_REPLYTO)
+                    for loc in mail_body["salutation"]:
+                        mail_body["salutation"][loc] = mail_body["salutation"][
+                            loc
+                        ].format(recipient_name)
+                    for loc in mail_body["body"]:
+                        mail_body["body"][
+                            loc
+                        ] = """{}. {} <a href="mailto:{}">{}</a>.""".format(
+                            mail_body["body"][loc],
+                            mail_body_feedback[loc],
+                            config.GMAIL_ADDEXPENSE_REPLYTO,
+                            config.GMAIL_ADDEXPENSE_REPLYTO,
+                        )
 
-                    message = (gmail_service.users().messages().send(
-                        userId="me", body=self.generate_mail(afas_data['email_address'], mail_body, locale)).execute())
-                    logging.info(f"Email '{message['id']}' for expense '{expense_id}' has been sent")
+                    message = (
+                        gmail_service.users()
+                        .messages()
+                        .send(
+                            userId="me",
+                            body=self.generate_mail(
+                                afas_data["email_address"], mail_body, locale
+                            ),
+                        )
+                        .execute()
+                    )
+                    logging.info(
+                        f"Email '{message['id']}' for expense '{expense_id}' has been sent"
+                    )
                 except errors.HttpError as e:
-                    logging.error('An exception occurred when sending an email: {}'.format(e))
+                    logging.error(
+                        "An exception occurred when sending an email: {}".format(e)
+                    )
                 except Exception as e:
-                    logging.error('An error occurred: {}'.format(e))
+                    logging.error("An error occurred: {}".format(e))
             else:
                 logging.info("Gmail service could not be created")
         else:
             logging.info("Dev mode active for sending e-mails")
 
-    def send_notification(self, notification_type, afas_data, expense_id, manager_type='linemanager'):
+    def send_notification(
+        self, notification_type, afas_data, expense_id, manager_type="linemanager"
+    ):
         recipient = None
         notification_body = None
 
-        if notification_type == 'assess_expense':
-            if manager_type == 'leasecoordinator' and hasattr(config, 'GMAIL_LEASECOORDINATOR_ADDRESS'):
+        if notification_type == "assess_expense":
+            if manager_type == "leasecoordinator" and hasattr(
+                config, "GMAIL_LEASECOORDINATOR_ADDRESS"
+            ):
                 recipient_mail = config.GMAIL_LEASECOORDINATOR_ADDRESS
                 recipient = {
-                    'upn': recipient_mail,
-                    'email_address': recipient_mail,
-                    'Voornaam': 'Lease Coördinator'
+                    "upn": recipient_mail,
+                    "email_address": recipient_mail,
+                    "Voornaam": "Lease Coördinator",
                 }
-            elif 'Manager_personeelsnummer' in afas_data:
-                query = self.ds_client.query(kind='AFAS_HRM')
-                query.add_filter('Personeelsnummer', '=', afas_data['Manager_personeelsnummer'])
+            elif "Manager_personeelsnummer" in afas_data:
+                query = self.ds_client.query(kind="AFAS_HRM")
+                query.add_filter(
+                    "Personeelsnummer", "=", afas_data["Manager_personeelsnummer"]
+                )
                 db_data = list(query.fetch(limit=1))
 
                 if len(db_data) == 1:
                     recipient = db_data[0]
 
             notification_body = {
-                'title': {
-                    'nl': 'Nieuwe declaratie',
-                    'en': 'New expense',
-                    'de': 'Neue Spesenabrechnung'
+                "title": {
+                    "nl": "Nieuwe declaratie",
+                    "en": "New expense",
+                    "de": "Neue Spesenabrechnung",
                 },
-                'body': {
-                    'nl': 'Er staat een nieuwe declaratie klaar om beoordeeld te worden',
-                    'en': 'A new expense is ready for assessment',
-                    'de': 'Eine neue Spesenabrechnung ist eingereicht worden und wartet auf Genehmigung'
+                "body": {
+                    "nl": "Er staat een nieuwe declaratie klaar om beoordeeld te worden",
+                    "en": "A new expense is ready for assessment",
+                    "de": "Eine neue Spesenabrechnung ist eingereicht worden und wartet auf Genehmigung",
                 },
             }
-        elif notification_type == 'rejected_expense':
+        elif notification_type == "rejected_expense":
             recipient = afas_data
             notification_body = {
-                'title': {
-                    'nl': 'Aanpassing vereist',
-                    'en': 'Adjustment needed',
-                    'de': 'Anpassung erforderlich'
+                "title": {
+                    "nl": "Aanpassing vereist",
+                    "en": "Adjustment needed",
+                    "de": "Anpassung erforderlich",
                 },
-                'body': {
-                    'nl': 'Je declaratie is niet goedgekeurd. Het is nodig deze aan te passen',
-                    'en': 'Your expense has not been approved. An adjustment is necessary',
-                    'de': 'Ihre Spesenabrechnung ist nicht genehmigt worden. Es ist erforderlich, dass diese geändert wird'
+                "body": {
+                    "nl": "Je declaratie is niet goedgekeurd. Het is nodig deze aan te passen",
+                    "en": "Your expense has not been approved. An adjustment is necessary",
+                    "de": "Ihre Spesenabrechnung ist nicht genehmigt worden. Es ist erforderlich, dass diese geändert wird",
                 },
             }
 
-        if recipient and 'upn' not in recipient:
-            query = self.ds_client.query(kind='AFAS_HRM')
-            query.add_filter('Personeelsnummer', '=', recipient['Personeelsnummer'])
+        if recipient and "upn" not in recipient:
+            query = self.ds_client.query(kind="AFAS_HRM")
+            query.add_filter("Personeelsnummer", "=", recipient["Personeelsnummer"])
             db_data = list(query.fetch(limit=1))
 
             if len(db_data) == 1:
                 recipient = db_data[0]
 
-        if notification_body and recipient and 'upn' in recipient and 'email_address' in recipient:
-            if manager_type == 'leasecoordinator':
-                locale = 'nl'
+        if (
+            notification_body
+            and recipient
+            and "upn" in recipient
+            and "email_address" in recipient
+        ):
+            if manager_type == "leasecoordinator":
+                locale = "nl"
                 notification_status = False
             else:
-                locale = self.get_employee_locale(recipient['upn'])
-                notification_status = self.send_push_notification(notification_body, recipient, expense_id, locale)
+                locale = self.get_employee_locale(recipient["upn"])
+                notification_status = self.send_push_notification(
+                    notification_body, recipient, expense_id, locale
+                )
 
             if not notification_status:
-                self.send_mail_notification(notification_body, recipient, expense_id, locale)
+                self.send_mail_notification(
+                    notification_body, recipient, expense_id, locale
+                )
         else:
             logging.info(f"No notification sent for expense '{expense_id}'")
 
     def get_employee_profile(self):
-        if 'unique_name' not in self.employee_info:
-            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
+        if "unique_name" not in self.employee_info:
+            return make_response_translated(
+                "Unieke identificatie niet in token gevonden", 403
+            )
 
-        key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
+        key = self.ds_client.key("EmployeeProfiles", self.employee_info["unique_name"])
         employee_profile = self.ds_client.get(key)
 
         if not employee_profile:
             return make_response_translated("Medewerker profiel niet gevonden", 403)
 
-        return make_response(jsonify({
-            'locale': employee_profile.get('locale', '')
-        }), 200)
+        return make_response(
+            jsonify({"locale": employee_profile.get("locale", "")}), 200
+        )
 
     def add_employee_profile(self, employee_profile):
-        if 'unique_name' not in self.employee_info:
-            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
+        if "unique_name" not in self.employee_info:
+            return make_response_translated(
+                "Unieke identificatie niet in token gevonden", 403
+            )
 
-        key = self.ds_client.key("EmployeeProfiles", self.employee_info['unique_name'])
+        key = self.ds_client.key("EmployeeProfiles", self.employee_info["unique_name"])
         entity = datastore.Entity(key=key)
-        entity.update({
-            "locale": employee_profile.locale,
-            "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
-        })
+        entity.update(
+            {
+                "locale": employee_profile.locale,
+                "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds")
+                + "Z",
+            }
+        )
         self.ds_client.put(entity)
 
-        return make_response('', 201)
+        return make_response("", 201)
 
     def register_push_token(self, push_token):
-        if 'unique_name' not in self.employee_info:
-            return make_response_translated("Unieke identificatie niet in token gevonden", 403)
+        if "unique_name" not in self.employee_info:
+            return make_response_translated(
+                "Unieke identificatie niet in token gevonden", 403
+            )
 
         push_identifier = "{}_{}_{}".format(
-            self.employee_info['unique_name'], push_token['device_id'], push_token['bundle_id'])
-        unique_id = hashlib.sha256(push_identifier.encode('utf-8')).hexdigest()
+            self.employee_info["unique_name"],
+            push_token["device_id"],
+            push_token["bundle_id"],
+        )
+        unique_id = hashlib.sha256(push_identifier.encode("utf-8")).hexdigest()
 
-        key = self.ds_client.key('PushTokens', str(unique_id))
+        key = self.ds_client.key("PushTokens", str(unique_id))
         entity = datastore.Entity(key=key)
 
-        entity.update({
-            'device_id': push_token.get('device_id', None),
-            'bundle_id': push_token.get('bundle_id', None),
-            'os_platform': push_token.get('os_platform', None),
-            'os_version': push_token.get('os_version', None),
-            'push_token': push_token.get('push_token', None),
-            'app_version': push_token.get('app_version', None),
-            'unique_name': self.employee_info['unique_name'],
-            'last_updated': datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
-        })
+        entity.update(
+            {
+                "device_id": push_token.get("device_id", None),
+                "bundle_id": push_token.get("bundle_id", None),
+                "os_platform": push_token.get("os_platform", None),
+                "os_version": push_token.get("os_version", None),
+                "push_token": push_token.get("push_token", None),
+                "app_version": push_token.get("app_version", None),
+                "unique_name": self.employee_info["unique_name"],
+                "last_updated": datetime.datetime.utcnow().isoformat(timespec="seconds")
+                + "Z",
+            }
+        )
         self.ds_client.put(entity)
 
-        return make_response('', 201)
+        return make_response("", 201)
 
 
 class EmployeeExpenses(ClaimExpenses):
@@ -1303,22 +1587,31 @@ class EmployeeExpenses(ClaimExpenses):
         if expense_data:
             return expense_data
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is from employee
-        if not expense["employee"]["email"] == \
-               self.employee_info["unique_name"]:
+        if not expense["employee"]["email"] == self.employee_info["unique_name"]:
             return {}, {}
 
         # Check if status update is not unauthorized
         allowed_status_transitions = {
-            'draft': ['draft', 'ready_for_manager', 'ready_for_creditor', 'cancelled'],
-            'rejected_by_manager': ['rejected_by_manager', 'ready_for_manager', 'ready_for_creditor', 'cancelled'],
-            'rejected_by_creditor': ['rejected_by_creditor', 'ready_for_manager', 'ready_for_creditor', 'cancelled']
+            "draft": ["draft", "ready_for_manager", "ready_for_creditor", "cancelled"],
+            "rejected_by_manager": [
+                "rejected_by_manager",
+                "ready_for_manager",
+                "ready_for_creditor",
+                "cancelled",
+            ],
+            "rejected_by_creditor": [
+                "rejected_by_creditor",
+                "ready_for_manager",
+                "ready_for_creditor",
+                "cancelled",
+            ],
         }
 
-        if expense['status']['text'] in allowed_status_transitions:
+        if expense["status"]["text"] in allowed_status_transitions:
             fields = {
                 "status",
                 "cost_type",
@@ -1326,9 +1619,9 @@ class EmployeeExpenses(ClaimExpenses):
                 "transaction_date",
                 "amount",
                 "manager_type",
-                "flags"
+                "flags",
             }
-            return fields, allowed_status_transitions[expense['status']['text']]
+            return fields, allowed_status_transitions[expense["status"]["text"]]
 
         return {}, {}
 
@@ -1341,30 +1634,36 @@ class EmployeeExpenses(ClaimExpenses):
             return make_response_translated("Ongeautoriseerd", 403)
 
         creation = self.create_attachment(
-            data,
-            expense.key.id_or_name,
-            self.employee_info["unique_name"]
+            data, expense.key.id_or_name, self.employee_info["unique_name"]
         )
 
         if not creation:
-            return make_response_translated("Er ging iets fout tijdens het uploaden van bestanden", 400)
+            return make_response_translated(
+                "Er ging iets fout tijdens het uploaden van bestanden", 400
+            )
         return 201
 
 
 class ManagerExpenses(ClaimExpenses):
     def _check_attachment_permission(self, expense):
-        cost_type_entity, cost_type_active = self._process_cost_type(expense['cost_type'])
+        cost_type_entity, cost_type_active = self._process_cost_type(
+            expense["cost_type"]
+        )
         manager_type = "linemanager"
 
         if cost_type_entity is not None:
-            manager_type = cost_type_entity.get('ManagerType', "")
+            manager_type = cost_type_entity.get("ManagerType", "")
 
-        if 'leasecoordinator.write' in \
-                self.employee_info.get('scopes', []) and \
-                manager_type == 'leasecoordinator':
+        if (
+            "leasecoordinator.write" in self.employee_info.get("scopes", [])
+            and manager_type == "leasecoordinator"
+        ):
             return True
 
-        return expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.get_manager_identifying_value()
+        return (
+            expense["employee"]["afas_data"]["Manager_personeelsnummer"]
+            == self.get_manager_identifying_value()
+        )
 
     def _process_expenses_info(self, expenses_info):
         expenses_data = expenses_info.fetch()
@@ -1374,21 +1673,27 @@ class ManagerExpenses(ClaimExpenses):
             expenses_list = []
             for ed in expenses_data:
 
-                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
-                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+                cost_type_entity, cost_type_active = self._process_cost_type(
+                    ed["cost_type"], cost_type_list
+                )
+                cost_type = (
+                    None if cost_type_entity is None else cost_type_entity.key.name
+                )
 
-                expenses_list.append({
-                    "id": ed.id,
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": cost_type,
-                    "claim_date": ed["claim_date"],
-                    "transaction_date": ed["transaction_date"],
-                    "employee": ed["employee"]["full_name"],
-                    "status": self._merge_rejection_note(ed["status"]),
-                    "manager_type": ed.get("manager_type"),
-                    "flags": ed.get("flags", {})
-                })
+                expenses_list.append(
+                    {
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": cost_type,
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
+                        "employee": ed["employee"]["full_name"],
+                        "status": self._merge_rejection_note(ed["status"]),
+                        "manager_type": ed.get("manager_type"),
+                        "flags": ed.get("flags", {}),
+                    }
+                )
             return expenses_list
         return []
 
@@ -1409,52 +1714,58 @@ class ManagerExpenses(ClaimExpenses):
         # Retrieve manager's expenses
         expenses_info = self._create_expenses_query()
         expenses_info.add_filter("status.text", "=", "ready_for_manager")
-        expenses_info.add_filter("employee.afas_data.Manager_personeelsnummer", "=", self.manager_number)
+        expenses_info.add_filter(
+            "employee.afas_data.Manager_personeelsnummer", "=", self.manager_number
+        )
 
         for expense in self._process_expenses_info(expenses_info):
-            if 'manager_type' in expense and \
-                    expense['manager_type'] == 'leasecoordinator':
+            if (
+                "manager_type" in expense
+                and expense["manager_type"] == "leasecoordinator"
+            ):
                 continue
 
             expense_data.append(expense)
 
         # Retrieve lease coordinator's expenses if correct role
-        if 'leasecoordinator.write' in self.employee_info.get('scopes', []):
+        if "leasecoordinator.write" in self.employee_info.get("scopes", []):
             expenses_lease = self._create_expenses_query()
             expenses_lease.add_filter("manager_type", "=", "leasecoordinator")
             expenses_lease.add_filter("status.text", "=", "ready_for_manager")
 
-            expense_data = expense_data + self._process_expenses_info(
-                expenses_lease)
+            expense_data = expense_data + self._process_expenses_info(expenses_lease)
 
-            expense_data.sort(key=lambda x: x['claim_date'], reverse=True)
+            expense_data.sort(key=lambda x: x["claim_date"], reverse=True)
 
         if expense_data:
             return jsonify(expense_data)
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def _prepare_context_update_expense(self, expense):
         # Check if expense is for manager
-        if not expense["employee"]["afas_data"]["Manager_personeelsnummer"] == self.manager_number and \
-                'leasecoordinator.write' not in self.employee_info.get('scopes', []):
+        if not expense["employee"]["afas_data"][
+            "Manager_personeelsnummer"
+        ] == self.manager_number and "leasecoordinator.write" not in self.employee_info.get(
+            "scopes", []
+        ):
             return {}, {}
 
         # Check if status update is not unauthorized
         allowed_status_transitions = {
-            'ready_for_manager': ['ready_for_creditor', 'rejected_by_manager']
+            "ready_for_manager": ["ready_for_creditor", "rejected_by_manager"]
         }
 
-        if expense['status']['text'] in allowed_status_transitions:
+        if expense["status"]["text"] in allowed_status_transitions:
             fields = {
                 "status",
                 "cost_type",
                 "rnote",
                 "rnote_id",
                 "manager_type",
-                "flags"
+                "flags",
             }
-            return fields, allowed_status_transitions[expense['status']['text']]
+            return fields, allowed_status_transitions[expense["status"]["text"]]
 
         return {}, {}
 
@@ -1465,16 +1776,19 @@ class ManagerExpenses(ClaimExpenses):
         """
 
         if REJECTION_NOTES:
-            return jsonify([
-                {
-                    "form": REJECTION_NOTES[key].get('form'),
-                    "rnote": REJECTION_NOTES[key].get('rnote'),
-                    "rnote_id": REJECTION_NOTES[key].get('rnote_id'),
-                    "translations": REJECTION_NOTES[key].get('translations')
-                }
-                for key in REJECTION_NOTES])
+            return jsonify(
+                [
+                    {
+                        "form": REJECTION_NOTES[key].get("form"),
+                        "rnote": REJECTION_NOTES[key].get("rnote"),
+                        "rnote_id": REJECTION_NOTES[key].get("rnote_id"),
+                        "translations": REJECTION_NOTES[key].get("translations"),
+                    }
+                    for key in REJECTION_NOTES
+                ]
+            )
 
-        return make_response('', 204)
+        return make_response("", 204)
 
 
 class ControllerExpenses(ClaimExpenses):
@@ -1497,27 +1811,35 @@ class ControllerExpenses(ClaimExpenses):
             results = []
 
             for ed in expenses_data:
-                cost_type_entity, cost_type_active = self._process_cost_type(ed["cost_type"], cost_type_list)
-                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+                cost_type_entity, cost_type_active = self._process_cost_type(
+                    ed["cost_type"], cost_type_list
+                )
+                cost_type = (
+                    None if cost_type_entity is None else cost_type_entity.key.name
+                )
 
-                logging.debug(f'get_all_expenses: [{ed}]')
+                logging.debug(f"get_all_expenses: [{ed}]")
 
-                results.append({
-                    "id": ed.id,
-                    "amount": ed["amount"],
-                    "note": ed["note"],
-                    "cost_type": cost_type,
-                    "claim_date": ed["claim_date"],
-                    "transaction_date": ed["transaction_date"],
-                    "employee": ed["employee"]["full_name"],
-                    "company_name": ed["employee"]["afas_data"]["Bedrijf"],
-                    "department_code": ed["employee"]["afas_data"]["Afdeling Code"],
-                    "department_descr": ed["employee"]["afas_data"]["Afdelingsomschrijving"],
-                    "status": self._merge_rejection_note(ed["status"]),
-                })
+                results.append(
+                    {
+                        "id": ed.id,
+                        "amount": ed["amount"],
+                        "note": ed["note"],
+                        "cost_type": cost_type,
+                        "claim_date": ed["claim_date"],
+                        "transaction_date": ed["transaction_date"],
+                        "employee": ed["employee"]["full_name"],
+                        "company_name": ed["employee"]["afas_data"]["Bedrijf"],
+                        "department_code": ed["employee"]["afas_data"]["Afdeling Code"],
+                        "department_descr": ed["employee"]["afas_data"][
+                            "Afdelingsomschrijving"
+                        ],
+                        "status": self._merge_rejection_note(ed["status"]),
+                    }
+                )
             return jsonify(results)
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def _prepare_context_update_expense(self, expense):
         return {}, {}
@@ -1533,11 +1855,11 @@ class CreditorExpenses(ClaimExpenses):
     def get_all_expenses(self, expenses_list, date_from, date_to):
         """Get JSON/CSV of all the expenses"""
         day_from = "1970-01-01T00:00:00Z"
-        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
-        if date_from != '1970-01-01':
+        if date_from != "1970-01-01":
             day_from = date_from + "T00:00:00Z"
-        if date_to != '1970-01-01':
+        if date_to != "1970-01-01":
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
@@ -1548,17 +1870,23 @@ class CreditorExpenses(ClaimExpenses):
         expenses_ds.add_filter("claim_date", "<=", day_to)
         expenses_data = expenses_ds.fetch()
 
-        query_filter: Dict[Any, str] = dict(creditor="ready_for_creditor", creditor2="approved")
+        query_filter: Dict[Any, str] = dict(
+            creditor="ready_for_creditor", creditor2="approved"
+        )
 
         if expenses_data:
             cost_type_list = list(self.ds_client.query(kind="CostTypes").fetch())
             results = []
 
             for expense in expenses_data:
-                expense['status'] = self._merge_rejection_note(expense["status"])
+                expense["status"] = self._merge_rejection_note(expense["status"])
 
-                cost_type_entity, cost_type_active = self._process_cost_type(expense["cost_type"], cost_type_list)
-                cost_type = None if cost_type_entity is None else cost_type_entity.key.name
+                cost_type_entity, cost_type_active = self._process_cost_type(
+                    expense["cost_type"], cost_type_list
+                )
+                cost_type = (
+                    None if cost_type_entity is None else cost_type_entity.key.name
+                )
 
                 expense_row = {
                     "id": expense.id,
@@ -1569,21 +1897,32 @@ class CreditorExpenses(ClaimExpenses):
                     "transaction_date": expense["transaction_date"],
                     "employee": expense["employee"]["full_name"],
                     "company_name": expense["employee"]["afas_data"]["Bedrijf"],
-                    "department_code": expense["employee"]["afas_data"]["Afdeling Code"],
-                    "department_descr": expense["employee"]["afas_data"]["Afdelingsomschrijving"],
+                    "department_code": expense["employee"]["afas_data"][
+                        "Afdeling Code"
+                    ],
+                    "department_descr": expense["employee"]["afas_data"][
+                        "Afdelingsomschrijving"
+                    ],
                     "status": expense["status"],
                     "auto_approved": expense.get("auto_approved", ""),
-                    "manager": expense.get("employee", {}).get("afas_data", {}).get(
-                        "Manager_personeelsnummer", "Manager not found: check expense"),
+                    "manager": expense.get("employee", {})
+                    .get("afas_data", {})
+                    .get(
+                        "Manager_personeelsnummer", "Manager not found: check expense"
+                    ),
                     "export_date": expense["status"].get("export_date", ""),
-                    "flags": expense.get("flags", {})
+                    "flags": expense.get("flags", {}),
                 }
 
-                expense_row["export_date"] = (expense_row["export_date"], "")[expense_row["export_date"] == "never"]
+                expense_row["export_date"] = (expense_row["export_date"], "")[
+                    expense_row["export_date"] == "never"
+                ]
 
                 if expenses_list == "expenses_creditor":
-                    if (query_filter["creditor"] == expense["status"]["text"] or
-                            query_filter["creditor2"] == expense["status"]["text"]):
+                    if (
+                        query_filter["creditor"] == expense["status"]["text"]
+                        or query_filter["creditor2"] == expense["status"]["text"]
+                    ):
                         results.append(expense_row)
 
                 if expenses_list == "expenses_all":
@@ -1591,16 +1930,16 @@ class CreditorExpenses(ClaimExpenses):
 
             return results
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def get_all_expenses_journal(self, date_from, date_to):
         """Get CSV of all the expenses from Expenses_Journal"""
         day_from = "1970-01-01T00:00:00Z"
-        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + 'Z'
+        day_to = datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
-        if date_from != '1970-01-01':
+        if date_from != "1970-01-01":
             day_from = date_from + "T00:00:00Z"
-        if date_to != '1970-01-01':
+        if date_to != "1970-01-01":
             day_to = date_to + "T23:59:59Z"
 
         if date_from > date_to:
@@ -1619,7 +1958,7 @@ class CreditorExpenses(ClaimExpenses):
                     results += self.expense_changes(expense)
             return results
 
-        return make_response('', 204)
+        return make_response("", 204)
 
     def expense_changes(self, expense):
         """
@@ -1634,78 +1973,102 @@ class CreditorExpenses(ClaimExpenses):
                 # Handle nested components: different row per component
                 if isinstance((attribute[name]["new"]), dict):
                     try:
-                        if "old" in attribute[name] and isinstance(attribute[name]["old"], dict):
+                        if "old" in attribute[name] and isinstance(
+                            attribute[name]["old"], dict
+                        ):
                             for component in attribute[name]["new"]:
                                 # Expense has a new component which does not have a 'new' value
                                 if component not in attribute[name]["old"]:
-                                    changes.append({
-                                        "Expenses_Id": expense["Expenses_Id"],
-                                        "Time": expense["Time"],
-                                        "Attribute": name + ": " + component,
-                                        "Old value": "",
-                                        "New value": str(attribute[name]["new"][component]),
-                                        "User": expense.get("User", "")
-                                    })
+                                    changes.append(
+                                        {
+                                            "Expenses_Id": expense["Expenses_Id"],
+                                            "Time": expense["Time"],
+                                            "Attribute": name + ": " + component,
+                                            "Old value": "",
+                                            "New value": str(
+                                                attribute[name]["new"][component]
+                                            ),
+                                            "User": expense.get("User", ""),
+                                        }
+                                    )
                                 # Expense has an old value which differs from the new value
-                                elif attribute[name]["new"][component] != attribute[name]["old"][component]:
-                                    changes.append({
-                                        "Expenses_Id": expense["Expenses_Id"],
-                                        "Time": expense["Time"],
-                                        "Attribute": name + ": " + component,
-                                        "Old value": str(attribute[name]["old"][component]),
-                                        "New value": str(attribute[name]["new"][component]),
-                                        "User": expense.get("User", "")
-                                    })
+                                elif (
+                                    attribute[name]["new"][component]
+                                    != attribute[name]["old"][component]
+                                ):
+                                    changes.append(
+                                        {
+                                            "Expenses_Id": expense["Expenses_Id"],
+                                            "Time": expense["Time"],
+                                            "Attribute": name + ": " + component,
+                                            "Old value": str(
+                                                attribute[name]["old"][component]
+                                            ),
+                                            "New value": str(
+                                                attribute[name]["new"][component]
+                                            ),
+                                            "User": expense.get("User", ""),
+                                        }
+                                    )
                         # Expense is completely new
                         else:
                             for component in attribute[name]["new"]:
                                 if component == "afas_data":
                                     continue
-                                changes.append({
-                                    "Expenses_Id": expense["Expenses_Id"],
-                                    "Time": expense["Time"],
-                                    "Attribute": name + ": " + component,
-                                    "Old value": "",
-                                    "New value": str(attribute[name]["new"][component]),
-                                    "User": expense.get("User", "")
-                                })
+                                changes.append(
+                                    {
+                                        "Expenses_Id": expense["Expenses_Id"],
+                                        "Time": expense["Time"],
+                                        "Attribute": name + ": " + component,
+                                        "Old value": "",
+                                        "New value": str(
+                                            attribute[name]["new"][component]
+                                        ),
+                                        "User": expense.get("User", ""),
+                                    }
+                                )
 
                     except (TypeError, KeyError):
-                        logging.warning("Expense from Expense_Journal does not have the right format: {}".
-                                        format(expense["Expenses_Id"]))
+                        logging.warning(
+                            "Expense from Expense_Journal does not have the right format: {}".format(
+                                expense["Expenses_Id"]
+                            )
+                        )
                 # Expense has an old value which differs from the new value and no nested components
                 else:
                     old_value = ""
                     if "old" in attribute[name]:
                         old_value = str(attribute[name]["old"])
 
-                    changes.append({
-                        "Expenses_Id": expense["Expenses_Id"],
-                        "Time": expense["Time"],
-                        "Attribute": name,
-                        "Old value": old_value,
-                        "New value": str(attribute[name]["new"]),
-                        "User": expense.get("User", "")
-                    })
+                    changes.append(
+                        {
+                            "Expenses_Id": expense["Expenses_Id"],
+                            "Time": expense["Time"],
+                            "Attribute": name,
+                            "Old value": old_value,
+                            "New value": str(attribute[name]["new"]),
+                            "User": expense.get("User", ""),
+                        }
+                    )
 
         return changes
 
     def _prepare_context_update_expense(self, expense):
         # Check if status update is not unauthorized
         allowed_status_transitions = {
-            'ready_for_creditor': ['rejected_by_creditor', 'approved']
+            "ready_for_creditor": ["rejected_by_creditor", "approved"]
         }
 
-        if expense['status']['text'] in allowed_status_transitions:
+        if expense["status"]["text"] in allowed_status_transitions:
             fields = {
                 "status",
                 "cost_type",
                 "rnote",
                 "rnote_id",
                 "manager_type",
-                "flags"
+                "flags",
             }
-            return fields, allowed_status_transitions[expense['status']['text']]
+            return fields, allowed_status_transitions[expense["status"]["text"]]
 
         return {}, {}
 
@@ -1722,8 +2085,13 @@ def add_expense():
             form_data = ExpenseData.from_dict(
                 connexion.request.get_json()
             )  # noqa: E501
-            if datetime.datetime(1970, 1, 1) <= form_data.to_dict().get('transaction_date').replace(tzinfo=None) <= \
-                    (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(tzinfo=None):
+            if (
+                datetime.datetime(1970, 1, 1)
+                <= form_data.to_dict().get("transaction_date").replace(tzinfo=None)
+                <= (datetime.datetime.today() + datetime.timedelta(hours=2)).replace(
+                    tzinfo=None
+                )
+            ):
                 html = {
                     '"': "&quot;",
                     "&": "&amp;",
@@ -1731,14 +2099,18 @@ def add_expense():
                     ">": "&gt;",
                     "<": "&lt;",
                     "{": "&lbrace;",
-                    "}": "&rbrace;"
+                    "}": "&rbrace;",
                 }
-                form_data.note = "".join(html.get(c, c) for c in form_data.to_dict().get('note'))
-                form_data.transaction_date = form_data.transaction_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                form_data.note = "".join(
+                    html.get(c, c) for c in form_data.to_dict().get("note")
+                )
+                form_data.transaction_date = form_data.transaction_date.strftime(
+                    "%Y-%m-%dT%H:%M:%S.000Z"
+                )
                 return expense_instance.add_expenses(form_data)
-            return jsonify('Date needs to be between 1970-01-01 and today'), 400
+            return jsonify("Date needs to be between 1970-01-01 and today"), 400
     except Exception:
-        logging.exception('Exception on add_expense')
+        logging.exception("Exception on add_expense")
         return jsonify("Something is wrong with the request"), 400
 
 
@@ -1751,11 +2123,15 @@ def get_all_creditor_expenses(expenses_list, date_from, date_to):
         return make_response_translated("Geen geldige queryparameter", 400)
 
     expense_instance = CreditorExpenses()
-    expenses_data = expense_instance.get_all_expenses(expenses_list=expenses_list, date_from=date_from, date_to=date_to)
+    expenses_data = expense_instance.get_all_expenses(
+        expenses_list=expenses_list, date_from=date_from, date_to=date_to
+    )
 
-    format_expense = connexion.request.headers['Accept']
+    format_expense = connexion.request.headers["Accept"]
 
-    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
+    return get_expenses_format(
+        expenses_data=expenses_data, format_expense=format_expense
+    )
 
 
 def get_all_creditor_expenses_journal(date_from, date_to):
@@ -1764,11 +2140,15 @@ def get_all_creditor_expenses_journal(date_from, date_to):
     :rtype: None
     """
     expense_instance = CreditorExpenses()
-    expenses_data = expense_instance.get_all_expenses_journal(date_from=date_from, date_to=date_to)
+    expenses_data = expense_instance.get_all_expenses_journal(
+        date_from=date_from, date_to=date_to
+    )
 
     format_expense = connexion.request.headers["Accept"]
 
-    return get_expenses_format(expenses_data=expenses_data, format_expense=format_expense)
+    return get_expenses_format(
+        expenses_data=expenses_data, format_expense=format_expense
+    )
 
 
 def get_cost_types():  # noqa: E501
@@ -1799,30 +2179,31 @@ def get_document(document_id, document_type):
     expense_instance = ClaimExpenses()
     try:
         export_file = expense_instance.get_single_document_reference(
-            document_id=document_id, document_type=document_type)
+            document_id=document_id, document_type=document_type
+        )
     except ValueError as e:
         return make_response(str(e), 400)
     except Exception as error:
-        logging.exception(
-            f'An exception occurred when retrieving a document: {error}')
+        logging.exception(f"An exception occurred when retrieving a document: {error}")
         return make_response_translated("Er ging iets fout", 400)
     else:
         if export_file:
-            if document_type == 'payment_file':
+            if document_type == "payment_file":
                 content_response = {
                     "content_type": "application/xml",
-                    "file": MD.parse(export_file.name).toprettyxml(
-                        encoding="utf-8").decode()
+                    "file": MD.parse(export_file.name)
+                    .toprettyxml(encoding="utf-8")
+                    .decode(),
                 }
-            elif document_type == 'booking_file':
+            elif document_type == "booking_file":
                 with open(export_file.name, "r") as file_in:
                     content_response = {
                         "content_type": "text/csv",
-                        "file": file_in.read()
+                        "file": file_in.read(),
                     }
                     file_in.close()
 
-            mime_type = content_response['content_type']
+            mime_type = content_response["content_type"]
             return Response(
                 content_response["file"],
                 headers={
@@ -1845,7 +2226,7 @@ def get_expenses_format(expenses_data, format_expense):
     :return:
     """
     if not expenses_data:
-        return make_response('', 204)
+        return make_response("", 204)
 
     if isinstance(expenses_data, Response):
         return expenses_data
@@ -1861,7 +2242,12 @@ def get_expenses_format(expenses_data, format_expense):
                 # Set CSV writer and header
                 field_names = list(expenses_data[0].keys())
                 csv_writer = csv.DictWriter(
-                    csv_file, fieldnames=field_names, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                    csv_file,
+                    fieldnames=field_names,
+                    delimiter=",",
+                    quotechar='"',
+                    quoting=csv.QUOTE_MINIMAL,
+                )
                 csv_writer.writeheader()
 
                 for expense in expenses_data:
@@ -1875,12 +2261,14 @@ def get_expenses_format(expenses_data, format_expense):
                     csv_writer.writerow(expense)
 
                 csv_file.flush()
-                return send_file(csv_file.name,
-                                 mimetype='text/csv',
-                                 as_attachment=True,
-                                 attachment_filename='tmp.csv')
+                return send_file(
+                    csv_file.name,
+                    mimetype="text/csv",
+                    as_attachment=True,
+                    attachment_filename="tmp.csv",
+                )
         except Exception:
-            logging.exception('Exception on writing/sending CSV in get_all_expenses')
+            logging.exception("Exception on writing/sending CSV in get_all_expenses")
             return make_response_translated("Er ging iets fout", 400)
 
     return make_response_translated("Verzoek mist een Accept-header", 400)
@@ -1936,7 +2324,7 @@ def update_expenses_creditor(expenses_id):
             expense_instance = CreditorExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception:
-        logging.exception('Exception on update_expenses_creditor')
+        logging.exception("Exception on update_expenses_creditor")
         return jsonify("Something went wrong. Please try again later"), 500
 
 
@@ -1950,16 +2338,20 @@ def update_expenses_employee(expenses_id):
         if connexion.request.is_json:
             form_data = json.loads(connexion.request.get_data().decode())
             expense_instance = EmployeeExpenses(None)
-            if 'amount' in form_data and isinstance(form_data['amount'], int):
-                form_data['amount'] = float(form_data['amount'])
+            if "amount" in form_data and isinstance(form_data["amount"], int):
+                form_data["amount"] = float(form_data["amount"])
 
-            if form_data.get('transaction_date'):  # Check if date exists. If it doesn't, let if pass.
-                if datetime.datetime.strptime(form_data.get('transaction_date'),
-                                              '%Y-%m-%dT%H:%M:%S.%fZ') > datetime.datetime.today() \
-                        + datetime.timedelta(hours=2):
-                    return jsonify('Date needs to be in de past'), 400
+            if form_data.get(
+                "transaction_date"
+            ):  # Check if date exists. If it doesn't, let if pass.
+                if datetime.datetime.strptime(
+                    form_data.get("transaction_date"), "%Y-%m-%dT%H:%M:%S.%fZ"
+                ) > datetime.datetime.today() + datetime.timedelta(hours=2):
+                    return jsonify("Date needs to be in de past"), 400
 
-            if form_data.get('note'):  # Check if note exists. If it doesn't, let if pass.
+            if form_data.get(
+                "note"
+            ):  # Check if note exists. If it doesn't, let if pass.
                 html = {
                     '"': "&quot;",
                     "&": "&amp;",
@@ -1967,9 +2359,11 @@ def update_expenses_employee(expenses_id):
                     ">": "&gt;",
                     "<": "&lt;",
                     "{": "&lbrace;",
-                    "}": "&rbrace;"
+                    "}": "&rbrace;",
                 }
-                form_data["note"] = "".join(html.get(c, c) for c in form_data.get('note'))
+                form_data["note"] = "".join(
+                    html.get(c, c) for c in form_data.get("note")
+                )
             return expense_instance.update_expenses(expenses_id, form_data)
     except Exception:
         logging.exception("Update exp")
@@ -1988,7 +2382,7 @@ def update_expenses_manager(expenses_id):
             expense_instance = ManagerExpenses()
             return expense_instance.update_expenses(expenses_id, form_data, True)
     except Exception:
-        logging.exception('Exception on update_expense')
+        logging.exception("Exception on update_expense")
         return jsonify("Something went wrong. Please try again later"), 500
 
 
@@ -2074,15 +2468,15 @@ def add_attachment_employee(expenses_id):
             )  # noqa: E501
             return expense_instance.add_attachment(expenses_id, form_data)
     except Exception:
-        logging.exception('Exception on add_attachment')
+        logging.exception("Exception on add_attachment")
         return jsonify("Something went wrong. Please try again later"), 500
 
 
 def api_base_url():
     base_url = request.host_url
 
-    if 'GAE_INSTANCE' in os.environ:
-        if hasattr(config, 'BASE_URL'):
+    if "GAE_INSTANCE" in os.environ:
+        if hasattr(config, "BASE_URL"):
             base_url = config.BASE_URL
         else:
             base_url = f"https://{os.environ['GOOGLE_CLOUD_PROJECT']}.appspot.com/"
@@ -2091,10 +2485,13 @@ def api_base_url():
 
 
 def initialise_gmail_service(subject, scopes):
-    credentials, project_id = google.auth.default(scopes=['https://www.googleapis.com/auth/iam'])
+    credentials, project_id = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/iam"]
+    )
     delegated_credentials = get_delegated_credentials(credentials, subject, scopes)
-    gmail_service = googleapiclient.discovery.build('gmail', 'v1', credentials=delegated_credentials,
-                                                    cache_discovery=False)
+    gmail_service = googleapiclient.discovery.build(
+        "gmail", "v1", credentials=delegated_credentials, cache_discovery=False
+    )
     return gmail_service
 
 
@@ -2106,7 +2503,9 @@ def get_employee_profile():
 def add_employee_profile():
     if connexion.request.is_json:
         expense_instance = ClaimExpenses()
-        employee_profile = EmployeeProfile.from_dict(connexion.request.get_json())  # noqa: E501
+        employee_profile = EmployeeProfile.from_dict(
+            connexion.request.get_json()
+        )  # noqa: E501
 
         return expense_instance.add_employee_profile(employee_profile)
 
