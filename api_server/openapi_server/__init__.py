@@ -29,8 +29,8 @@ class RequestBodyValidator(decorators.validation.RequestBodyValidator):
         try:
             self.validator.validate(data)
         except ValidationError as exception:
-            if hasattr(config, "DEBUG_LOGGING") and config.DEBUG_LOGGING:
-                logging.error(
+            if hasattr(config, "DEBUG_LOGGING") and config.DEBUG_LOGGING is True:
+                logging.info(
                     f"{url} validation error: {exception.message}",
                     extra={"validator": "body"},
                 )
