@@ -21,7 +21,7 @@ pip3 -m virtualenv fin-expenses-api
 pip install -r requirements.txt
 ```
 
-and open your browser to here:
+Open your browser to here:
 
 ```
 http://localhost:8080/ui/
