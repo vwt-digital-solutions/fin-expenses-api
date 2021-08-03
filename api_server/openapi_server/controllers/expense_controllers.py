@@ -130,7 +130,7 @@ class ClaimExpenses:
             return config.e2e_afas_data
 
         try:
-            unique_name = str(unique_name).lower()
+            unique_name = str(unique_name).lower().strip()
         except Exception:
             logging.error(
                 f"Could not transform unique name '{unique_name}' to lowercase"
@@ -1246,7 +1246,8 @@ class ClaimExpenses:
         return list(query.fetch())
 
     def send_push_notification(self, mail_body, afas_data, expense_id, locale):
-        push_tokens = self.get_employee_push_token(afas_data["upn"])
+        upn = afas_data["upn"].strip()
+        push_tokens = self.get_employee_push_token(upn)
 
         if push_tokens:
             active_push_tokens = []
@@ -1258,7 +1259,7 @@ class ClaimExpenses:
             if len(active_push_tokens) > 0:
                 # Set notification data
                 notification_data = {
-                    "username": str(afas_data["upn"]),
+                    "username": str(upn),
                     "expense_id": str(expense_id),
                 }
 
@@ -1485,7 +1486,7 @@ class ClaimExpenses:
                 locale = "nl"
                 notification_status = False
             else:
-                locale = self.get_employee_locale(recipient["upn"])
+                locale = self.get_employee_locale(recipient["upn"].strip())
                 notification_status = self.send_push_notification(
                     notification_body, recipient, expense_id, locale
                 )
