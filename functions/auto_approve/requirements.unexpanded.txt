@@ -1,2 +1,0 @@
-google-cloud-datastore==2.1.0
-google-python-cloud-debugger==2.15
