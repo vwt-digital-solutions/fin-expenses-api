@@ -21,7 +21,7 @@ idna==2.10
 msgpack==1.0.2
 ordered-set==4.0.2
 packaging==20.9
-proto-plus==1.18.1
+proto-plus==1.19.0
 protobuf==3.17.2
 pyasn1==0.4.8
 pyasn1-modules==0.2.8

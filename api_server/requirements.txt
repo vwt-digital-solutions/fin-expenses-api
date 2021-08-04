@@ -546,9 +546,9 @@ pandas==1.2.4 \
     --hash=sha256:c601c6fdebc729df4438ec1f62275d6136a0dd14d332fc0e8ce3f7d2aadb4dd6 \
     --hash=sha256:d0877407359811f7b853b548a614aacd7dea83b0c0c84620a9a643f180060950
     # via -r requirements.in
-proto-plus==1.18.1 \
-    --hash=sha256:600e2793ec1a0bf2b9e5ba18cd9eccbc1bc690a03c73b571bbe59789fbaaeecc \
-    --hash=sha256:cfc45474c7eda0fe3c4b9eca2542124f2a0ff5543242bec61e8d08bce0f5bd48
+proto-plus==1.19.0 \
+    --hash=sha256:ce6695ce804383ad6f392c4bb1874c323896290a1f656560de36416ba832d91e \
+    --hash=sha256:df7c71c08dc06403bdb0fba58cf9bf5f217198f6488c26b768f81e03a738c059
     # via
     #   -r requirements.in
     #   google-cloud-datastore
