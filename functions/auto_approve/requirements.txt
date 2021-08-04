@@ -22,17 +22,17 @@ chardet==4.0.0 \
     # via
     #   -r requirements.in
     #   requests
-google-api-core[grpc]==1.29.0 \
-    --hash=sha256:dbe885011111a9afd9ea9a347db6a9c608e82e5c7648c1f7fabf2b4079a579b5 \
-    --hash=sha256:f83118319d2a28806ec3399671cbe4af5351bd0dac54c40a0395da6162ebe324
+google-api-core[grpc]==1.31.1 \
+    --hash=sha256:108cf94336aed7e614eafc53933ef02adf63b9f0fd87e8f8212acaa09eaca456 \
+    --hash=sha256:1d63e2b28057d79d64795c9a70abcecb5b7e96da732d011abf09606a39b48701
     # via
     #   -r requirements.in
     #   google-api-python-client
     #   google-cloud-core
     #   google-cloud-datastore
-google-api-python-client==2.7.0 \
-    --hash=sha256:9879b8d1d18212ae92b35bab61e8ea9ed5ea63ef9c8ca847938538da10dd193b \
-    --hash=sha256:ee59ceea417781d1c68c9ea9b9af41b4bd5a4008ae3008cfc70b2623c3bba76a
+google-api-python-client==2.15.0 \
+    --hash=sha256:8375489232823f44c601196a960505e03ec58c95ddb6415c6b1d1d76b468f8ba \
+    --hash=sha256:87af2462b922c976291fcd0d062a0011d4ac41b11cee04089aa9577dd7b44ae3
     # via -r requirements.in
 google-auth==1.30.1 \
     --hash=sha256:044d81b1e58012f8ebc71cc134e191c1fa312f543f1fbc99973afe28c25e3228 \
@@ -263,7 +263,6 @@ six==1.16.0 \
     # via
     #   -r requirements.in
     #   google-api-core
-    #   google-api-python-client
     #   google-auth
     #   google-auth-httplib2
     #   google-cloud-core
