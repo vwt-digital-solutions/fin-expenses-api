@@ -133,9 +133,9 @@ defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
     # via -r requirements.in
-firebase-admin==4.5.3 \
-    --hash=sha256:471045bf72bb68ccf6d9d19a35836609b7d525fcdac73aa619d274e4c5585e0a \
-    --hash=sha256:f0c1c9a6e56b497c8bbaa55a679a402f79c34c2c24971b11ea909031b520ed32
+firebase-admin==5.0.1 \
+    --hash=sha256:4df619b1b202985514b9a666f62ecb4c20211e89db833bb51916b31b4bb3db68 \
+    --hash=sha256:c753b32e4db1dabb8be336af3fbbce783001fa62dbe6da67b4061611ffd5cd4f
     # via -r requirements.in
 flask==1.1.2 \
     --hash=sha256:4efa1ae2d7c9865af48986de8aeb8504bf32c7f3d6fdc9353d34b21f4b127060 \
