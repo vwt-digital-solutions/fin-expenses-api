@@ -127,15 +127,15 @@ google-cloud-core==1.7.2 \
     #   -r requirements.in
     #   google-cloud-firestore
     #   google-cloud-storage
-google-cloud-firestore==2.1.1 \
-    --hash=sha256:80e704c5f33472f0259f436d5a3ddb0a55e64317c6139fc1e72f1c0b2e1a1ccc \
-    --hash=sha256:ef7b0a94a1d7ed386c7592724f6db08aa6de99aee8dda3886964bc598aeb8bec
+google-cloud-firestore==2.2.0 \
+    --hash=sha256:40cc2f30f79b0b66b4f5798a40a6053f05486d9967504697c5387c8659d2f49b \
+    --hash=sha256:458a1eb4766cc91ef7473355645b22da501fb5a8c36c4ac9c7dab460f60b2966
     # via
     #   -r requirements.in
     #   firebase-admin
-google-cloud-storage==1.38.0 \
-    --hash=sha256:162011d66f64b8dc5d7936609a5daf0066cc521231546aea02c126a5559446c4 \
-    --hash=sha256:69499560ec8234339ce831704419a2288c409a422f6e9ed1facc9345412ee637
+google-cloud-storage==1.41.1 \
+    --hash=sha256:a81ecc0f382b8e4437cc7f152f74d77ef917c8280a5d1040f5dcfbd0502c7906 \
+    --hash=sha256:cd4c9039eb0017fdc75c3f96b0b5ea57759ceefe3a0401d514bcf0111cd7a508
     # via
     #   -r requirements.in
     #   firebase-admin
@@ -295,6 +295,7 @@ packaging==20.9 \
     # via
     #   -r requirements.in
     #   google-api-core
+    #   google-cloud-firestore
 proto-plus==1.18.1 \
     --hash=sha256:600e2793ec1a0bf2b9e5ba18cd9eccbc1bc690a03c73b571bbe59789fbaaeecc \
     --hash=sha256:cfc45474c7eda0fe3c4b9eca2542124f2a0ff5543242bec61e8d08bce0f5bd48

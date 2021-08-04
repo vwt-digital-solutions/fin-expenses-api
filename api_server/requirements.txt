@@ -209,13 +209,13 @@ google-cloud-core==1.7.2 \
     #   google-cloud-datastore
     #   google-cloud-firestore
     #   google-cloud-storage
-google-cloud-datastore==2.1.1 \
-    --hash=sha256:190baa3a70433006dbbea25a734366708fe08cce37ac067e52e000820ed1de34 \
-    --hash=sha256:7305c8f0106d9520882b76176a6e316a5480e74703f1afb88b2874ae11ef2873
+google-cloud-datastore==2.1.6 \
+    --hash=sha256:3ed4f3e3963beedcaa3ab9bb55ddff86780b2af18772e941e9d52daa4d158f9d \
+    --hash=sha256:df53c11d69d4d0a6d7f3298587bf9d3f4b956cce8159ec5d6ae98c5506c13baa
     # via -r requirements.in
-google-cloud-firestore==2.1.0 \
-    --hash=sha256:64f679208ce6910e247aaf9424597f3b6f833a4fee30e81f163306cb5c316d33 \
-    --hash=sha256:906ebc7c6f44ab0bc4ef69f373cf4c5f0110fd860433db581faccada24c2149a
+google-cloud-firestore==2.2.0 \
+    --hash=sha256:40cc2f30f79b0b66b4f5798a40a6053f05486d9967504697c5387c8659d2f49b \
+    --hash=sha256:458a1eb4766cc91ef7473355645b22da501fb5a8c36c4ac9c7dab460f60b2966
     # via
     #   -r requirements.in
     #   firebase-admin
@@ -223,9 +223,9 @@ google-cloud-secret-manager==2.4.0 \
     --hash=sha256:6db2032eb6b0fe9ada743cb26e971fbe2882d506f608b9d95d88714ac324f222 \
     --hash=sha256:fd13a780d64995dea203c5a36c92cb373bb9bc558f15435d4e291cef490d910e
     # via -r requirements.in
-google-cloud-storage==1.37.1 \
-    --hash=sha256:63a9dab155bf81c51354db3d11f3e83a1db7d58eff453f1ce51ffa565d32617b \
-    --hash=sha256:e06a4797c87ac73c4a74801539fdf0a91761c3014281ff58b7b29f15b34c206e
+google-cloud-storage==1.41.1 \
+    --hash=sha256:a81ecc0f382b8e4437cc7f152f74d77ef917c8280a5d1040f5dcfbd0502c7906 \
+    --hash=sha256:cd4c9039eb0017fdc75c3f96b0b5ea57759ceefe3a0401d514bcf0111cd7a508
     # via
     #   -r requirements.in
     #   firebase-admin
@@ -527,6 +527,7 @@ packaging==20.9 \
     # via
     #   -r requirements.in
     #   google-api-core
+    #   google-cloud-firestore
 pandas==1.2.4 \
     --hash=sha256:167693a80abc8eb28051fbd184c1b7afd13ce2c727a5af47b048f1ea3afefff4 \
     --hash=sha256:2111c25e69fa9365ba80bbf4f959400054b2771ac5d041ed19415a8b488dc70a \
