@@ -1,6 +1,0 @@
-[flake8]
-ignore = E501
-exclude = 
-	api_server/openapi_server/controllers/*.py
-	api_server/openapi_server/models/*.py
-max-complexity = 10
