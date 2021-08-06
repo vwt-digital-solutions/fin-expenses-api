@@ -1,6 +1,6 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/vwt-digital/fin-expenses-api/badge)](https://www.codefactor.io/repository/github/vwt-digital/fin-expenses-api)
 
-#  P2P Expenses API
+# P2P Expenses API
 
 ## Overview
 By using the [OpenAPI-Spec](https://openapis.org) from a remote server, you can easily generate a server stub.  This
