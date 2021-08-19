@@ -1031,7 +1031,7 @@ class ClaimExpenses:
 
         payment_file = MD.parseString(payment_xml_string).toprettyxml(encoding="utf-8")
 
-        if config.POWER2PAY_URL:
+        if config.POWER2PAY_URL and config.POWER2PAY_AUTH_USER and config.POWER2PAY_AUTH_PASSWORD:
             if not self.send_to_power2pay(payment_xml_string):
                 return False, None, jsonify({"Info": "Failed to upload payment file"})
 
@@ -1086,9 +1086,12 @@ class ClaimExpenses:
     def send_to_power2pay(self, payment_xml_string):
 
         cert = self.get_certificates()
-
+        auth_password = self.get_secret(
+            os.environ["GOOGLE_CLOUD_PROJECT"], config.POWER2PAY_AUTH_PASSWORD
+        )
         r = requests.post(
-            config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True
+            config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True,
+            auth=(config.POWER2PAY_AUTH_USER, auth_password)
         )
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
