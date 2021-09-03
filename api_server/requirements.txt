@@ -619,8 +619,8 @@ pyparsing==2.4.7 \
     #   -r requirements.in
     #   httplib2
     #   packaging
-pypdf2==1.26.0 \
-    --hash=sha256:e28f902f2f0a1603ea95ebe21dff311ef09be3d0f0ef29a3e44a932729564385
+pikepdf==2.16.1 \
+    --hash=sha256:19a14e4d7b0a10c64143b5cddc0f2e464a614bbd4ba9f88f1081ed65d7c9e9ac
     # via -r requirements.in
 pyrsistent==0.17.3 \
     --hash=sha256:2e636185d9eb976a18a8a8e96efce62f2905fea90041958d8cc2a189756ebf3e

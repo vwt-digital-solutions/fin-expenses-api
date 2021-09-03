@@ -3,6 +3,7 @@ import copy
 import csv
 import datetime
 import hashlib
+import io
 import json
 import logging
 import os
@@ -24,6 +25,7 @@ import firebase_admin
 import google.auth
 import googleapiclient.discovery
 import pandas as pd
+import pikepdf
 import pytz
 import requests
 import unidecode
@@ -42,7 +44,6 @@ from openapi_server.models.employee_profile import \
     EmployeeProfile  # noqa: E501
 from openapi_server.models.expense_data import ExpenseData
 from OpenSSL import crypto
-from PyPDF2 import PdfFileReader, PdfFileWriter
 
 logger = logging.getLogger(__name__)
 defuse_stdlib()
@@ -170,28 +171,20 @@ class ClaimExpenses:
                 return False
             content_type = content_type.group()
             if content_type == "application/pdf":
-                writer = PdfFileWriter()  # Create a PdfFileWriter to store the new PDF
+                # If a PDF is uploaded, we will process it first
+                # by flattening its annotations (e.g. images, links, video's, etc.).
+                pdf = pikepdf.open(
+                    io.BytesIO(content)
+                )  # Creating PDF representation from content bytes.
+                pdf.flatten_annotations()  # Flattening annotations.
+
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    temp_file.write(content)
-                    temp_file.close()
-                    reader = PdfFileReader(
-                        open(temp_file.name, "rb"), strict=False
-                    )  # Read the bytes from temp with original b64
-                    [
-                        writer.addPage(reader.getPage(i))
-                        for i in range(0, reader.getNumPages())
-                    ]  # Add pages
-                    writer.removeLinks()  # Remove all linking in PDF (not external website links)
-                    with tempfile.NamedTemporaryFile(
-                        mode="w+b", delete=False
-                    ) as temp_flat_file:
-                        writer.write(
-                            temp_flat_file
-                        )  # Let the writer write into the temp file
-                        temp_flat_file.close()  # Close the temp file (stays in `with`)
-                        content = open(
-                            temp_flat_file.name, "rb"
-                        ).read()  # Read the content from the temp file
+                    pdf.save(temp_file)  # Save/write processed pdf to temporary file.
+                    temp_file.close()  # Close the temporary file (stays accessable in `with`).
+                    pdf.close()
+                    content = open(
+                        temp_file.name, "rb"
+                    ).read()  # reading the bytes from file back into content.
 
             blob.upload_from_string(
                 content,  # Upload content (can be decoded b64 from request or read data from temp flat file
@@ -1031,7 +1024,11 @@ class ClaimExpenses:
 
         payment_file = MD.parseString(payment_xml_string).toprettyxml(encoding="utf-8")
 
-        if config.POWER2PAY_URL and config.POWER2PAY_AUTH_USER and config.POWER2PAY_AUTH_PASSWORD:
+        if (
+            config.POWER2PAY_URL
+            and config.POWER2PAY_AUTH_USER
+            and config.POWER2PAY_AUTH_PASSWORD
+        ):
             if not self.send_to_power2pay(payment_xml_string):
                 return False, None, jsonify({"Info": "Failed to upload payment file"})
 
@@ -1090,8 +1087,11 @@ class ClaimExpenses:
             os.environ["GOOGLE_CLOUD_PROJECT"], config.POWER2PAY_AUTH_PASSWORD
         )
         r = requests.post(
-            config.POWER2PAY_URL, data=payment_xml_string, cert=cert, verify=True,
-            auth=(config.POWER2PAY_AUTH_USER, auth_password)
+            config.POWER2PAY_URL,
+            data=payment_xml_string,
+            cert=cert,
+            verify=True,
+            auth=(config.POWER2PAY_AUTH_USER, auth_password),
         )
 
         logger.info(f"Power2Pay send result {r.status_code}: {r.content}")
