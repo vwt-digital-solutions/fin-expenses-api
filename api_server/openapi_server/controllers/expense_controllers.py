@@ -25,7 +25,6 @@ import firebase_admin
 import google.auth
 import googleapiclient.discovery
 import pandas as pd
-import pikepdf
 import pytz
 import requests
 import unidecode
@@ -44,6 +43,7 @@ from openapi_server.models.employee_profile import \
     EmployeeProfile  # noqa: E501
 from openapi_server.models.expense_data import ExpenseData
 from OpenSSL import crypto
+from pikepdf import Pdf
 
 logger = logging.getLogger(__name__)
 defuse_stdlib()
@@ -172,22 +172,23 @@ class ClaimExpenses:
             content_type = content_type.group()
             if content_type == "application/pdf":
                 # If a PDF is uploaded, we will process it first
-                # by flattening its annotations (e.g. images, links, video's, etc.).
-                pdf = pikepdf.open(
+                # by flattening its annotations (e.g. images, links, videos, etc.).
+                pdf = Pdf.open(
                     io.BytesIO(content)
                 )  # Creating PDF representation from content bytes.
                 pdf.flatten_annotations()  # Flattening annotations.
 
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    pdf.save(temp_file)  # Save/write processed pdf to temporary file.
-                    temp_file.close()  # Close the temporary file (stays accessable in `with`).
-                    pdf.close()
-                    content = open(
-                        temp_file.name, "rb"
-                    ).read()  # reading the bytes from file back into content.
+                pdf_stream = io.BytesIO()  # Create a new stream to save the data to.
+                pdf.save(pdf_stream)  # Save the PDF to the new stream.
+
+                pdf_stream.seek(0)  # Reset stream index so we can read from start.
+                content = pdf_stream.read()  # Read stream.
+
+                pdf_stream.close()
+                pdf.close()
 
             blob.upload_from_string(
-                content,  # Upload content (can be decoded b64 from request or read data from temp flat file
+                content,  # Upload content (can be decoded b64 from request or read data from temp flat file)
                 content_type=content_type,
             )
             return True
