@@ -413,25 +413,28 @@ class ClaimExpenses:
                 else:
                     key = self.ds_client.key("Expenses")
                     entity = datastore.Entity(key=key)
-                    new_expense = {
-                        "employee": dict(
-                            afas_data=afas_data,
-                            email=self.employee_info["unique_name"],
-                            family_name=self.employee_info["family_name"],
-                            given_name=self.employee_info["given_name"],
-                            full_name=self.employee_info["name"],
-                        ),
-                        "amount": data.amount,
-                        "note": data.note,
-                        "cost_type": cost_type_entity.key.name,
-                        "transaction_date": data.transaction_date,
-                        "claim_date": datetime.datetime.utcnow().isoformat(
-                            timespec="seconds"
-                        )
-                        + "Z",
-                        "status": dict(export_date="never", text=ready_text),
-                        "manager_type": data.manager_type,
-                    }
+                    try:
+                        new_expense = {
+                            "employee": dict(
+                                afas_data=afas_data,
+                                email=self.employee_info["unique_name"],
+                                family_name=self.employee_info["family_name"],
+                                given_name=self.employee_info["given_name"],
+                                full_name=self.employee_info["name"],
+                            ),
+                            "amount": data.amount,
+                            "note": data.note,
+                            "cost_type": cost_type_entity.key.name,
+                            "transaction_date": data.transaction_date,
+                            "claim_date": datetime.datetime.utcnow().isoformat(
+                                timespec="seconds"
+                            )
+                            + "Z",
+                            "status": dict(export_date="never", text=ready_text),
+                            "manager_type": data.manager_type,
+                        }
+                    except KeyError:
+                        return make_response_translated("Er ging iets fout", 400)
                     response = {}
 
                     modified_data = (
