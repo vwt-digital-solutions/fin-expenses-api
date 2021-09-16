@@ -24,6 +24,11 @@ def make_response_translated(message, http_code):
             "en": "Expense not found",
             "de": "Spesenabrechnung nicht gefunden"
         },
+        "Deze kosten zijn al gedeclareerd": {
+            "nl": "Deze kosten zijn al gedeclareerd",
+            "en": "These costs have already been claimed",
+            "de": "Diese Kosten würden bereits geltend gemacht",
+        },
         "Ongeautoriseerd": {
             "nl": "Ongeautoriseerd",
             "en": "Unauthorized",

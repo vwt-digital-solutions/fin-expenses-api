@@ -361,6 +361,20 @@ class ClaimExpenses:
     def get_all_expenses(self):
         pass
 
+    def get_similar_expenses(self, expense):
+        expenses_query = self._create_expenses_query()
+        expenses_query.add_filter(
+            "employee.email", "=", expense["employee"]["email"]
+        ).add_filter(
+            "transaction_data", "=", expense["transaction_date"]
+        ).add_filter(
+            "amount", "=", expense["amount"]
+        ).add_filter(
+            "cost_type", "=", expense["cost_type"]
+        )
+
+        return self._process_expenses_info(expenses_query)
+
     @staticmethod
     def _merge_rejection_note(status):
         if "rnote" in status and "rnote_id" not in status:
@@ -435,6 +449,10 @@ class ClaimExpenses:
                         }
                     except KeyError:
                         return make_response_translated("Er ging iets fout", 400)
+
+                    if self.get_similar_expenses(new_expense):
+                        return make_response_translated("Deze kosten zijn al gedeclareerd", 406)
+
                     response = {}
 
                     modified_data = (
