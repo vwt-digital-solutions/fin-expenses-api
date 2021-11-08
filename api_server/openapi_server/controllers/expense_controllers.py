@@ -361,12 +361,12 @@ class ClaimExpenses:
     def get_all_expenses(self):
         pass
 
-    def get_similar_expenses(self, expense):
+    def _get_similar_expenses(self, expense):
         expenses_query = self._create_expenses_query()
         expenses_query.add_filter(
             "employee.email", "=", expense["employee"]["email"]
         ).add_filter(
-            "transaction_data", "=", expense["transaction_date"]
+            "transaction_date", "=", expense["transaction_date"]
         ).add_filter(
             "amount", "=", expense["amount"]
         ).add_filter(
@@ -450,7 +450,7 @@ class ClaimExpenses:
                     except KeyError:
                         return make_response_translated("Er ging iets fout", 400)
 
-                    if self.get_similar_expenses(new_expense):
+                    if self._get_similar_expenses(new_expense):
                         return make_response_translated("Deze kosten zijn al gedeclareerd", 406)
 
                     response = {}
