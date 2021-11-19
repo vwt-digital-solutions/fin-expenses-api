@@ -459,8 +459,8 @@ class ClaimExpenses:
                     except KeyError:
                         return make_response_translated("Er ging iets fout", 400)
 
-                    if self._get_similar_expenses(new_expense):
-                        return make_response_translated("Deze kosten zijn al gedeclareerd", 406)
+                    # if self._get_similar_expenses(new_expense):
+                    #     return make_response_translated("Deze kosten zijn al gedeclareerd", 406)
 
                     response = {}
 
