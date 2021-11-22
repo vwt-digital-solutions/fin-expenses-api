@@ -362,29 +362,6 @@ class ClaimExpenses:
     def get_all_expenses(self):
         pass
 
-    def _get_similar_expenses(self, expense: dict) -> list:
-        """
-        Gets a list of similar expenses found in the Data Store.
-
-        :param expense: The expense to check.
-        :type expense: dict
-
-        :return: A list of all similar expenses in the Data Store.
-        :rtype: list
-        """
-        expenses_query = self._create_expenses_query()
-        expenses_query.add_filter(
-            "employee.email", "=", expense["employee"]["email"]
-        ).add_filter(
-            "transaction_date", "=", expense["transaction_date"]
-        ).add_filter(
-            "amount", "=", expense["amount"]
-        ).add_filter(
-            "cost_type", "=", expense["cost_type"]
-        )
-
-        return list(expenses_query.fetch())
-
     @staticmethod
     def _merge_rejection_note(status):
         if "rnote" in status and "rnote_id" not in status:
@@ -459,9 +436,6 @@ class ClaimExpenses:
                         }
                     except KeyError:
                         return make_response_translated("Er ging iets fout", 400)
-
-                    # if self._get_similar_expenses(new_expense):
-                    #     return make_response_translated("Deze kosten zijn al gedeclareerd", 406)
 
                     response = {}
 
