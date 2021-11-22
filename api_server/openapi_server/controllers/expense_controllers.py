@@ -130,19 +130,20 @@ class ClaimExpenses:
         if unique_name == "opensource.e2e@vwtelecom.com":
             return config.e2e_afas_data
 
-        try:
-            unique_name = str(unique_name).lower().strip()
-        except Exception:
-            logging.error(
-                f"Could not transform unique name '{unique_name}' to lowercase"
-            )
-        else:
+        unique_name = str(unique_name).lower().strip()
+
+        query = self.ds_client.query(kind="AFAS_HRM")
+        query.add_filter("upn", "=", unique_name)
+        db_data = list(query.fetch(limit=1))
+
+        # NOTE: this is a temporary backup query make for Recognize accounts.
+        if not db_data:
             query = self.ds_client.query(kind="AFAS_HRM")
-            query.add_filter("upn", "=", unique_name)
+            query.add_filter("email_address", "=", unique_name)
             db_data = list(query.fetch(limit=1))
 
-            if len(db_data) == 1:
-                return dict(db_data[0].items())
+        if len(db_data) == 1:
+            return dict(db_data[0].items())
 
         logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
         return None
