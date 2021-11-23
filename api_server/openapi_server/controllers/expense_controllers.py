@@ -130,23 +130,41 @@ class ClaimExpenses:
         if unique_name == "opensource.e2e@vwtelecom.com":
             return config.e2e_afas_data
 
-        unique_name = str(unique_name).lower().strip()
+        try:
+            unique_name = str(unique_name).lower().strip()
+        except Exception:
+            logging.error(
+                f"Could not transform unique name '{unique_name}' to lowercase"
+            )
+        else:
+            employees = self._query_afas_employee_on_field("upn", unique_name)
 
-        query = self.ds_client.query(kind="AFAS_HRM")
-        query.add_filter("upn", "=", unique_name)
-        db_data = list(query.fetch(limit=1))
+            # NOTE: this is a temporary fallback query for Recognize accounts (DAT-7510)
+            if not employees:
+                employees = self._query_afas_employee_on_field("email_address", unique_name)
 
-        # NOTE: this is a temporary backup query make for Recognize accounts.
-        if not db_data:
-            query = self.ds_client.query(kind="AFAS_HRM")
-            query.add_filter("email_address", "=", unique_name)
-            db_data = list(query.fetch(limit=1))
+            if employees and len(employees) == 1:
+                return dict(employees[0].items())
 
-        if len(db_data) == 1:
-            return dict(db_data[0].items())
-
-        logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
+            logging.warning(f"No detail of {unique_name} found in HRM -AFAS")
         return None
+
+    def _query_afas_employee_on_field(self, field: str, value, limit: int = 1) -> list:
+        """
+        Returns a list of all employees that match the 'equals' query.
+
+        :param field: name of the database field to check.
+        :type field: str
+        :param value: passing value of the field in the database.
+        :type value: any
+        :param limit: limit on returned employees
+
+        :return: a list of all employees that match the 'equals' query.
+        :rtype: list
+        """
+        query = self.ds_client.query(kind="AFAS_HRM")
+        query.add_filter(field, "=", value)
+        return list(query.fetch(limit=limit))
 
     def create_attachment(self, attachment, expenses_id, email):
         """Creates an attachment"""
