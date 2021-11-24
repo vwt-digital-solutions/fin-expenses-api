@@ -452,9 +452,8 @@ class ClaimExpenses:
                             "status": dict(export_date="never", text=ready_text),
                             "manager_type": data.manager_type,
                         }
-                    except KeyError as exception:
-                        return f"Could not find field '{exception}' in employee info.", 400
-                        # return make_response_translated("Er ging iets fout", 400)
+                    except KeyError:
+                        return make_response_translated("Er ging iets fout", 400)
 
                     response = {}
 
