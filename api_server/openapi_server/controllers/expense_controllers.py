@@ -437,8 +437,8 @@ class ClaimExpenses:
                             "employee": dict(
                                 afas_data=afas_data,
                                 email=self.employee_info["unique_name"],
-                                family_name=self.employee_info["family_name"],
-                                given_name=self.employee_info["given_name"],
+                                family_name=self.employee_info.get("family_name"),
+                                given_name=self.employee_info.get("given_name"),
                                 full_name=self.employee_info["name"],
                             ),
                             "amount": data.amount,
