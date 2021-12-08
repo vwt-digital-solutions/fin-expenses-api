@@ -1747,7 +1747,7 @@ class ManagerExpenses(ClaimExpenses):
 
             expenses_query.add_filter("status.text", "=", "ready_for_manager")
             for employee in employees:
-                expenses_query.add_filter("employee.afaf_data.Personeelsnummer", "=", int(employee))
+                expenses_query.add_filter("employee.afas_data.Personeelsnummer", "=", int(employee))
 
             expense_data += self._process_expenses_info(expenses_query)
 
