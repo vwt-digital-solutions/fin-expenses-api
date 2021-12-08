@@ -166,6 +166,13 @@ flask-sslify==0.1.5 \
 flask-testing==0.8.1 \
     --hash=sha256:0a734d7b68e63a9410b413cd7b1f96456f9a858bd09a6222d465650cc782eb01
     # via -r requirements.in
+googleapis-common-protos[grpc]==1.53.0 \
+    --hash=sha256:a88ee8903aa0a81f6c3cec2d5cf62d3c8aa67c06439b0496b49048fb1854ebf4 \
+    --hash=sha256:f6d561ab8fb16b30020b940e2dd01cd80082f4762fa9f3ee670f4419b4b8dbd0
+    # via
+    #   -r requirements.in
+    #   google-api-core
+    #   grpc-google-iam-v1
 google-api-core[grpc]==1.29.0 \
     --hash=sha256:dbe885011111a9afd9ea9a347db6a9c608e82e5c7648c1f7fabf2b4079a579b5 \
     --hash=sha256:f83118319d2a28806ec3399671cbe4af5351bd0dac54c40a0395da6162ebe324
@@ -270,13 +277,6 @@ google-resumable-media==1.3.0 \
     # via
     #   -r requirements.in
     #   google-cloud-storage
-googleapis-common-protos[grpc]==1.53.0 \
-    --hash=sha256:a88ee8903aa0a81f6c3cec2d5cf62d3c8aa67c06439b0496b49048fb1854ebf4 \
-    --hash=sha256:f6d561ab8fb16b30020b940e2dd01cd80082f4762fa9f3ee670f4419b4b8dbd0
-    # via
-    #   -r requirements.in
-    #   google-api-core
-    #   grpc-google-iam-v1
 grpc-google-iam-v1==0.12.3 \
     --hash=sha256:0bfb5b56f648f457021a91c0df0db4934b6e0c300bd0f2de2333383fe958aa72
     # via
