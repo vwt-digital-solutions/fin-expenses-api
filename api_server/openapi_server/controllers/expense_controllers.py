@@ -1739,6 +1739,18 @@ class ManagerExpenses(ClaimExpenses):
     def get_all_expenses(self):
         expense_data = []
 
+        # Fetch configured managers
+        configured_managers = config.AFAS_DATA_EMEND.get("managers", dict())
+        if str(self.manager_number) in configured_managers:
+            employees = configured_managers[str(self.manager_number)].get("employees", list())
+            expenses_query = self._create_expenses_query()
+
+            expenses_query.add_filter("status.text", "=", "ready_for_manager")
+            for employee in employees:
+                expenses_query.add_filter("employee.afas_data.Personeelsnummer", "=", int(employee))
+
+            expense_data += self._process_expenses_info(expenses_query)
+
         # Retrieve manager's expenses
         expenses_info = self._create_expenses_query()
         expenses_info.add_filter("status.text", "=", "ready_for_manager")
