@@ -2370,9 +2370,13 @@ def update_expenses_creditor(expenses_id):
 
 def update_expenses_employee(expenses_id: int) -> (int, str):
     """
-    Update expense by expense_id with employee permissions
-    :param expenses_id:
+    Update an employee-expense
+
+    :param expenses_id: The ID of the expense to update.
+    :type expenses_id: int
+
     :return: Response code, Response message
+    :rtype: int, str
     """
 
     if not connexion.request.is_json:
