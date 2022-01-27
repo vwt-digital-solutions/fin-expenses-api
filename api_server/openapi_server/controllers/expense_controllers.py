@@ -1595,9 +1595,9 @@ class ClaimExpenses:
 
 
 class EmployeeExpenses(ClaimExpenses):
-    def __init__(self, employee_id):
+    def __init__(self, employee_id=None):
         super().__init__()
-        self.employee_id = employee_id
+        self.employee_id = employee_id  # Why is this never used?
 
     def _check_attachment_permission(self, expense):
         if expense["employee"]["email"] != self.employee_info["unique_name"]:
@@ -2368,46 +2368,41 @@ def update_expenses_creditor(expenses_id):
         return jsonify("Something went wrong. Please try again later"), 500
 
 
-def update_expenses_employee(expenses_id):
+def update_expenses_employee(expenses_id: int) -> (int, str):
     """
     Update expense by expense_id with employee permissions
     :param expenses_id:
-    :return:
+    :return: Response code, Response message
     """
-    try:
-        if connexion.request.is_json:
-            form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = EmployeeExpenses(None)
-            if "amount" in form_data and isinstance(form_data["amount"], int):
-                form_data["amount"] = float(form_data["amount"])
 
-            if form_data.get(
-                "transaction_date"
-            ):  # Check if date exists. If it doesn't, let if pass.
-                if datetime.datetime.strptime(
-                    form_data.get("transaction_date"), "%Y-%m-%dT%H:%M:%S.%fZ"
-                ) > datetime.datetime.today() + datetime.timedelta(hours=2):
-                    return jsonify("Date needs to be in de past"), 400
+    if not connexion.request.is_json:
+        return jsonify("Data is not JSON"), 400
 
-            if form_data.get(
-                "note"
-            ):  # Check if note exists. If it doesn't, let if pass.
-                html = {
-                    '"': "&quot;",
-                    "&": "&amp;",
-                    "'": "&apos;",
-                    ">": "&gt;",
-                    "<": "&lt;",
-                    "{": "&lbrace;",
-                    "}": "&rbrace;",
-                }
-                form_data["note"] = "".join(
-                    html.get(c, c) for c in form_data.get("note")
-                )
-            return expense_instance.update_expenses(expenses_id, form_data)
-    except Exception:
-        logging.exception("Update exp")
-        return jsonify("Something went wrong. Please try again later"), 500
+    expenses_manager = EmployeeExpenses()
+    request = json.loads(connexion.request.get_data.decode())
+
+    # Assert transaction date is in past.
+    date_transaction = datetime.datetime.strptime(request["transaction_date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    date_now = datetime.datetime.today() + datetime.timedelta(hours=2)  # Give time some leeway
+
+    if date_transaction > date_now:
+        return jsonify("Transaction date must be in the past"), 400
+
+    # Map characters to HTML equivalent
+    if "note" in request:
+        html_character_map = {
+            '"': "&quot;",
+            "&": "&amp;",
+            "'": "&apos;",
+            ">": "&gt;",
+            "<": "&lt;",
+            "{": "&lbrace;",
+            "}": "&rbrace;",
+        }
+
+        request["note"] = "".join(html_character_map.get(character, character) for character in request["note"])
+
+    return expenses_manager.update_expenses(expenses_id, request)
 
 
 def update_expenses_manager(expenses_id):
