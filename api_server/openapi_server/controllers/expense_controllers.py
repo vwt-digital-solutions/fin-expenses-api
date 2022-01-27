@@ -2355,17 +2355,21 @@ def get_employee_expenses(employee_id):
 
 def update_expenses_creditor(expenses_id):
     """
-    Update expense by expense_id with creditor permissions
-    :rtype: Expenses
+    Update a creditor-expense
+
+    :param expenses_id: The ID of the expense to update.
+    :type expenses_id: int
+
+    :return: Response code, Response message
+    :rtype: int, str
     """
-    try:
-        if connexion.request.is_json:
-            form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = CreditorExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception:
-        logging.exception("Exception on update_expenses_creditor")
-        return jsonify("Something went wrong. Please try again later"), 500
+    if not connexion.request.is_json:
+        return jsonify("Data is not JSON"), 400
+
+    expenses_manager = CreditorExpenses()
+    request = json.loads(connexion.request.get_data.decode())
+
+    return expenses_manager.update_expenses(expenses_id, request, True)
 
 
 def update_expenses_employee(expenses_id: int) -> (int, str):
@@ -2410,7 +2414,7 @@ def update_expenses_employee(expenses_id: int) -> (int, str):
 
 def update_expenses_manager(expenses_id):
     """
-    Update an manager-expense
+    Update a manager-expense
 
     :param expenses_id: The ID of the expense to update.
     :type expenses_id: int
