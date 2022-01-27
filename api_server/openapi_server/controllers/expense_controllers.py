@@ -2378,7 +2378,6 @@ def update_expenses_employee(expenses_id: int) -> (int, str):
     :return: Response code, Response message
     :rtype: int, str
     """
-
     if not connexion.request.is_json:
         return jsonify("Data is not JSON"), 400
 
@@ -2411,18 +2410,21 @@ def update_expenses_employee(expenses_id: int) -> (int, str):
 
 def update_expenses_manager(expenses_id):
     """
-    Update expense by expense_id with employee permissions
-    :param expenses_id:
-    :return:
+    Update an manager-expense
+
+    :param expenses_id: The ID of the expense to update.
+    :type expenses_id: int
+
+    :return: Response code, Response message
+    :rtype: int, str
     """
-    try:
-        if connexion.request.is_json:
-            form_data = json.loads(connexion.request.get_data().decode())
-            expense_instance = ManagerExpenses()
-            return expense_instance.update_expenses(expenses_id, form_data, True)
-    except Exception:
-        logging.exception("Exception on update_expense")
-        return jsonify("Something went wrong. Please try again later"), 500
+    if not connexion.request.is_json:
+        return jsonify("Data is not JSON"), 400
+
+    expenses_manager = ManagerExpenses()
+    request = json.loads(connexion.request.get_data.decode())
+
+    return expenses_manager.update_expenses(expenses_id, request, True)
 
 
 def get_expenses_employee(expenses_id):
