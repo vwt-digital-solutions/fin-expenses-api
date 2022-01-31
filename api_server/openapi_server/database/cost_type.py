@@ -13,6 +13,16 @@ class CostType:
     min_amount: int
     omschrijving: str
 
+    def to_response_dict(self) -> dict:
+        return {
+            "ctype": self.omschrijving,
+            "cid": self.grootboek,
+            "active": self.active,
+            "description": self.description,
+            "managertype": self.manager_type,
+            "message": self.message
+        }
+
 
 class CostTypeDatabase:
     def __init__(self):
