@@ -2,7 +2,7 @@
 
 import connexion
 
-from openapi_server import encoder
+from api_server.openapi_server import encoder
 
 
 def main():

@@ -62,6 +62,9 @@ class ExpenseDatabase:
     def query_expenses_by_employee(self, employee_id: int) -> list[Expense]:
         ...
 
+    def query_expenses_by_status(self, status: str) -> list[Expense]:
+        ...
+
     def query_expenses_by_date(
             self,
             start: datetime = datetime.utcnow(),

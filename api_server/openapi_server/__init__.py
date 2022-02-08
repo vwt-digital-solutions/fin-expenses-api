@@ -8,7 +8,7 @@ from connexion.exceptions import BadRequestProblem
 from connexion.utils import is_null
 from flask_cors import CORS
 from jsonschema import ValidationError
-from openapi_server import encoder
+from api_server.openapi_server import encoder
 
 
 class RequestBodyValidator(decorators.validation.RequestBodyValidator):
