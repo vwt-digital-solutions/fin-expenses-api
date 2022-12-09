@@ -1,6 +1,6 @@
 CacheControl==0.12.6
 cachetools==4.2.2
-certifi==2021.5.30
+certifi==2022.12.7
 cffi==1.14.5
 chardet==4.0.0
 deepdiff==5.2.3
