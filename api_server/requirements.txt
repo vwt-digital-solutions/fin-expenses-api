@@ -104,10 +104,6 @@ clickclick==20.10.2 \
     # via
     #   -r requirements.in
     #   connexion
-colorama==0.4.4 \
-    --hash=sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b \
-    --hash=sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2
-    # via click
 connexion==2.7.0 \
     --hash=sha256:1ccfac57d4bb7adf4295ba6f5e48f5a1f66057df6a0713417766c9b5235182ee \
     --hash=sha256:5439e9659a89c4380d93a07acfbf3380d70be4130574de8881e5f0dfec7ad0e2
@@ -166,13 +162,6 @@ flask-sslify==0.1.5 \
 flask-testing==0.8.1 \
     --hash=sha256:0a734d7b68e63a9410b413cd7b1f96456f9a858bd09a6222d465650cc782eb01
     # via -r requirements.in
-googleapis-common-protos[grpc]==1.53.0 \
-    --hash=sha256:a88ee8903aa0a81f6c3cec2d5cf62d3c8aa67c06439b0496b49048fb1854ebf4 \
-    --hash=sha256:f6d561ab8fb16b30020b940e2dd01cd80082f4762fa9f3ee670f4419b4b8dbd0
-    # via
-    #   -r requirements.in
-    #   google-api-core
-    #   grpc-google-iam-v1
 google-api-core[grpc]==1.29.0 \
     --hash=sha256:dbe885011111a9afd9ea9a347db6a9c608e82e5c7648c1f7fabf2b4079a579b5 \
     --hash=sha256:f83118319d2a28806ec3399671cbe4af5351bd0dac54c40a0395da6162ebe324
@@ -277,6 +266,13 @@ google-resumable-media==1.3.0 \
     # via
     #   -r requirements.in
     #   google-cloud-storage
+googleapis-common-protos[grpc]==1.53.0 \
+    --hash=sha256:a88ee8903aa0a81f6c3cec2d5cf62d3c8aa67c06439b0496b49048fb1854ebf4 \
+    --hash=sha256:f6d561ab8fb16b30020b940e2dd01cd80082f4762fa9f3ee670f4419b4b8dbd0
+    # via
+    #   -r requirements.in
+    #   google-api-core
+    #   grpc-google-iam-v1
 grpc-google-iam-v1==0.12.3 \
     --hash=sha256:0bfb5b56f648f457021a91c0df0db4934b6e0c300bd0f2de2333383fe958aa72
     # via
@@ -928,9 +924,9 @@ zipp==3.6.0 \
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==59.5.0 \
-    --hash=sha256:6d10741ff20b89cd8c6a536ee9dc90d3002dec0226c78fb98605bfb9ef8a7adf \
-    --hash=sha256:d144f85102f999444d06f9c0e8c737fd0194f10f2f7e5fdb77573f6e2fa4fad0
+setuptools==65.5.1 \
+    --hash=sha256:d0b9a8433464d5800cbe05094acf5c6d52a91bfac9b52bcfc4d41382be5d5d31 \
+    --hash=sha256:e197a19aa8ec9722928f2206f8de752def0e4c9fc6953527360d1c36d94ddb2f
     # via
     #   google-api-core
     #   google-auth
